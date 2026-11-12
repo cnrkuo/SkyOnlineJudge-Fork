@@ -9,8 +9,8 @@ monorepo with a C++ judge machine.
 
 | Part | Path | Stack |
 | --- | --- | --- |
-| API contract | `packages/contract` | [oRPC](https://orpc.dev) contract + Zod schemas, shared by API and web |
-| Backend API | `apps/api` | NestJS 12, `@orpc/nest`, Drizzle ORM, PostgreSQL |
+| API contract | `packages/contract` | [oRPC](https://orpc.dev) contract + [ArkType](https://arktype.io) schemas, shared by API and web |
+| Backend API | `apps/api` | NestJS 12 on Fastify, `@orpc/nest`, Drizzle ORM, PostgreSQL, RabbitMQ |
 | Web app | `apps/web` | React Router 8 (framework mode, SSR), Tailwind CSS 4 |
 | Judge machine | `judge` | C++20 daemon with a namespace/seccomp sandbox |
 
@@ -23,6 +23,7 @@ Requirements
 
 - Node.js 22.22+ and pnpm 10
 - PostgreSQL 14+
+- RabbitMQ 3.12+
 - For the judge: Linux, CMake 3.20+, a C++20 compiler, plus the toolchains
   you want to offer to contestants (`gcc`, `g++`, `python3` by default)
 
@@ -32,8 +33,9 @@ Getting started
 ```sh
 pnpm install
 
-# 1. Database (or point DATABASE_URL at an existing PostgreSQL)
-docker compose up -d postgres
+# 1. Database and message queue (or point DATABASE_URL / RABBITMQ_URL at
+#    existing servers)
+docker compose up -d
 
 # 2. Configuration
 cp apps/api/.env.example apps/api/.env
@@ -55,7 +57,7 @@ For development use `pnpm dev:contract`, `pnpm dev:api` and `pnpm dev:web`
 
 ### Connecting a judge machine
 
-Submissions wait in a queue until a judge picks them up.
+Submissions wait in RabbitMQ until a judge picks them up.
 
 ```sh
 pnpm build:judge                          # → judge/build/skyoj-judge

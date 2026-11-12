@@ -1,6 +1,7 @@
 import { oc, populateContractRouterPaths } from '@orpc/contract';
-import * as z from 'zod';
 import * as s from './schemas.js';
+// `schemas.js` loads the ArkType configuration before `arktype` itself.
+import { type } from 'arktype';
 
 /** Errors every procedure may raise; services map domain errors onto these. */
 const base = oc.errors({
@@ -9,18 +10,20 @@ const base = oc.errors({
   FORBIDDEN: {},
   NOT_FOUND: {},
   CONFLICT: {},
+  /** The write queue is down; safe to retry. */
+  SERVICE_UNAVAILABLE: {},
 });
 
-const byId = z.object({ id: s.IdSchema });
-const byProblem = z.object({ problemId: s.IdSchema });
-const created = z.object({ id: z.number().int() });
+const byId = type({ id: s.IdSchema });
+const byProblem = type({ problemId: s.IdSchema });
+const created = type({ id: 'number.integer' });
 
 const auth = {
   register: base.input(s.RegisterInputSchema).output(s.AuthResultSchema),
   login: base.input(s.LoginInputSchema).output(s.AuthResultSchema),
   logout: base.output(s.OkSchema),
   /** Resolves the bearer token; `null` for guests. */
-  me: base.output(s.SessionUserSchema.nullable()),
+  me: base.output(s.SessionUserSchema.or('null')),
 };
 
 const user = {
@@ -31,30 +34,30 @@ const user = {
 
 const problem = {
   list: base
-    .input(s.PageInputSchema.extend({ search: z.string().max(100).optional() }))
+    .input(s.PageInputSchema.merge({ 'search?': 'string <= 100' }))
     .output(s.paged(s.ProblemSummarySchema)),
   get: base.input(byId).output(s.ProblemSchema),
-  create: base.input(z.object({ title: z.string().trim().min(1).max(200) })).output(created),
+  create: base.input(type({ title: s.ProblemTitleSchema })).output(created),
   update: base.input(s.ProblemUpdateInputSchema).output(s.OkSchema),
   stats: base.input(byId).output(s.ProblemStatsSchema),
 
-  listTestcases: base.input(byProblem).output(z.array(s.TestcaseSchema)),
+  listTestcases: base.input(byProblem).output(s.TestcaseSchema.array()),
   /** Zip archive of `<name>.in` / `<name>.ans` (or `.out`) pairs; replaces all testcases. */
   uploadTestdata: base
-    .input(z.object({ problemId: s.IdSchema, archive: z.file() }))
-    .output(z.object({ testcases: z.number().int() })),
+    .input(type({ problemId: s.IdSchema, archive: s.FileSchema }))
+    .output(type({ testcases: 'number.integer' })),
   clearTestdata: base.input(byProblem).output(s.OkSchema),
 
-  listAttachments: base.input(byProblem).output(z.array(s.AttachmentSchema)),
+  listAttachments: base.input(byProblem).output(s.AttachmentSchema.array()),
   uploadAttachment: base
-    .input(z.object({ problemId: s.IdSchema, file: z.file() }))
+    .input(type({ problemId: s.IdSchema, file: s.FileSchema }))
     .output(s.AttachmentSchema),
   deleteAttachment: base
-    .input(z.object({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
+    .input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
     .output(s.OkSchema),
   getAttachment: base
-    .input(z.object({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
-    .output(z.file()),
+    .input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
+    .output(s.FileSchema),
 };
 
 const submission = {
@@ -62,10 +65,10 @@ const submission = {
   list: base.input(s.SubmissionListInputSchema).output(s.paged(s.SubmissionSummarySchema)),
   get: base.input(byId).output(s.SubmissionSchema),
   rejudge: base.input(byId).output(s.OkSchema),
-  rejudgeProblem: base.input(byProblem).output(z.object({ count: z.number().int() })),
+  rejudgeProblem: base.input(byProblem).output(type({ count: 'number.integer' })),
   /** Judges' note on a submission; may also override the verdict by hand. */
   setComment: base
-    .input(z.object({ id: s.IdSchema, comment: z.string().max(2000), verdict: s.VerdictSchema.optional() }))
+    .input(type({ id: s.IdSchema, comment: 'string <= 2000', 'verdict?': s.VerdictSchema }))
     .output(s.OkSchema),
 };
 
@@ -76,16 +79,16 @@ const contest = {
   create: base.input(s.ContestCreateInputSchema).output(created),
   update: base.input(s.ContestUpdateInputSchema).output(s.OkSchema),
   register: base
-    .input(z.object({ id: s.IdSchema, password: z.string().max(100).optional() }))
-    .output(z.object({ state: s.TeamStateSchema })),
-  participants: base.input(byId).output(z.array(s.ParticipantSchema)),
+    .input(type({ id: s.IdSchema, 'password?': 'string <= 100' }))
+    .output(type({ state: s.TeamStateSchema })),
+  participants: base.input(byId).output(s.ParticipantSchema.array()),
   setParticipant: base
     .input(
-      z.object({
+      type({
         id: s.IdSchema,
         userId: s.IdSchema,
         state: s.TeamStateSchema,
-        note: z.string().max(500).optional(),
+        'note?': 'string <= 500',
       }),
     )
     .output(s.OkSchema),
@@ -103,26 +106,26 @@ const board = {
 };
 
 const codepad = {
-  create: base.input(s.CodepadCreateInputSchema).output(z.object({ hash: z.string() })),
-  get: base.input(z.object({ hash: z.string().max(32) })).output(s.CodepadSchema),
-  mine: base.output(z.array(s.CodepadSchema.omit({ content: true, owner: true }))),
+  create: base.input(s.CodepadCreateInputSchema).output(type({ hash: 'string' })),
+  get: base.input(type({ hash: 'string <= 32' })).output(s.CodepadSchema),
+  mine: base.output(s.CodepadSchema.omit('content', 'owner').array()),
 };
 
 const admin = {
   listUsers: base
-    .input(s.PageInputSchema.extend({ search: z.string().max(100).optional() }))
+    .input(s.PageInputSchema.merge({ 'search?': 'string <= 100' }))
     .output(s.paged(s.AdminUserSchema)),
   setUserLevel: base
-    .input(z.object({ userId: s.IdSchema, level: s.UserLevelSchema }))
+    .input(type({ userId: s.IdSchema, level: s.UserLevelSchema }))
     .output(s.OkSchema),
   updateUser: base.input(s.AdminUpdateUserInputSchema).output(s.OkSchema),
-  listJudges: base.output(z.array(s.JudgeMachineSchema)),
+  listJudges: base.output(s.JudgeMachineSchema.array()),
   /** The plaintext token is returned exactly once. */
   createJudge: base
-    .input(z.object({ name: z.string().trim().min(1).max(64) }))
-    .output(z.object({ judge: s.JudgeMachineSchema, token: z.string() })),
+    .input(type({ name: type('string.trim').to('1 <= string <= 64') }))
+    .output(type({ judge: s.JudgeMachineSchema, token: 'string' })),
   setJudgeEnabled: base
-    .input(z.object({ id: s.IdSchema, enabled: z.boolean() }))
+    .input(type({ id: s.IdSchema, enabled: 'boolean' }))
     .output(s.OkSchema),
   deleteJudge: base.input(byId).output(s.OkSchema),
 };
@@ -133,11 +136,11 @@ const admin = {
  */
 const judge = {
   /** Claims the oldest waiting submission, or returns `{ task: null }`. */
-  fetch: base.output(z.object({ task: s.JudgeTaskSchema.nullable() })),
+  fetch: base.output(type({ task: s.JudgeTaskSchema.or('null') })),
   /** Raw bytes of one testcase file. */
   testdata: base
-    .input(z.object({ testcaseId: z.number().int(), kind: z.literal(['input', 'output']) }))
-    .output(z.file()),
+    .input(type({ testcaseId: 'number.integer', kind: "'input' | 'output'" }))
+    .output(s.FileSchema),
   report: base.input(s.JudgeReportInputSchema).output(s.OkSchema),
 };
 

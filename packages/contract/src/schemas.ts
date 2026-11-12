@@ -1,4 +1,5 @@
-import * as z from 'zod';
+import './arktype-config.js';
+import { type, type Type } from 'arktype';
 import {
   AccessLevel,
   CODE_MAX_LENGTH,
@@ -13,10 +14,13 @@ import {
   Verdict,
 } from './enums.js';
 
-/** Builds a zod literal-union from one of the `as const` enum objects. */
-function valuesOf<const T extends Record<string, string | number>>(obj: T) {
-  return z.literal(Object.values(obj) as T[keyof T][]);
+/** Builds a literal union from one of the `as const` enum objects. */
+function valuesOf<const T extends Record<string, string | number>>(obj: T): Type<T[keyof T]> {
+  return type.enumerated(...Object.values(obj)) as never;
 }
+
+/** A string that is trimmed first and must then be `min`..`max` characters. */
+const trimmed = (min: number, max: number) => type('string.trim').to(`${min} <= string <= ${max}`);
 
 export const UserLevelSchema = valuesOf(UserLevel);
 export const AccessLevelSchema = valuesOf(AccessLevel);
@@ -32,455 +36,443 @@ export const ContestPhaseSchema = valuesOf(ContestPhase);
 // ---------------------------------------------------------------- primitives
 
 /**
- * Identifier. Coerced because multipart/form-data requests (file uploads)
- * transport every field as a string.
+ * Identifier. Numeric strings are parsed because multipart/form-data
+ * requests (file uploads) transport every field as a string.
  */
-export const IdSchema = z.coerce.number().int().positive();
+export const IdSchema = type('string.integer.parse | number.integer').to('number.integer > 0');
 /** ISO-8601 timestamp. Dates always travel as strings over the wire. */
-export const TimestampSchema = z.iso.datetime({ offset: true });
+export const TimestampSchema = type('string.date.iso');
+/** An uploaded or downloaded file. */
+export const FileSchema = type('File');
 
-export const PageInputSchema = z.object({
-  page: z.number().int().min(1).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
+export const PageInputSchema = type({
+  page: 'number.integer >= 1 = 1',
+  pageSize: '1 <= number.integer <= 100 = 20',
 });
 
-export function paged<T extends z.ZodType>(item: T) {
-  return z.object({
-    items: z.array(item),
-    total: z.number().int(),
-    page: z.number().int(),
-    pageSize: z.number().int(),
-  });
-}
+/** One page of `t`. */
+export const paged = type('<t>', {
+  items: 't[]',
+  total: 'number.integer',
+  page: 'number.integer',
+  pageSize: 'number.integer',
+});
 
-export const OkSchema = z.object({ ok: z.literal(true) });
+export const OkSchema = type({ ok: 'true' });
 
 // ---------------------------------------------------------------------- user
 
-export const NicknameSchema = z
-  .string()
-  .trim()
-  .min(2)
-  .max(32)
-  .regex(/^[^\s@<>&"'\\/]+$/u, 'Nickname contains forbidden characters');
-export const PasswordSchema = z.string().min(6).max(128);
+export const NicknameSchema = type('string.trim')
+  .to('2 <= string <= 32')
+  .narrow((value, ctx) => /^[^\s@<>&"'\\/]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ /'));
+export const PasswordSchema = type('6 <= string <= 128');
 
-export const UserRefSchema = z.object({
-  id: z.number().int(),
-  nickname: z.string(),
+export const UserRefSchema = type({
+  id: 'number.integer',
+  nickname: 'string',
 });
 
-export const SessionUserSchema = UserRefSchema.extend({
-  email: z.string(),
+export const SessionUserSchema = UserRefSchema.merge({
+  email: 'string',
   level: UserLevelSchema,
 });
 
-export const UserProfileSchema = UserRefSchema.extend({
+export const UserProfileSchema = UserRefSchema.merge({
   level: UserLevelSchema,
-  realname: z.string().nullable(),
-  quote: z.string().nullable(),
-  quoteRef: z.string().nullable(),
+  realname: 'string | null',
+  quote: 'string | null',
+  quoteRef: 'string | null',
   /** The user's own picture, or their Gravatar when none is set. */
-  avatarUrl: z.string().nullable(),
+  avatarUrl: 'string | null',
   createdAt: TimestampSchema,
-  stats: z.object({
-    submissions: z.number().int(),
-    accepted: z.number().int(),
-    solvedProblemIds: z.array(z.number().int()),
-    triedProblemIds: z.array(z.number().int()),
-  }),
+  stats: {
+    submissions: 'number.integer',
+    accepted: 'number.integer',
+    solvedProblemIds: 'number.integer[]',
+    triedProblemIds: 'number.integer[]',
+  },
 });
 
-export const AdminUserSchema = SessionUserSchema.extend({
-  realname: z.string().nullable(),
+export const AdminUserSchema = SessionUserSchema.merge({
+  realname: 'string | null',
   createdAt: TimestampSchema,
 });
 
-export const RegisterInputSchema = z.object({
-  email: z.email().max(64),
+export const RegisterInputSchema = type({
+  email: 'string.email <= 64',
   nickname: NicknameSchema,
   password: PasswordSchema,
 });
 
-export const LoginInputSchema = z.object({
+export const LoginInputSchema = type({
   /** E-mail address or nickname. */
-  identifier: z.string().min(1).max(64),
-  password: z.string().min(1).max(128),
+  identifier: '1 <= string <= 64',
+  password: '1 <= string <= 128',
 });
 
-export const AuthResultSchema = z.object({
+export const AuthResultSchema = type({
   /** Opaque bearer token; the web server keeps it in an http-only cookie. */
-  token: z.string(),
+  token: 'string',
   user: SessionUserSchema,
 });
 
-export const UpdateProfileInputSchema = z.object({
-  nickname: NicknameSchema.optional(),
-  realname: z.string().max(30).nullable().optional(),
-  quote: z.string().max(500).nullable().optional(),
-  quoteRef: z.string().max(80).nullable().optional(),
-  avatarUrl: z.url().max(500).nullable().optional(),
+export const UpdateProfileInputSchema = type({
+  'nickname?': NicknameSchema,
+  'realname?': 'string <= 30 | null',
+  'quote?': 'string <= 500 | null',
+  'quoteRef?': 'string <= 80 | null',
+  'avatarUrl?': 'string.url <= 500 | null',
 });
 
 /** Administrators editing someone else's account; no old password needed. */
-export const AdminUpdateUserInputSchema = z.object({
+export const AdminUpdateUserInputSchema = type({
   userId: IdSchema,
-  nickname: NicknameSchema.optional(),
-  realname: z.string().max(30).nullable().optional(),
-  newPassword: PasswordSchema.optional(),
+  'nickname?': NicknameSchema,
+  'realname?': 'string <= 30 | null',
+  'newPassword?': PasswordSchema,
 });
 
-export const ChangePasswordInputSchema = z.object({
-  oldPassword: z.string().max(128),
+export const ChangePasswordInputSchema = type({
+  oldPassword: 'string <= 128',
   newPassword: PasswordSchema,
 });
 
 // ------------------------------------------------------------------- problem
 
 /** `[[groupScore, testcaseCount], ...]` — see ScoreMode.GROUP_MIN. */
-export const ScoreGroupsSchema = z.array(
-  z.tuple([z.number().min(0), z.number().int().min(1)]),
-);
+export const ScoreGroupsSchema = type(['number >= 0', 'number.integer >= 1']).array();
 
-export const ProblemSummarySchema = z.object({
-  id: z.number().int(),
-  title: z.string(),
+export const ProblemSummarySchema = type({
+  id: 'number.integer',
+  title: 'string',
   contentAccess: AccessLevelSchema,
-  acceptedUsers: z.number().int(),
+  acceptedUsers: 'number.integer',
   /** Accepted submissions; with `submissions` this gives the AC rate. */
-  accepted: z.number().int(),
-  submissions: z.number().int(),
+  accepted: 'number.integer',
+  submissions: 'number.integer',
   /** Best verdict of the current user on this problem, if any. */
-  myVerdict: VerdictSchema.nullable(),
+  myVerdict: VerdictSchema.or('null'),
 });
 
-export const ProblemSchema = z.object({
-  id: z.number().int(),
+export const ProblemSchema = type({
+  id: 'number.integer',
   owner: UserRefSchema,
-  title: z.string(),
+  title: 'string',
   /** Markdown statement. */
-  content: z.string(),
+  content: 'string',
   contentAccess: AccessLevelSchema,
-  submitOpen: z.boolean(),
+  submitOpen: 'boolean',
   codeviewAccess: AccessLevelSchema,
-  timeLimitMs: z.number().int(),
-  memoryLimitKb: z.number().int(),
+  timeLimitMs: 'number.integer',
+  memoryLimitKb: 'number.integer',
   scoreMode: ScoreModeSchema,
   scoreGroups: ScoreGroupsSchema,
-  testcaseCount: z.number().int(),
+  testcaseCount: 'number.integer',
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
-  canEdit: z.boolean(),
-  canSubmit: z.boolean(),
+  canEdit: 'boolean',
+  canSubmit: 'boolean',
 });
 
-export const ProblemUpdateInputSchema = z.object({
+export const ProblemTitleSchema = trimmed(1, 200);
+
+export const ProblemUpdateInputSchema = type({
   id: IdSchema,
-  title: z.string().trim().min(1).max(200).optional(),
-  content: z.string().max(200_000).optional(),
-  contentAccess: AccessLevelSchema.optional(),
-  submitOpen: z.boolean().optional(),
-  codeviewAccess: AccessLevelSchema.optional(),
-  timeLimitMs: z.number().int().min(100).max(60_000).optional(),
-  memoryLimitKb: z.number().int().min(4096).max(4_194_304).optional(),
-  scoreMode: ScoreModeSchema.optional(),
-  scoreGroups: ScoreGroupsSchema.optional(),
+  'title?': ProblemTitleSchema,
+  'content?': 'string <= 200000',
+  'contentAccess?': AccessLevelSchema,
+  'submitOpen?': 'boolean',
+  'codeviewAccess?': AccessLevelSchema,
+  'timeLimitMs?': '100 <= number.integer <= 60000',
+  'memoryLimitKb?': '4096 <= number.integer <= 4194304',
+  'scoreMode?': ScoreModeSchema,
+  'scoreGroups?': ScoreGroupsSchema,
 });
 
-export const TestcaseSchema = z.object({
-  id: z.number().int(),
+export const TestcaseSchema = type({
+  id: 'number.integer',
   /** Zero-based position; testcases run in this order. */
-  ordinal: z.number().int(),
-  name: z.string(),
-  inputSize: z.number().int(),
-  outputSize: z.number().int(),
+  ordinal: 'number.integer',
+  name: 'string',
+  inputSize: 'number.integer',
+  outputSize: 'number.integer',
 });
 
-export const AttachmentSchema = z.object({
-  name: z.string(),
-  size: z.number().int(),
+export const AttachmentSchema = type({
+  name: 'string',
+  size: 'number.integer',
 });
-export const AttachmentNameSchema = z.string().regex(/^[a-zA-Z0-9._-]{1,64}$/);
+export const AttachmentNameSchema = type(/^[a-zA-Z0-9._-]{1,64}$/);
 
-export const ProblemStatsSchema = z.object({
-  verdicts: z.array(z.object({ verdict: VerdictSchema, count: z.number().int() })),
-  fastest: z.array(
-    z.object({
-      submissionId: z.number().int(),
-      user: UserRefSchema,
-      timeMs: z.number().int(),
-      memoryKb: z.number().int(),
-      language: LanguageSchema,
-    }),
-  ),
+export const ProblemStatsSchema = type({
+  verdicts: type({ verdict: VerdictSchema, count: 'number.integer' }).array(),
+  fastest: type({
+    submissionId: 'number.integer',
+    user: UserRefSchema,
+    timeMs: 'number.integer',
+    memoryKb: 'number.integer',
+    language: LanguageSchema,
+  }).array(),
 });
 
 // ---------------------------------------------------------------- submission
 
-export const SubmissionSummarySchema = z.object({
-  id: z.number().int(),
-  problem: z.object({ id: z.number().int(), title: z.string() }),
+export const SubmissionSummarySchema = type({
+  id: 'number.integer',
+  problem: { id: 'number.integer', title: 'string' },
   user: UserRefSchema,
   language: LanguageSchema,
   verdict: VerdictSchema,
-  score: z.number(),
-  timeMs: z.number().int(),
-  memoryKb: z.number().int(),
+  score: 'number',
+  timeMs: 'number.integer',
+  memoryKb: 'number.integer',
   createdAt: TimestampSchema,
 });
 
-export const TestResultSchema = z.object({
-  testcaseId: z.number().int(),
-  ordinal: z.number().int(),
+export const TestResultSchema = type({
+  testcaseId: 'number.integer',
+  ordinal: 'number.integer',
   verdict: VerdictSchema,
-  timeMs: z.number().int(),
-  memoryKb: z.number().int(),
+  timeMs: 'number.integer',
+  memoryKb: 'number.integer',
   /** 0..1 fraction awarded by the checker. */
-  score: z.number(),
-  message: z.string(),
+  score: 'number',
+  message: 'string',
 });
 
-export const SubmissionSchema = SubmissionSummarySchema.extend({
+export const SubmissionSchema = SubmissionSummarySchema.merge({
   /** `null` when the viewer may not read the source code. */
-  code: z.string().nullable(),
-  compileMessage: z.string(),
-  comment: z.string(),
-  results: z.array(TestResultSchema),
-  judgedAt: TimestampSchema.nullable(),
-  canRejudge: z.boolean(),
+  code: 'string | null',
+  compileMessage: 'string',
+  comment: 'string',
+  results: TestResultSchema.array(),
+  judgedAt: TimestampSchema.or('null'),
+  canRejudge: 'boolean',
 });
 
-export const SubmitInputSchema = z.object({
+export const SubmitInputSchema = type({
   problemId: IdSchema,
   language: LanguageSchema,
-  code: z.string().min(1).max(CODE_MAX_LENGTH),
+  code: `1 <= string <= ${CODE_MAX_LENGTH}`,
 });
 
-export const SubmissionListInputSchema = PageInputSchema.extend({
-  problemId: IdSchema.optional(),
-  userId: IdSchema.optional(),
-  verdict: VerdictSchema.optional(),
+export const SubmissionListInputSchema = PageInputSchema.merge({
+  'problemId?': IdSchema,
+  'userId?': IdSchema,
+  'verdict?': VerdictSchema,
 });
 
 // ------------------------------------------------------------------- contest
 
-export const ContestProblemSchema = z.object({
-  problemId: z.number().int(),
+export const ContestProblemSchema = type({
+  problemId: 'number.integer',
   /** Short label shown on the scoreboard, e.g. "A". */
-  tag: z.string(),
-  title: z.string(),
+  tag: 'string',
+  title: 'string',
   state: ContestProblemStateSchema,
 });
 
-export const ContestSummarySchema = z.object({
-  id: z.number().int(),
-  title: z.string(),
+export const ContestSummarySchema = type({
+  id: 'number.integer',
+  title: 'string',
   style: ContestStyleSchema,
   startAt: TimestampSchema,
   endAt: TimestampSchema,
   phase: ContestPhaseSchema,
   registerType: RegisterTypeSchema,
-  participants: z.number().int(),
+  participants: 'number.integer',
 });
 
-export const ContestSchema = ContestSummarySchema.extend({
+export const ContestSchema = ContestSummarySchema.merge({
   owner: UserRefSchema,
-  description: z.string(),
-  freezeSec: z.number().int(),
-  penaltySec: z.number().int(),
+  description: 'string',
+  freezeSec: 'number.integer',
+  penaltySec: 'number.integer',
   myState: TeamStateSchema,
-  canManage: z.boolean(),
+  canManage: 'boolean',
   /** Whether the viewer may currently see the problem set. */
-  canEnter: z.boolean(),
+  canEnter: 'boolean',
   /** Empty unless `canEnter`. */
-  problems: z.array(ContestProblemSchema),
+  problems: ContestProblemSchema.array(),
 });
 
-export const ContestProblemInputSchema = z.object({
+export const ContestProblemInputSchema = type({
   problemId: IdSchema,
-  tag: z.string().trim().min(1).max(8),
+  tag: trimmed(1, 8),
   state: ContestProblemStateSchema.default(ContestProblemState.NORMAL),
 });
 
-const contestFields = {
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(50_000),
+/** Every editable contest field, without defaults (updates are partial). */
+const ContestFieldsSchema = type({
+  title: trimmed(1, 200),
+  description: 'string <= 50000',
   style: ContestStyleSchema,
   startAt: TimestampSchema,
   endAt: TimestampSchema,
   registerType: RegisterTypeSchema,
-  registerPassword: z.string().max(100),
-  freezeSec: z.number().int().min(0).max(86_400 * 30),
-  penaltySec: z.number().int().min(0).max(86_400),
-  problems: z.array(ContestProblemInputSchema).max(52),
-};
-
-export const ContestCreateInputSchema = z.object({
-  ...contestFields,
-  description: contestFields.description.default(''),
-  style: contestFields.style.default(ContestStyle.ICPC),
-  registerType: contestFields.registerType.default(RegisterType.OPEN),
-  registerPassword: contestFields.registerPassword.default(''),
-  freezeSec: contestFields.freezeSec.default(3600),
-  penaltySec: contestFields.penaltySec.default(1200),
-  problems: contestFields.problems.default([]),
+  registerPassword: 'string <= 100',
+  freezeSec: `0 <= number.integer <= ${86_400 * 30}`,
+  penaltySec: '0 <= number.integer <= 86400',
+  problems: ContestProblemInputSchema.array().atMostLength(52),
 });
 
-export const ContestUpdateInputSchema = z
-  .object(contestFields)
-  .partial()
-  .extend({ id: IdSchema });
+export const ContestCreateInputSchema = ContestFieldsSchema.merge({
+  description: type('string <= 50000').default(''),
+  style: ContestStyleSchema.default(ContestStyle.ICPC),
+  registerType: RegisterTypeSchema.default(RegisterType.OPEN),
+  registerPassword: type('string <= 100').default(''),
+  freezeSec: type(`0 <= number.integer <= ${86_400 * 30}`).default(3600),
+  penaltySec: type('0 <= number.integer <= 86400').default(1200),
+  problems: ContestProblemInputSchema.array()
+    .atMostLength(52)
+    .default(() => []),
+});
+
+export const ContestUpdateInputSchema = ContestFieldsSchema.partial().merge({ id: IdSchema });
 
 /** Contest settings only administrators may read back. */
-export const ContestSettingsSchema = z.object({
-  ...contestFields,
-  id: z.number().int(),
-});
+export const ContestSettingsSchema = ContestFieldsSchema.merge({ id: 'number.integer' });
 
-export const ParticipantSchema = z.object({
+export const ParticipantSchema = type({
   user: UserRefSchema,
   state: TeamStateSchema,
-  note: z.string(),
+  note: 'string',
   registeredAt: TimestampSchema,
 });
 
-export const ScoreboardCellSchema = z.object({
-  attempts: z.number().int(),
-  accepted: z.boolean(),
-  firstBlood: z.boolean(),
+export const ScoreboardCellSchema = type({
+  attempts: 'number.integer',
+  accepted: 'boolean',
+  firstBlood: 'boolean',
   /** Minutes from contest start to the accepted submission. */
-  acceptedMinute: z.number().int().nullable(),
-  score: z.number(),
+  acceptedMinute: 'number.integer | null',
+  score: 'number',
 });
 
-export const ScoreboardSchema = z.object({
+export const ScoreboardSchema = type({
   style: ContestStyleSchema,
   /** True when results after the freeze point are withheld from this view. */
-  frozen: z.boolean(),
-  problems: z.array(
-    z.object({
-      problemId: z.number().int(),
-      tag: z.string(),
-      attempts: z.number().int(),
-      accepted: z.number().int(),
-    }),
-  ),
-  rows: z.array(
-    z.object({
-      rank: z.number().int(),
-      user: UserRefSchema,
-      state: TeamStateSchema,
-      solved: z.number().int(),
-      /** ICPC penalty in minutes. */
-      penalty: z.number().int(),
-      score: z.number(),
-      /** One cell per entry of `problems`, same order. */
-      cells: z.array(ScoreboardCellSchema),
-    }),
-  ),
+  frozen: 'boolean',
+  problems: type({
+    problemId: 'number.integer',
+    tag: 'string',
+    attempts: 'number.integer',
+    accepted: 'number.integer',
+  }).array(),
+  rows: type({
+    rank: 'number.integer',
+    user: UserRefSchema,
+    state: TeamStateSchema,
+    solved: 'number.integer',
+    /** ICPC penalty in minutes. */
+    penalty: 'number.integer',
+    score: 'number',
+    /** One cell per entry of `problems`, same order. */
+    cells: ScoreboardCellSchema.array(),
+  }).array(),
 });
 
 // --------------------------------------------------------------------- board
 
-export const BoardSummarySchema = z.object({
-  id: z.number().int(),
-  title: z.string(),
+const BoardHeaderSchema = type({
+  id: 'number.integer',
+  title: 'string',
   startAt: TimestampSchema,
   endAt: TimestampSchema,
-  users: z.number().int(),
-  problems: z.number().int(),
 });
 
-export const BoardSchema = BoardSummarySchema.omit({ users: true, problems: true }).extend({
+export const BoardSummarySchema = BoardHeaderSchema.merge({
+  users: 'number.integer',
+  problems: 'number.integer',
+});
+
+export const BoardSchema = BoardHeaderSchema.merge({
   owner: UserRefSchema,
   /** Markdown. */
-  announce: z.string(),
-  allowJoin: z.boolean(),
-  canManage: z.boolean(),
+  announce: 'string',
+  allowJoin: 'boolean',
+  canManage: 'boolean',
   /** Whether the viewer may add themselves to the board. */
-  canJoin: z.boolean(),
-  problems: z.array(z.object({ problemId: z.number().int(), title: z.string(), note: z.string() })),
+  canJoin: 'boolean',
+  problems: type({ problemId: 'number.integer', title: 'string', note: 'string' }).array(),
   /** Sorted by total score, best first. */
-  rows: z.array(
-    z.object({
-      user: UserRefSchema,
-      score: z.number(),
-      accepted: z.number().int(),
-      /** One cell per entry of `problems`; `verdict` is null when untried. */
-      cells: z.array(z.object({ verdict: VerdictSchema.nullable(), score: z.number() })),
-    }),
-  ),
+  rows: type({
+    user: UserRefSchema,
+    score: 'number',
+    accepted: 'number.integer',
+    /** One cell per entry of `problems`; `verdict` is null when untried. */
+    cells: type({ verdict: VerdictSchema.or('null'), score: 'number' }).array(),
+  }).array(),
 });
 
-const boardFields = {
-  title: z.string().trim().min(1).max(200),
-  announce: z.string().max(30_000),
+export const BoardCreateInputSchema = type({
+  title: trimmed(1, 200),
+  announce: 'string <= 30000',
   startAt: TimestampSchema,
   endAt: TimestampSchema,
-  allowJoin: z.boolean(),
-  userIds: z.array(IdSchema).max(2000),
-  problems: z.array(z.object({ problemId: IdSchema, note: z.string().max(100).default('') })).max(200),
-};
-export const BoardCreateInputSchema = z.object(boardFields);
-export const BoardUpdateInputSchema = z.object(boardFields).partial().extend({ id: IdSchema });
+  allowJoin: 'boolean',
+  userIds: IdSchema.array().atMostLength(2000),
+  problems: type({ problemId: IdSchema, note: type('string <= 100').default('') })
+    .array()
+    .atMostLength(200),
+});
+export const BoardUpdateInputSchema = BoardCreateInputSchema.partial().merge({ id: IdSchema });
 
 // ------------------------------------------------------------------- codepad
 
-export const CodepadSchema = z.object({
-  hash: z.string(),
-  owner: UserRefSchema.nullable(),
+export const CodepadSchema = type({
+  hash: 'string',
+  owner: UserRefSchema.or('null'),
   language: LanguageSchema,
-  content: z.string(),
+  content: 'string',
   createdAt: TimestampSchema,
 });
 
-export const CodepadCreateInputSchema = z.object({
+export const CodepadCreateInputSchema = type({
   language: LanguageSchema,
-  content: z.string().min(1).max(15_000),
+  content: '1 <= string <= 15000',
 });
 
 // --------------------------------------------------------------------- judge
 
-export const JudgeMachineSchema = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  enabled: z.boolean(),
-  lastSeenAt: TimestampSchema.nullable(),
+export const JudgeMachineSchema = type({
+  id: 'number.integer',
+  name: 'string',
+  enabled: 'boolean',
+  lastSeenAt: TimestampSchema.or('null'),
   createdAt: TimestampSchema,
 });
 
 /** A unit of work handed to a judge machine. */
-export const JudgeTaskSchema = z.object({
-  submissionId: z.number().int(),
-  problemId: z.number().int(),
+export const JudgeTaskSchema = type({
+  submissionId: 'number.integer',
+  problemId: 'number.integer',
   language: LanguageSchema,
-  code: z.string(),
-  timeLimitMs: z.number().int(),
-  memoryLimitKb: z.number().int(),
-  testcases: z.array(
-    z.object({
-      id: z.number().int(),
-      ordinal: z.number().int(),
-      /** Content hashes let the judge cache testdata across tasks. */
-      inputSha256: z.string(),
-      outputSha256: z.string(),
-    }),
-  ),
+  code: 'string',
+  timeLimitMs: 'number.integer',
+  memoryLimitKb: 'number.integer',
+  testcases: type({
+    id: 'number.integer',
+    ordinal: 'number.integer',
+    /** Content hashes let the judge cache testdata across tasks. */
+    inputSha256: 'string',
+    outputSha256: 'string',
+  }).array(),
 });
 
-export const JudgeTestResultSchema = z.object({
-  testcaseId: z.number().int(),
+export const JudgeTestResultSchema = type({
+  testcaseId: 'number.integer',
   verdict: VerdictSchema,
-  timeMs: z.number().int().min(0),
-  memoryKb: z.number().int().min(0),
-  score: z.number().min(0).max(1),
-  message: z.string().max(4096).default(''),
+  timeMs: 'number.integer >= 0',
+  memoryKb: 'number.integer >= 0',
+  score: '0 <= number <= 1',
+  message: type('string <= 4096').default(''),
 });
 
-export const JudgeReportInputSchema = z.object({
-  submissionId: z.number().int(),
+export const JudgeReportInputSchema = type({
+  submissionId: 'number.integer',
   /** Set to CE / JE when the run never reached the testcases. */
-  verdict: VerdictSchema.optional(),
-  compileMessage: z.string().max(65_536).default(''),
-  results: z.array(JudgeTestResultSchema).default([]),
+  'verdict?': VerdictSchema,
+  compileMessage: type('string <= 65536').default(''),
+  results: JudgeTestResultSchema.array().default(() => []),
 });

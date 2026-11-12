@@ -1,4 +1,10 @@
-export type DomainErrorCode = 'BAD_REQUEST' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT';
+export type DomainErrorCode =
+  | 'BAD_REQUEST'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'SERVICE_UNAVAILABLE';
 
 /**
  * Errors raised by the service layer. They carry no transport details; the
@@ -37,5 +43,11 @@ export class NotFoundError extends DomainError {
 export class ConflictError extends DomainError {
   constructor(message: string) {
     super('CONFLICT', message);
+  }
+}
+/** A dependency (the message queue) is down; the request may be retried. */
+export class ServiceUnavailableError extends DomainError {
+  constructor(message = 'Service temporarily unavailable') {
+    super('SERVICE_UNAVAILABLE', message);
   }
 }

@@ -108,7 +108,9 @@ export interface StoredTestResult {
 export const submissions = pgTable(
   'submissions',
   {
-    id: id(),
+    // BY DEFAULT rather than ALWAYS: ids are reserved from the sequence when
+    // a submission is accepted and supplied by the queued insert later.
+    id: integer().primaryKey().generatedByDefaultAsIdentity(),
     problemId: integer()
       .notNull()
       .references(() => problems.id),

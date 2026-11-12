@@ -17,6 +17,7 @@ purpose, and what was not carried over.
 | `/user/view/:uid`, settings sub-pages | `/users/:id`, `/settings` |
 | `/admin` (user list, judge profiles) | `/admin`, `/admin/users/:id` |
 | `judge_profile` + HypeX bridge | `judge/` daemon, registered under Admin → Judge machines |
+| judging inside the submit request (`problem_api_submit`) | submissions and results pass through RabbitMQ; see architecture.md |
 
 ## Same behaviour
 

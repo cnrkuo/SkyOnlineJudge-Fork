@@ -1,4 +1,4 @@
-# Development database. `docker compose up -d postgres`
+# Development database and message queue. `docker compose up -d`
 services:
   postgres:
     image: postgres:16
@@ -11,5 +11,15 @@ services:
     volumes:
       - skyoj-postgres:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - '127.0.0.1:5672:5672'
+      # Management UI: http://localhost:15672 (guest / guest)
+      - '127.0.0.1:15672:15672'
+    volumes:
+      - skyoj-rabbitmq:/var/lib/rabbitmq
+
 volumes:
   skyoj-postgres:
+  skyoj-rabbitmq:

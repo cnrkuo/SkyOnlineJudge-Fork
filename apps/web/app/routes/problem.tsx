@@ -24,7 +24,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       o,
     ),
   );
-  return result.ok ? redirect(`/submissions/${result.data.id}`) : result;
+  return result.ok ? redirect(`/submissions/${result.data.id}?new=1`) : result;
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [

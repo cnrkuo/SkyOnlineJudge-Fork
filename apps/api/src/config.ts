@@ -13,6 +13,9 @@ export const config = {
   port: int('PORT', 3001),
   host: process.env.HOST ?? '127.0.0.1',
   databaseUrl: process.env.DATABASE_URL ?? 'postgres://skyoj:skyoj@localhost:5432/skyoj',
+  rabbitmqUrl: process.env.RABBITMQ_URL ?? 'amqp://guest:guest@localhost:5672',
+  /** How many queued writes are applied to PostgreSQL at the same time. */
+  dbWriteConcurrency: int('DB_WRITE_CONCURRENCY', 8),
   dataDir: resolve(process.env.DATA_DIR ?? './data'),
   sessionTtlDays: int('SESSION_TTL_DAYS', 30),
   /** A submission stuck in JUDGING longer than this is handed out again. */

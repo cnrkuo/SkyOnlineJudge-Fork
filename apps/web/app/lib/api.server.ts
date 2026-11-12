@@ -39,17 +39,33 @@ export async function as(request: Request): Promise<CallOptions> {
  * response (rendered by the route error boundary); a missing session
  * redirects to the login page and back.
  */
-export async function load<T>(request: Request, call: (options: CallOptions) => Promise<T>): Promise<T> {
-  try {
-    return await call(await as(request));
-  } catch (error) {
-    if (!(error instanceof ORPCError)) throw error;
-    if (error.code === 'UNAUTHORIZED') {
-      const url = new URL(request.url);
-      throw redirect(`/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+export async function load<T>(
+  request: Request,
+  call: (options: CallOptions) => Promise<T>,
+  { awaitCreation = false }: { awaitCreation?: boolean } = {},
+): Promise<T> {
+  const options = await as(request);
+  // Writes go through a queue, so something that was just created may take
+  // a moment to become readable. `awaitCreation` rides that out.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call(options);
+    } catch (error) {
+      const pending = awaitCreation && error instanceof ORPCError && error.code === 'NOT_FOUND' && attempt < 25;
+      if (!pending) return fail(request, error);
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
-    throw data(error.message, { status: error.status });
   }
+}
+
+/** Turns a failed API call into the response a loader should throw. */
+function fail(request: Request, error: unknown): never {
+  if (!(error instanceof ORPCError)) throw error;
+  if (error.code === 'UNAUTHORIZED') {
+    const url = new URL(request.url);
+    throw redirect(`/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+  }
+  throw data(error.message, { status: error.status });
 }
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -69,7 +85,8 @@ export async function submit<T>(request: Request, call: (options: CallOptions) =
 
 /** Turns validation issues into a readable sentence. */
 function describe(error: ORPCError<string, unknown>): string {
-  const issues = (error.data as { issues?: { path?: (string | number)[]; message: string }[] } | undefined)?.issues;
+  const issues = (error.data as { issues?: { message: string }[] } | undefined)?.issues;
   if (!issues?.length) return error.message;
-  return issues.map((issue) => `${issue.path?.join('.') || 'input'}: ${issue.message}`).join('; ');
+  // ArkType messages already name the field ("email must be an email address").
+  return issues.map((issue) => issue.message).join('; ');
 }

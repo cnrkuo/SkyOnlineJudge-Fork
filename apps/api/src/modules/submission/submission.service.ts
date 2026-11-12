@@ -3,6 +3,8 @@ import { AccessLevel, type Language, type Verdict } from '@skyoj/contract';
 import { isAdmin, requireAdmin, requireUser, satisfies, type Actor } from '../../common/actor.js';
 import { ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { pageOf, type PageInput } from '../../common/pagination.js';
+import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
+import { MessageBroker, Queue } from '../../messaging/message-broker.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { ProblemService } from '../problem/problem.service.js';
 import { SubmissionRepository, type SubmissionFilter } from './submission.repository.js';
@@ -29,14 +31,24 @@ export class SubmissionService {
     private readonly submissions: SubmissionRepository,
     private readonly problems: ProblemRepository,
     private readonly problemService: ProblemService,
+    private readonly broker: MessageBroker,
   ) {}
 
-  /** Queues a submission; a judge machine picks it up asynchronously. */
+  /** Accepts a submission; a judge machine picks it up asynchronously. */
   async create(actor: Actor, input: { problemId: number; language: Language; code: string }): Promise<{ id: number }> {
     requireUser(actor);
     const { canSubmit } = await this.problemService.access(actor, input.problemId);
     if (!canSubmit) throw new ForbiddenError('Submissions are closed for this problem');
-    const id = await this.submissions.create({ ...input, userId: actor.id });
+    // Reserve the id, queue the insert, answer. The row appears as soon as
+    // the write-queue consumer gets to it (normally within milliseconds).
+    const id = await this.submissions.reserveId();
+    await this.broker.publish(Queue.WRITES, {
+      type: 'submission.create',
+      id,
+      userId: actor.id,
+      createdAt: new Date().toISOString(),
+      ...input,
+    } satisfies WriteCommand);
     return { id };
   }
 
@@ -71,12 +83,22 @@ export class SubmissionService {
 
   async rejudge(actor: Actor, id: number): Promise<void> {
     requireAdmin(actor);
-    if ((await this.submissions.requeue({ id })) === 0) throw new NotFoundError('Submission');
+    const ids = await this.submissions.requeue({ id });
+    if (ids.length === 0) throw new NotFoundError('Submission');
+    await this.enqueue(ids);
   }
 
   async rejudgeProblem(actor: Actor, problemId: number): Promise<{ count: number }> {
     requireAdmin(actor);
-    return { count: await this.submissions.requeue({ problemId }) };
+    const ids = await this.submissions.requeue({ problemId });
+    await this.enqueue(ids);
+    return { count: ids.length };
+  }
+
+  private async enqueue(ids: number[]): Promise<void> {
+    for (const submissionId of ids) {
+      await this.broker.publish(Queue.JUDGE, { submissionId } satisfies JudgeTaskMessage);
+    }
   }
 
   async setComment(actor: Actor, id: number, comment: string, verdict?: Verdict): Promise<void> {

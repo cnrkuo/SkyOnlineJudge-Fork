@@ -1,11 +1,11 @@
 import { createParamDecorator, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
-import type { Request } from 'express';
+import type { FastifyRequest } from 'fastify';
 import { AuthService } from '../modules/auth/auth.service.js';
 import { GUEST, type Actor } from './actor.js';
 
-type AuthedRequest = Request & { actor?: Actor; bearerToken?: string };
+type AuthedRequest = FastifyRequest & { actor?: Actor; bearerToken?: string };
 
-export function bearerTokenOf(request: Request): string | undefined {
+export function bearerTokenOf(request: FastifyRequest): string | undefined {
   const header = request.headers.authorization;
   return header?.startsWith('Bearer ') ? header.slice(7).trim() || undefined : undefined;
 }

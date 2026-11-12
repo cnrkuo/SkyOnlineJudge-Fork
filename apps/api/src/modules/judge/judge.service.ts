@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Verdict, type Language } from '@skyoj/contract';
 import { sha256 } from '../../common/crypto.js';
 import { NotFoundError, UnauthorizedError } from '../../common/errors.js';
-import { config } from '../../config.js';
+import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
+import { MessageBroker, Queue } from '../../messaging/message-broker.js';
 import type { StoredTestResult } from '../../database/schema.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { computeScore, overallVerdict, ScoreError } from '../submission/scoring.js';
-import { SubmissionRepository, type JudgedResult } from '../submission/submission.repository.js';
+import { SubmissionRepository, type JudgedResult, type SubmissionRow } from '../submission/submission.repository.js';
 import { JudgeRepository, type JudgeRow } from './judge.repository.js';
 
 export interface JudgeReport {
@@ -16,6 +17,9 @@ export interface JudgeReport {
   compileMessage: string;
   results: { testcaseId: number; verdict: number; timeMs: number; memoryKb: number; score: number; message: string }[];
 }
+
+/** Upper bound on outdated tasks skipped by one fetch. */
+const MAX_SKIPPED_TASKS = 50;
 
 /**
  * Server side of the judge-machine protocol: hands out queued submissions,
@@ -31,6 +35,7 @@ export class JudgeService {
     private readonly submissions: SubmissionRepository,
     private readonly problems: ProblemRepository,
     private readonly storage: StorageService,
+    private readonly broker: MessageBroker,
   ) {}
 
   /** Judge machines authenticate with their own token, not a user session. */
@@ -40,10 +45,19 @@ export class JudgeService {
     return judge;
   }
 
+  /**
+   * Hands the next queued submission to a judge. Tasks come from RabbitMQ;
+   * the claim in the database makes sure a duplicate or outdated task (for a
+   * submission that is no longer waiting) is skipped rather than judged twice.
+   */
   async fetch(judge: JudgeRow) {
     await this.judges.touch(judge.id);
-    const staleBefore = new Date(Date.now() - config.judgeTimeoutSec * 1000);
-    const submission = await this.submissions.claimNext(judge.id, staleBefore);
+    let submission: SubmissionRow | undefined;
+    for (let skipped = 0; !submission && skipped < MAX_SKIPPED_TASKS; skipped++) {
+      const task = await this.broker.pull<JudgeTaskMessage>(Queue.JUDGE);
+      if (!task) return { task: null };
+      submission = await this.submissions.claim(task.submissionId, judge.id);
+    }
     if (!submission) return { task: null };
 
     const [found, testcases] = await Promise.all([
@@ -77,14 +91,31 @@ export class JudgeService {
     return new File([new Uint8Array(data)], `${testcase.id}.${kind}`, { type: 'application/octet-stream' });
   }
 
+  /**
+   * Accepts a judge's report. The result is not written here: it is queued,
+   * and the write-queue consumer stores it. Once this returns the report is
+   * durable, so the judge can move on.
+   */
   async report(judge: JudgeRow, report: JudgeReport): Promise<void> {
+    await this.broker.publish(Queue.WRITES, {
+      type: 'submission.result',
+      judgeId: judge.id,
+      report,
+    } satisfies WriteCommand);
+  }
+
+  /** Scores a queued report and stores it. Called by the write-queue consumer. */
+  async applyReport(judgeId: number, report: JudgeReport): Promise<void> {
     const submission = await this.submissions.findById(report.submissionId);
-    if (!submission) throw new NotFoundError('Submission');
+    if (!submission) {
+      this.logger.warn(`Dropped a result for unknown submission ${report.submissionId}`);
+      return;
+    }
     const result = await this.evaluate(submission.problemId, report);
-    const saved = await this.submissions.saveResult(submission.id, judge.id, result);
+    const saved = await this.submissions.saveResult(submission.id, judgeId, result);
     if (!saved) {
       // Rejudged or reclaimed by another judge in the meantime; drop it.
-      this.logger.warn(`Discarded stale result for submission ${submission.id} from judge "${judge.name}"`);
+      this.logger.warn(`Discarded stale result for submission ${submission.id} from judge #${judgeId}`);
     }
   }
 

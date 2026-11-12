@@ -7,7 +7,9 @@ import { api, load, submit } from '~/lib/api.server';
 import type { Route } from './+types/submission';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return load(request, (o) => api.submission.get({ id: idParam(params.id) }, o));
+  // Arriving straight from the submit form: the insert may still be queued.
+  const awaitCreation = new URL(request.url).searchParams.has('new');
+  return load(request, (o) => api.submission.get({ id: idParam(params.id) }, o), { awaitCreation });
 }
 
 export async function action({ request, params }: Route.ActionArgs) {

@@ -1,12 +1,13 @@
 # Architecture
 
 ```
- Browser ──HTML/forms──▶  apps/web  ──oRPC over HTTP──▶  apps/api  ──SQL──▶ PostgreSQL
-                       React Router 8      (typed by       NestJS      └──▶ DATA_DIR (testdata,
-                       SSR, loaders &   packages/contract)                   attachments)
-                       actions                                 ▲
-                                                               │ oRPC over HTTP (judge.*)
-                                                        judge/ skyoj-judge  (C++, 1..n machines)
+ Browser ──HTML/forms──▶  apps/web  ──oRPC over HTTP──▶  apps/api ──reads, low-volume writes──▶ PostgreSQL
+                       React Router 8     (typed by      NestJS on                                  ▲
+                       SSR, loaders &  packages/contract)  Fastify ──publish──▶ RabbitMQ ──consume──┘
+                       actions                               ▲                 (bursty writes, at a
+                                                             │                  bounded rate)
+                                              oRPC over HTTP (judge.*)
+                                                      judge/ skyoj-judge  (C++, 1..n machines)
 ```
 
 - **`packages/contract`** is the single source of truth for the HTTP API:
@@ -29,10 +30,25 @@ contains a file). Timestamps travel as ISO-8601 strings; enums
 (`packages/contract/src/enums.ts`) keep the numeric values of the legacy
 system so permission arithmetic and verdict ordering are unchanged.
 
+Schemas are written with [ArkType](https://arktype.io). oRPC consumes them
+through the Standard Schema interface, so the same definitions validate at
+runtime on the server and give the web client its static types. Three
+ArkType specifics matter here:
+
+- `arktype-config.ts` sets `onUndeclaredKey: 'delete'` globally (and is
+  imported before `arktype` itself). Inputs lose anything beyond the
+  contract, and — because outputs are validated too — the API cannot leak a
+  column the contract does not declare.
+- Ids are `string.integer.parse | number.integer`: multipart uploads carry
+  every field as text, and the morph turns `"12"` into `12`.
+- Defaults (`'number.integer >= 1 = 1'`) are only used on create/list
+  inputs. Update inputs are built with `.partial()` from schemas *without*
+  defaults, so an omitted field means "leave unchanged".
+
 Every procedure may fail with `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`,
-`NOT_FOUND` or `CONFLICT`. Input that violates a schema is rejected with
-`BAD_REQUEST` before a controller runs; outputs are validated too, so the API
-cannot leak a field the contract does not declare.
+`NOT_FOUND`, `CONFLICT` or `SERVICE_UNAVAILABLE` (the message queue is down;
+safe to retry). Input that violates a schema is rejected with `BAD_REQUEST`
+before a controller runs.
 
 ## Backend: Controller → Service → Repository
 
@@ -41,6 +57,7 @@ apps/api/src
 ├── main.ts, app.module.ts
 ├── common/        actor & permission rules, auth guard, domain errors, crypto
 ├── database/      Drizzle schema, connection + migrations, PersistenceModule
+├── messaging/     RabbitMQ connection, queues, message types
 ├── storage/       blob storage on the local filesystem
 └── modules/<feature>/
     ├── <feature>.controller.ts   transport
@@ -58,6 +75,10 @@ apps/api/src
 visibility inside SQL (`visibleTo` in `problem.repository.ts`) so pagination
 stays correct. The rule itself is the SQL twin of `satisfies()` in
 `common/actor.ts`.
+
+The HTTP server is Fastify (`@nestjs/platform-fastify`). Its body parsers
+are removed in `main.ts`: oRPC reads the raw stream itself, which is what
+makes JSON and multipart uploads go through the same validated path.
 
 Cross-cutting pieces:
 
@@ -95,6 +116,49 @@ SQL migrations to `apps/api/migrations`, which the API applies on startup.
 Files live under `DATA_DIR`: testdata is content-addressed
 (`problems/<id>/testdata/<sha256>`), attachments keep their names.
 
+### The write queue
+
+Most writes are rare (editing a problem, registering). Two are not: creating
+submissions and storing judge results arrive in bursts — a contest starting,
+a mass rejudge finishing — and would otherwise open as many concurrent
+transactions as there are requests. These go through RabbitMQ instead.
+
+| Queue | Message | Consumer |
+| --- | --- | --- |
+| `skyoj.writes` | `submission.create`, `submission.result` (`messaging/commands.ts`) | `WriteQueueConsumer`, prefetch = `DB_WRITE_CONCURRENCY` (default 8) |
+| `skyoj.judge` | `{ submissionId }`, one per submission awaiting a judge | pulled one at a time by `judge.fetch` |
+| `skyoj.dead` | write commands that failed twice | none; inspect by hand |
+
+Submitting therefore looks like this:
+
+1. `SubmissionService.create` checks permissions (reads only), reserves an
+   id from the submissions sequence, publishes `submission.create` and
+   returns the id once RabbitMQ has confirmed the message as persisted.
+2. `WriteQueueConsumer` inserts the row — at most `DB_WRITE_CONCURRENCY`
+   inserts run at once, however many requests came in — and publishes the
+   judge task.
+3. A judge's `fetch` pulls a task and claims the row
+   (`UPDATE … WHERE verdict = WAIT`); its `report` publishes
+   `submission.result`, which the consumer scores and stores.
+
+Consequences worth knowing:
+
+- **Read-your-write gap.** A new submission's id is valid a few
+  milliseconds before its row exists. The web app's `load(…, {
+  awaitCreation: true })` rides that out after a submit.
+- **Timestamps** are taken when the user submits, not when the row is
+  written, so queueing never moves a submission across a contest boundary.
+- **Idempotent commands.** Inserts use `ON CONFLICT DO NOTHING` and results
+  only apply to the judge holding the claim, so redelivery is harmless. A
+  command that throws is retried once, then dead-lettered.
+- **Broker down.** Submitting and reporting fail with `SERVICE_UNAVAILABLE`
+  after a five-second wait instead of losing data; everything else keeps
+  working. The connection recovers on its own.
+- **Lost tasks.** `JudgeSweeper` runs every 30 s: submissions stuck in
+  "Judging" past `JUDGE_TIMEOUT_SEC` return to the queue, and if the judge
+  queue is empty while submissions still wait, their tasks are published
+  again. Duplicate tasks are skipped by the claim.
+
 ## Web app
 
 React Router 8 in framework mode with server rendering. All data access goes
@@ -125,16 +189,15 @@ admin UI (stored hashed in `judges`):
 
 | Procedure | Purpose |
 | --- | --- |
-| `POST /judge/fetch` | Claim the oldest waiting submission. Returns the code, limits and the testcase list with content hashes, or `{ "task": null }`. |
+| `POST /judge/fetch` | Claim the next queued submission. Returns the code, limits and the testcase list with content hashes, or `{ "task": null }`. |
 | `POST /judge/testdata` | Download one testcase file. Judges cache by hash, so each file is fetched once per machine. |
-| `POST /judge/report` | Send per-testcase results, or a compile/judge error. |
+| `POST /judge/report` | Send per-testcase results, or a compile/judge error. Returns once the report is durably queued. |
 
-The queue is the `submissions` table. `fetch` claims a row with
-`SELECT … FOR UPDATE SKIP LOCKED`, so any number of judges can poll
-concurrently and each submission goes to exactly one. A submission whose
-judge disappears is handed out again after `JUDGE_TIMEOUT_SEC`. A report is
-only accepted from the judge holding the claim, which makes rejudging during
-a run safe.
+Tasks come from the `skyoj.judge` queue (see *The write queue*). The judge
+itself never speaks AMQP: `fetch` pulls a task on its behalf and claims the
+submission in the database, so any number of judges can poll concurrently and
+each submission goes to exactly one. A report is only accepted from the judge
+holding the claim, which makes rejudging during a run safe.
 
 The judge reports raw results; the **API** computes the final verdict (the
 worst testcase verdict) and the score (`scoring.ts`), so scoring rules live

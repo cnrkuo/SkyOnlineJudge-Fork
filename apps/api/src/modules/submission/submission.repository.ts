@@ -51,9 +51,21 @@ export interface ScoreboardSubmission {
 export class SubmissionRepository {
   constructor(@Inject(DB) private readonly db: Database) {}
 
-  async create(data: Pick<SubmissionRow, 'problemId' | 'userId' | 'language' | 'code'>): Promise<number> {
-    const [row] = await this.db.insert(submissions).values(data).returning({ id: submissions.id });
-    return row!.id;
+  /**
+   * Reserves the id of a future submission. Only the sequence is touched, so
+   * the caller can answer right away while the row itself is written later
+   * through the write queue.
+   */
+  async reserveId(): Promise<number> {
+    const result = await this.db.execute<{ id: string }>(
+      sql`select nextval(pg_get_serial_sequence('submissions', 'id')) as id`,
+    );
+    return Number(result.rows[0]!.id);
+  }
+
+  /** Inserts a submission under a reserved id. Safe to repeat (redelivery). */
+  async insert(data: Pick<SubmissionRow, 'id' | 'problemId' | 'userId' | 'language' | 'code' | 'createdAt'>): Promise<void> {
+    await this.db.insert(submissions).values(data).onConflictDoNothing({ target: submissions.id });
   }
 
   async findById(id: number): Promise<SubmissionRow | undefined> {
@@ -107,29 +119,38 @@ export class SubmissionRepository {
   // -------------------------------------------------------------- judge queue
 
   /**
-   * Claims the oldest waiting submission for a judge. Submissions stuck in
-   * JUDGING since before `staleBefore` (their judge died) are claimable too.
-   * `FOR UPDATE SKIP LOCKED` keeps concurrent judges from taking the same row.
+   * Marks a waiting submission as being judged. Returns `undefined` when it
+   * is not waiting (already judged, or a duplicate task), so a submission is
+   * never handed to two judges.
    */
-  async claimNext(judgeId: number, staleBefore: Date): Promise<SubmissionRow | undefined> {
-    const next = this.db
-      .select({ id: submissions.id })
-      .from(submissions)
-      .where(
-        or(
-          eq(submissions.verdict, Verdict.WAIT),
-          and(eq(submissions.verdict, Verdict.JUDGING), sql`${submissions.judgeStartedAt} < ${staleBefore}`),
-        ),
-      )
-      .orderBy(asc(submissions.id))
-      .limit(1)
-      .for('update', { skipLocked: true });
+  async claim(id: number, judgeId: number): Promise<SubmissionRow | undefined> {
     const [row] = await this.db
       .update(submissions)
       .set({ verdict: Verdict.JUDGING, judgeId, judgeStartedAt: new Date() })
-      .where(eq(submissions.id, next))
+      .where(and(eq(submissions.id, id), eq(submissions.verdict, Verdict.WAIT)))
       .returning();
     return row;
+  }
+
+  /** Puts submissions whose judge went silent back to waiting; returns their ids. */
+  async releaseStale(startedBefore: Date): Promise<number[]> {
+    const rows = await this.db
+      .update(submissions)
+      .set({ verdict: Verdict.WAIT, judgeId: null, judgeStartedAt: null })
+      .where(and(eq(submissions.verdict, Verdict.JUDGING), sql`${submissions.judgeStartedAt} < ${startedBefore}`))
+      .returning({ id: submissions.id });
+    return rows.map((row) => row.id);
+  }
+
+  /** Ids of submissions that have been waiting since before `createdBefore`, oldest first. */
+  async waitingIds(createdBefore: Date, limit: number): Promise<number[]> {
+    const rows = await this.db
+      .select({ id: submissions.id })
+      .from(submissions)
+      .where(and(eq(submissions.verdict, Verdict.WAIT), sql`${submissions.createdAt} < ${createdBefore}`))
+      .orderBy(asc(submissions.id))
+      .limit(limit);
+    return rows.map((row) => row.id);
   }
 
   /** Stores a judge's result; a no-op unless that judge still holds the claim. */
@@ -142,8 +163,8 @@ export class SubmissionRepository {
     return rows.length > 0;
   }
 
-  /** Puts submissions back into the queue. */
-  async requeue(where: { id: number } | { problemId: number }): Promise<number> {
+  /** Resets submissions to waiting and returns their ids, oldest first. */
+  async requeue(where: { id: number } | { problemId: number }): Promise<number[]> {
     const rows = await this.db
       .update(submissions)
       .set({
@@ -159,7 +180,7 @@ export class SubmissionRepository {
       })
       .where('id' in where ? eq(submissions.id, where.id) : eq(submissions.problemId, where.problemId))
       .returning({ id: submissions.id });
-    return rows.length;
+    return rows.map((row) => row.id).sort((a, b) => a - b);
   }
 
   /** Stores the judges' comment and, optionally, a hand-picked verdict. */

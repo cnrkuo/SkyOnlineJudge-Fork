@@ -8,7 +8,7 @@ import { idParam } from '~/lib/params';
 import { Badge, Callout, Card, Cluster, css, Empty, Muted, PageHeader, Stack, UserLink, useRoot } from '~/ui';
 import { DataTable, type Column } from '~/ui/data-table';
 import { Tip } from '~/ui/overlays';
-import * as table from '~/ui/table.css';
+import { table } from '~/ui/classes';
 import type { Route } from './+types/contest-scoreboard';
 
 export async function loader({ request, params }: Route.LoaderArgs) {

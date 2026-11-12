@@ -10,7 +10,7 @@ import { idParam } from '~/lib/params';
 import { Button, ButtonLink, Card, css, Empty, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
 import { DataTable, type Column } from '~/ui/data-table';
 import { Tip } from '~/ui/overlays';
-import * as table from '~/ui/table.css';
+import { table } from '~/ui/classes';
 import type { Route } from './+types/board';
 
 export async function loader({ request, params }: Route.LoaderArgs) {

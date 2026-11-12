@@ -1,7 +1,7 @@
 import { AccessLevel, ScoreMode } from '@skyoj/contract';
 import { Form, useNavigation, useSubmit } from 'react-router';
 import { idParam } from '~/lib/params';
-import { Button, ButtonLink, Card, CardBody, CheckField, Cluster, css, Empty, Field, Grid, Muted, Notice, PageHeader, Split, Stack } from '~/ui';
+import { Button, ButtonLink, Card, CardBody, CheckField, Cluster, Control, css, Empty, Field, Grid, Muted, Notice, PageHeader, Split, Stack } from '~/ui';
 import { DataTable, type Column } from '~/ui/data-table';
 import { Confirm } from '~/ui/overlays';
 import { api, load, submit, type ActionResult } from '~/lib/api.server';
@@ -198,7 +198,9 @@ export default function ProblemEdit({ loaderData, actionData }: Route.ComponentP
                 <Stack gap="sm">
                   {noticeFor('testdata')}
                   <input type="hidden" name="intent" value="testdata" />
-                  <input type="file" name="file" accept=".zip,application/zip" aria-label="Testdata archive" required />
+                  <Control>
+                    <input type="file" name="file" accept=".zip,application/zip" aria-label="Testdata archive" required />
+                  </Control>
                   <small>
                     A zip of <code>name.in</code> + <code>name.ans</code> (or <code>.out</code>) pairs. Uploading adds to the existing
                     testcases and overwrites those with the same name; they run in natural order of their names.
@@ -240,7 +242,9 @@ export default function ProblemEdit({ loaderData, actionData }: Route.ComponentP
                 <Cluster>
                   <input type="hidden" name="intent" value="attach" />
                   <div className={css.grow}>
-                    <input type="file" name="file" aria-label="Attachment" required />
+                    <Control>
+                      <input type="file" name="file" aria-label="Attachment" required />
+                    </Control>
                   </div>
                   <Button variant="secondary" busy={pending === 'attach'}>
                     Upload

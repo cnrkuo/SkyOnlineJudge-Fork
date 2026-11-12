@@ -1,9 +1,8 @@
 import { reactRouter } from '@react-router/dev/vite';
-import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [vanillaExtractPlugin(), reactRouter()],
+  plugins: [reactRouter()],
   resolve: { tsconfigPaths: true },
   server: { port: 3000 },
 });

@@ -17,10 +17,10 @@ import {
 import type { Route } from './+types/root';
 import { api, as } from './lib/api.server';
 import { SITE_NAME, SITE_TIMEZONE } from './lib/site.server';
-import './styles/fonts.css';
-import './styles/global.css';
-import * as shell from './styles/shell.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './styles/app.css';
 import { Button, ButtonLink, css } from './ui';
+import { shell } from './ui/classes';
 import { TooltipProvider } from './ui/overlays';
 
 const MAX_BODY_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 256) * 1024 * 1024;
@@ -50,13 +50,22 @@ export function shouldRevalidate({ formMethod }: { formMethod?: string }) {
   return formMethod !== undefined && formMethod !== 'GET';
 }
 
+/**
+ * Bootstrap's colour mode follows the operating system: `data-bs-theme` is
+ * set from `prefers-color-scheme` before the page paints, and kept in sync
+ * if the preference changes while the page is open.
+ */
+const COLOR_MODE_SCRIPT = `(function(){var q=matchMedia('(prefers-color-scheme: dark)');function s(){document.documentElement.setAttribute('data-bs-theme',q.matches?'dark':'light')}s();q.addEventListener('change',s)})()`;
+
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // The attribute is set by the script below before first paint.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="color-scheme" content="dark" />
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: COLOR_MODE_SCRIPT }} />
         <Meta />
         <Links />
       </head>
@@ -80,6 +89,8 @@ function Hydrated({ children }: { children: ReactNode }) {
     .filter((state) => state !== undefined);
   return states.reduceRight<ReactNode>((inner, state) => <HydrationBoundary state={state}>{inner}</HydrationBoundary>, children);
 }
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? shell.navLinkActive : shell.navLink);
 
 const navLinks = [
   { to: '/problems', label: 'Problems' },
@@ -113,12 +124,12 @@ export default function App({ loaderData }: Route.ComponentProps) {
               </Link>
               <div className={shell.navLinks}>
                 {navLinks.map((link) => (
-                  <NavLink key={link.to} to={link.to} className={shell.navLink}>
+                  <NavLink key={link.to} to={link.to} className={navLinkClass}>
                     {link.label}
                   </NavLink>
                 ))}
                 {user && user.level >= UserLevel.ADMIN && (
-                  <NavLink to="/admin" className={shell.navLink}>
+                  <NavLink to="/admin" className={navLinkClass}>
                     Admin
                   </NavLink>
                 )}
@@ -126,10 +137,10 @@ export default function App({ loaderData }: Route.ComponentProps) {
               <div className={shell.navEnd}>
                 {user ? (
                   <>
-                    <NavLink to={`/users/${user.id}`} className={shell.navLink}>
+                    <NavLink to={`/users/${user.id}`} className={navLinkClass}>
                       {user.nickname}
                     </NavLink>
-                    <NavLink to="/settings" className={shell.navLink}>
+                    <NavLink to="/settings" className={navLinkClass}>
                       Settings
                     </NavLink>
                     <Form method="post" action="/logout">
@@ -140,7 +151,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
                   </>
                 ) : (
                   <>
-                    <NavLink to="/login" className={shell.navLink}>
+                    <NavLink to="/login" className={navLinkClass}>
                       Log in
                     </NavLink>
                     <ButtonLink to="/register" size="sm">

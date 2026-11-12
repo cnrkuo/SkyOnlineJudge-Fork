@@ -11,13 +11,13 @@ monorepo with a C++ judge machine.
 | --- | --- | --- |
 | API contract | `packages/contract` | [oRPC](https://orpc.dev) contract + [ArkType](https://arktype.io) schemas, shared by API and web |
 | Backend API | `apps/api` | NestJS 12 on Fastify, `@orpc/nest`, Drizzle ORM, PostgreSQL, RabbitMQ |
-| Web app | `apps/web` | React Router 8 (framework mode, SSR), TanStack Query + Table, Radix UI, Vanilla Extract, Shiki |
+| Web app | `apps/web` | React Router 8 (framework mode, SSR), Bootstrap 5, TanStack Query + Table, Radix UI, Shiki |
 | Judge machine | `judge` | C++20 daemon with a namespace/seccomp sandbox |
 
 Read [docs/architecture.md](docs/architecture.md) for how the pieces fit
 together, the layering rules of the backend, the judge protocol and the
-sandbox, and [docs/design.md](docs/design.md) for the design language of the
-interface and the rules that keep it consistent.
+sandbox, and [docs/design.md](docs/design.md) for how the Bootstrap interface is put
+together and the rules that keep it consistent.
 
 Requirements
 ------------

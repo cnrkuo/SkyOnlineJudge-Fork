@@ -10,7 +10,7 @@ import remarkRehype from 'remark-rehype';
 import temml from 'temml';
 import { unified } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
-import { code as codeClass } from '~/ui/code.css';
+import { code as codeClasses } from '~/ui/classes';
 import { highlightToHast } from './highlight.server';
 import type { VFile } from 'vfile';
 
@@ -132,7 +132,7 @@ function rehypeHighlight() {
       parent.children[index] = {
         type: 'element',
         tagName: 'div',
-        properties: { className: [codeClass] },
+        properties: { className: [codeClasses.code] },
         children: highlighted.children as ElementContent[],
       };
     }

@@ -1,15 +1,15 @@
 /**
  * Interactive overlays, built on Radix UI. Radix handles focus, keyboard and
- * screen-reader behaviour; these wrappers fix the look and trim the API down
- * to what the app uses, so every menu, select, tooltip and dialog is alike.
+ * screen-reader behaviour; these wrappers give them Bootstrap's look (its
+ * dropdown, modal and nav-tabs classes — Bootstrap's own JavaScript is not
+ * loaded) and trim the API down to what the app uses.
  *
  * Rule of thumb: controls inside a <form> that must work without JavaScript
  * stay native; these are for toolbars and one-click actions.
  */
 import { AlertDialog, DropdownMenu, Select, Tabs as RadixTabs, Tooltip } from 'radix-ui';
 import type { ReactNode } from 'react';
-import { button } from './kit.css';
-import * as css from './overlay.css';
+import { css as kit, overlay as css } from './classes';
 
 // ---------------------------------------------------------------- tooltip
 
@@ -34,7 +34,7 @@ export function Tip({ label, children }: { label: ReactNode; children: ReactNode
 export function Menu({ label, children, align = 'end' }: { label: ReactNode; children: ReactNode; align?: 'start' | 'end' }) {
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className={button({ variant: 'secondary', size: 'sm' })}>
+      <DropdownMenu.Trigger className={kit.button({ variant: 'secondary', size: 'sm' })}>
         {label} <span aria-hidden>▾</span>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
@@ -104,7 +104,6 @@ export function SelectBox<T extends string>({
     <Select.Root value={value} onValueChange={(next) => onChange(next as T)}>
       <Select.Trigger className={`${css.selectTrigger} ${size === 'sm' ? css.selectSmall : ''}`} aria-label={label}>
         <Select.Value />
-        <Select.Icon aria-hidden>▾</Select.Icon>
       </Select.Trigger>
       <Select.Portal>
         <Select.Content className={css.selectContent} position="popper" sideOffset={6}>
@@ -149,15 +148,17 @@ export function Confirm({
       <AlertDialog.Portal>
         <AlertDialog.Overlay className={css.dialogOverlay} />
         <AlertDialog.Content className={css.dialog}>
-          <AlertDialog.Title className={css.dialogTitle}>{title}</AlertDialog.Title>
-          <AlertDialog.Description asChild>
-            <div>{children}</div>
-          </AlertDialog.Description>
-          <div className={css.dialogActions}>
-            <AlertDialog.Cancel className={button({ variant: 'secondary' })}>Cancel</AlertDialog.Cancel>
-            <AlertDialog.Action className={button({ variant: 'danger' })} onClick={onConfirm}>
-              {confirmLabel}
-            </AlertDialog.Action>
+          <div className={css.dialogBody}>
+            <AlertDialog.Title className={css.dialogTitle}>{title}</AlertDialog.Title>
+            <AlertDialog.Description asChild>
+              <div>{children}</div>
+            </AlertDialog.Description>
+            <div className={css.dialogActions}>
+              <AlertDialog.Cancel className={kit.button({ variant: 'secondary' })}>Cancel</AlertDialog.Cancel>
+              <AlertDialog.Action className={kit.button({ variant: 'danger' })} onClick={onConfirm}>
+                {confirmLabel}
+              </AlertDialog.Action>
+            </div>
           </div>
         </AlertDialog.Content>
       </AlertDialog.Portal>
@@ -171,13 +172,15 @@ export function Confirm({
 export function Tabs({ tabs }: { tabs: { id: string; label: ReactNode; content: ReactNode }[] }) {
   return (
     <RadixTabs.Root defaultValue={tabs[0]?.id}>
-      <RadixTabs.List className={css.tabList}>
-        {tabs.map((tab) => (
-          <RadixTabs.Trigger key={tab.id} value={tab.id} className={css.tab}>
-            {tab.label}
-          </RadixTabs.Trigger>
-        ))}
-      </RadixTabs.List>
+      <div className={css.tabListWrap}>
+        <RadixTabs.List className={css.tabList}>
+          {tabs.map((tab) => (
+            <RadixTabs.Trigger key={tab.id} value={tab.id} className={css.tab}>
+              {tab.label}
+            </RadixTabs.Trigger>
+          ))}
+        </RadixTabs.List>
+      </div>
       {tabs.map((tab) => (
         <RadixTabs.Content key={tab.id} value={tab.id}>
           {tab.content}

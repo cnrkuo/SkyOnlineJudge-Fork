@@ -197,10 +197,11 @@ so the server prefetch and the browser query cannot disagree about a key.
 
 ### Interface
 
-Styles are Vanilla Extract (static CSS at build time) in a Pico.css-like,
-dark-only design language; every table is one `DataTable` component built on
-TanStack Table, and menus, selects, tooltips, dialogs and tabs are Radix UI
-behind thin wrappers. [docs/design.md](design.md) explains the system and its
+The interface is Bootstrap 5 (its stylesheet only, in light and dark mode
+following the system), composed through a small UI kit so pages contain no
+class names. Every table is one `DataTable` component built on TanStack
+Table; menus, selects, tooltips, dialogs and tabs are Radix UI wearing
+Bootstrap's classes. [docs/design.md](design.md) explains the set-up and its
 rules. All times are shown in one site-wide zone (`SITE_TIMEZONE`).
 
 ### Code highlighting
@@ -208,8 +209,9 @@ rules. All times are shown in one site-wide zone (`SITE_TIMEZONE`).
 Shiki highlights source code **on the server** (`app/lib/highlight.server.ts`):
 submissions and codepads in their loaders, fenced code blocks inside the
 Markdown pipeline. The browser receives coloured markup; no highlighter or
-grammar is in the client bundle. The theme consists of CSS variables bound to
-the design tokens, so code shares the interface's palette. Shiki runs on its
+grammar is in the client bundle. The theme consists of CSS variables defined
+per colour mode in `styles/app.css`, so code follows light and dark like the
+rest of the page. Shiki runs on its
 Oniguruma (WebAssembly) engine — the pure-JavaScript engine cannot execute
 every pattern of the C++ grammar.
 

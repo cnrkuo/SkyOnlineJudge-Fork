@@ -5,7 +5,7 @@ import { api, prefetch, submit } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { paging } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
-import { Badge, Button, Card, Cluster, css, Empty, Notice, PageHeader, Stack, useRoot, VerdictBadge } from '~/ui';
+import { Badge, Button, Card, Cluster, Control, css, Empty, Notice, PageHeader, Stack, useRoot, VerdictBadge } from '~/ui';
 import { DataTable, Pager, type Column } from '~/ui/data-table';
 import type { Route } from './+types/problems';
 
@@ -90,7 +90,9 @@ export default function Problems({ actionData }: Route.ComponentProps) {
               <Stack gap="sm">
                 <Notice result={actionData} />
                 <Cluster>
-                  <input className={css.grow} name="title" placeholder="Title of a new problem" aria-label="New problem title" maxLength={200} required />
+                  <Control>
+                    <input className={css.grow} name="title" placeholder="Title of a new problem" aria-label="New problem title" maxLength={200} required />
+                  </Control>
                   <Button>Create problem</Button>
                 </Cluster>
               </Stack>
@@ -109,7 +111,9 @@ export default function Problems({ actionData }: Route.ComponentProps) {
             toolbar={
               <Form method="get" role="search">
                 <Cluster>
-                  <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Search titles" aria-label="Search problems" />
+                  <Control>
+                    <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Search titles" aria-label="Search problems" />
+                  </Control>
                   <Button variant="secondary">Search</Button>
                 </Cluster>
               </Form>

@@ -1,8 +1,7 @@
 import { CODE_MAX_LENGTH, Language, LANGUAGE_LABEL } from '@skyoj/contract';
 import type { ChangeEvent } from 'react';
 import { useRef } from 'react';
-import * as css from './code.css';
-import { inputWidth, monoInput, srOnly } from './kit.css';
+import { code as css, css as kit } from './classes';
 
 const languages = Object.values(Language);
 
@@ -14,7 +13,7 @@ export function parseLanguage(value: FormDataEntryValue | null): Language {
 
 export function LanguageSelect({ defaultValue = Language.CPP }: { defaultValue?: Language }) {
   return (
-    <select className={inputWidth.auto} name="language" defaultValue={defaultValue} aria-label="Language">
+    <select className={`${kit.select} ${kit.inputWidth.auto}`} name="language" defaultValue={defaultValue} aria-label="Language">
       {languages.map((language) => (
         <option key={language} value={language}>
           {LANGUAGE_LABEL[language]}
@@ -36,7 +35,7 @@ export function CodeInput({ name = 'code', maxLength = CODE_MAX_LENGTH, rows = 1
     <div>
       <textarea
         ref={area}
-        className={monoInput}
+        className={`${kit.input} ${kit.monoInput}`}
         name={name}
         rows={rows}
         maxLength={maxLength}
@@ -49,7 +48,7 @@ export function CodeInput({ name = 'code', maxLength = CODE_MAX_LENGTH, rows = 1
       />
       <label className={css.fileLink}>
         or load it from a file
-        <input type="file" className={srOnly} onChange={loadFile} />
+        <input type="file" className={kit.srOnly} onChange={loadFile} />
       </label>
     </div>
   );

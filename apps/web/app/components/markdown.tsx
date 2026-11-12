@@ -1,4 +1,4 @@
-import { prose } from '~/styles/prose.css';
+import { prose } from '~/ui/classes';
 
 /**
  * Shows Markdown that a loader has already rendered with `renderMarkdown`

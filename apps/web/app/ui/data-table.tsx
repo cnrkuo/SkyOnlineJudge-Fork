@@ -10,9 +10,8 @@ import {
 } from '@tanstack/react-table';
 import { useMemo, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { button, grow } from './kit.css';
+import { css as kit, table as css } from './classes';
 import { Menu, MenuCheck, MenuLabel, SelectBox } from './overlays';
-import * as css from './table.css';
 
 /**
  * The one table of the application. Every tabular view — problems,
@@ -115,7 +114,7 @@ export function DataTable<T extends RowData>({
     <>
       {(toolbar || columnMenu) && (
         <div className={css.toolbar}>
-          <div className={grow}>{toolbar}</div>
+          <div className={kit.grow}>{toolbar}</div>
           {columnMenu && hideable.length > 0 && (
             <Menu label="Columns">
               <MenuLabel>Show columns</MenuLabel>
@@ -204,7 +203,7 @@ export function Pager({ page, pageSize, total, sizes = false }: { page: number; 
   };
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
-  const secondary = button({ variant: 'secondary', size: 'sm' });
+  const secondary = kit.button({ variant: 'secondary', size: 'sm' });
 
   return (
     <nav aria-label="Pagination" className={css.footer}>
@@ -231,7 +230,7 @@ export function Pager({ page, pageSize, total, sizes = false }: { page: number; 
             ← Previous
           </Link>
         ) : (
-          <span role="button" aria-disabled="true" className={secondary}>
+          <span aria-disabled="true" className={`${secondary} disabled`}>
             ← Previous
           </span>
         )}{' '}
@@ -241,7 +240,7 @@ export function Pager({ page, pageSize, total, sizes = false }: { page: number; 
             Next →
           </Link>
         ) : (
-          <span role="button" aria-disabled="true" className={secondary}>
+          <span aria-disabled="true" className={`${secondary} disabled`}>
             Next →
           </span>
         )}

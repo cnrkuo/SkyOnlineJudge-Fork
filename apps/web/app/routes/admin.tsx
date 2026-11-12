@@ -6,7 +6,7 @@ import { api, prefetch, submit } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { paging } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
-import { Badge, Button, Card, CardBody, Cluster, css, Empty, Field, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
+import { Badge, Button, Card, CardBody, Cluster, Control, css, Empty, Field, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
 import { DataTable, Pager, type Column } from '~/ui/data-table';
 import { Confirm, SelectBox } from '~/ui/overlays';
 import type { Route } from './+types/admin';
@@ -195,7 +195,9 @@ function Users() {
         toolbar={
           <Form method="get" role="search">
             <Cluster>
-              <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Nickname or e-mail" aria-label="Search users" />
+              <Control>
+                <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Nickname or e-mail" aria-label="Search users" />
+              </Control>
               <Button variant="secondary">Search</Button>
             </Cluster>
           </Form>

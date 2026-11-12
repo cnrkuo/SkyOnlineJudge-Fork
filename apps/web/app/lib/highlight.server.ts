@@ -9,8 +9,8 @@ import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
  * part of the browser bundle.
  *
  * The theme does not contain colours. It emits CSS variables
- * (`--shiki-token-keyword`, …) which `ui/code.css.ts` binds to the design
- * tokens, so code uses the same palette as the rest of the interface.
+ * (`--shiki-token-keyword`, …) which `styles/app.css` defines for the light
+ * and the dark colour mode, so code follows the mode like everything else.
  */
 
 const theme = createCssVariablesTheme({ name: 'skyoj', variablePrefix: '--shiki-', fontStyle: true });

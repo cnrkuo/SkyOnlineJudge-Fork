@@ -1,17 +1,18 @@
 /**
- * The UI kit. Pages are composed from these components and write no styles
- * of their own; see docs/design.md for the rules behind them.
+ * The UI kit. Pages are composed from these components and write no class
+ * names of their own; the Bootstrap classes behind them live in classes.ts.
+ * See docs/design.md.
  */
 import { ContestPhase, Verdict, VERDICT_LABEL, VERDICT_SHORT } from '@skyoj/contract';
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from 'react';
+import { cloneElement, isValidElement, type ButtonHTMLAttributes, type ComponentProps, type ReactElement, type ReactNode } from 'react';
 import { Link, useRouteLoaderData } from 'react-router';
 import { formatDateTime } from '~/lib/time';
 import type { loader as rootLoader } from '~/root';
-import * as css from './kit.css';
+import { css, type ButtonVariant, type Tone } from './classes';
 import { Tip } from './overlays';
 
 export { css };
-export type { Tone } from './kit.css';
+export type { Tone };
 
 type Gap = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 interface BoxProps {
@@ -22,10 +23,12 @@ const cx = (...names: (string | false | null | undefined)[]) => names.filter(Boo
 
 // ----------------------------------------------------------------- layout
 
+/** Children stacked vertically with one consistent gap. */
 export function Stack({ gap, children, className }: BoxProps & { gap?: Gap }) {
   return <div className={cx(css.stack({ gap }), className)}>{children}</div>;
 }
 
+/** A row of things that wraps: buttons, filters, facts. */
 export function Cluster({
   gap,
   align,
@@ -36,6 +39,7 @@ export function Cluster({
   return <div className={cx(css.cluster({ gap, align, justify }), className)}>{children}</div>;
 }
 
+/** Equal columns that collapse to one on small screens. */
 export function Grid({ columns, children }: BoxProps & { columns?: 2 | 3 | 'tiles' }) {
   return <div className={css.grid({ columns })}>{children}</div>;
 }
@@ -56,7 +60,7 @@ export function PageHeader({ title, meta, actions }: { title: ReactNode; meta?: 
   return (
     <header className={css.pageHeader}>
       <div className={css.grow}>
-        <h1>{title}</h1>
+        <h1 className={css.pageTitle}>{title}</h1>
         {meta && <div className={css.pageMeta}>{meta}</div>}
       </div>
       {actions && <Cluster>{actions}</Cluster>}
@@ -65,7 +69,7 @@ export function PageHeader({ title, meta, actions }: { title: ReactNode; meta?: 
 }
 
 /**
- * A titled surface. `flush` removes the body padding so a table or list can
+ * A Bootstrap card. `flush` drops the body padding so a table or list can
  * run edge to edge; use `<CardBody>` inside a flush card for padded parts.
  */
 export function Card({
@@ -82,18 +86,18 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <article className={flush ? css.cardFlush : undefined}>
+    <section className={flush ? css.cardFlush : css.card}>
       {(title || actions) && (
-        <header className={flush ? css.cardFlushHeader : undefined}>
+        <div className={css.cardHeader}>
           <Cluster justify="between">
             <h2 className={css.cardTitle}>{title}</h2>
             {actions}
           </Cluster>
-        </header>
+        </div>
       )}
-      {children}
-      {footer && <footer className={flush ? css.cardFlushHeader : undefined}>{footer}</footer>}
-    </article>
+      {flush ? children : <div className={css.cardBody}>{children}</div>}
+      {footer && <div className={css.cardFooter}>{footer}</div>}
+    </section>
   );
 }
 
@@ -103,7 +107,6 @@ export function CardBody({ children, divided = false }: { children: ReactNode; d
 
 // ---------------------------------------------------------------- buttons
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'link';
 interface ButtonStyle {
   variant?: ButtonVariant;
   size?: 'md' | 'sm';
@@ -112,7 +115,7 @@ interface ButtonStyle {
 
 /**
  * One primary button per view at most; everything else is `secondary`.
- * `busy` shows the spinner and blocks repeated clicks.
+ * `busy` shows a spinner and blocks repeated clicks.
  */
 export function Button({
   variant,
@@ -120,15 +123,13 @@ export function Button({
   block,
   busy,
   className,
+  children,
   ...props
 }: ButtonStyle & { busy?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      {...props}
-      className={cx(css.button({ variant, size, block }), className)}
-      aria-busy={busy || undefined}
-      disabled={props.disabled || busy}
-    />
+    <button {...props} className={cx(css.button({ variant, size, block }), className)} aria-busy={busy || undefined} disabled={props.disabled || busy}>
+      {busy && <span className={css.spinner} aria-hidden />} {children}
+    </button>
   );
 }
 
@@ -139,22 +140,41 @@ export function ButtonLink({ variant = 'secondary', size, block, ...props }: But
 
 // ------------------------------------------------------------------ forms
 
-/** Label above, control, optional hint below — the only form-row shape. */
+/** Adds Bootstrap's control class to a native form element. */
+function control(element: ReactNode): ReactNode {
+  if (!isValidElement(element) || typeof element.type !== 'string') return element;
+  const { type, props } = element as ReactElement<{ className?: string; type?: string }>;
+  if (type !== 'input' && type !== 'select' && type !== 'textarea') return element;
+  if (props.type === 'checkbox' || props.type === 'radio' || props.type === 'hidden') return element;
+  const base = type === 'select' ? css.select : css.input;
+  return cloneElement(element as ReactElement<{ className?: string }>, { className: cx(base, props.className) });
+}
+
+/**
+ * Label above, control, optional hint below — the only form-row shape.
+ * Put a native `<input>`, `<select>` or `<textarea>` inside; it is styled
+ * as a Bootstrap form control automatically.
+ */
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className={css.field}>
       <span className={css.fieldLabel}>{label}</span>
-      {children}
-      {hint && <small className={css.fieldHint}>{hint}</small>}
+      {control(children)}
+      {hint && <span className={`d-block ${css.fieldHint}`}>{hint}</span>}
     </label>
   );
 }
 
+/** A native form control outside a `<Field>` (search boxes, inline selects). */
+export function Control({ children }: { children: ReactElement }) {
+  return <>{control(children)}</>;
+}
+
 export function CheckField({ label, ...props }: { label: ReactNode } & ComponentProps<'input'>) {
   return (
-    <label className={css.checkLabel}>
-      <input type="checkbox" {...props} />
-      <span>{label}</span>
+    <label className={css.check}>
+      <input type="checkbox" className={css.checkInput} {...props} />
+      <span className={css.checkLabel}>{label}</span>
     </label>
   );
 }
@@ -164,36 +184,36 @@ export function Notice({ result }: { result?: { ok: boolean; error?: string; mes
   if (!result) return null;
   if (!result.ok) {
     return (
-      <p role="alert" className={cx(css.notice, css.toneFill.danger)}>
+      <div role="alert" className={css.alert.danger}>
         {result.error}
-      </p>
+      </div>
     );
   }
   if (!result.message) return null;
   return (
-    <p role="status" className={cx(css.notice, css.toneFill.success)}>
+    <div role="status" className={css.alert.success}>
       {result.message}
-    </p>
+    </div>
   );
 }
 
 /** Standing information about the page's state (not the result of an action). */
-export function Callout({ tone = 'primary', children }: { tone?: css.Tone; children: ReactNode }) {
+export function Callout({ tone = 'primary', children }: { tone?: Tone; children: ReactNode }) {
   return (
-    <p role="status" className={cx(css.notice, css.toneFill[tone])}>
+    <div role="status" className={css.alert[tone]}>
       {children}
-    </p>
+    </div>
   );
 }
 
 // ------------------------------------------------------------ data display
 
-export function Badge({ tone = 'neutral', children }: { tone?: css.Tone; children: ReactNode }) {
-  return <span className={cx(css.badge, css.toneFill[tone])}>{children}</span>;
+export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
+  return <span className={css.badge[tone]}>{children}</span>;
 }
 
 /** Every verdict maps to one tone, everywhere it appears. */
-export function verdictTone(verdict: Verdict): css.Tone {
+export function verdictTone(verdict: Verdict): Tone {
   if (verdict === Verdict.AC) return 'success';
   if (verdict === Verdict.WAIT || verdict === Verdict.JUDGING) return 'neutral';
   if (verdict === Verdict.CE || verdict === Verdict.JE || verdict === Verdict.SE) return 'info';
@@ -217,10 +237,10 @@ export function Stats({ items }: { items: [label: string, value: ReactNode][] })
   return (
     <Grid columns="tiles">
       {items.map(([label, value]) => (
-        <article key={label} className={css.stat}>
+        <div key={label} className={css.stat}>
           <div className={css.statLabel}>{label}</div>
           <p className={css.statValue}>{value}</p>
-        </article>
+        </div>
       ))}
     </Grid>
   );

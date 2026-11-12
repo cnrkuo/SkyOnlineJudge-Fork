@@ -4,6 +4,7 @@ import { CodeInput, LanguageSelect, parseLanguage } from '~/components/code';
 import { Markdown } from '~/components/markdown';
 import { Card, idParam, Notice, PageHeader, UserLink, useRoot, VerdictBadge } from '~/components/ui';
 import { api, load, submit } from '~/lib/api.server';
+import { renderMarkdown } from '~/lib/markdown.server';
 import type { Route } from './+types/problem';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -13,7 +14,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     load(request, (o) => api.problem.stats({ id }, o)),
     load(request, (o) => api.problem.listAttachments({ problemId: id }, o)),
   ]);
-  return { problem, stats, attachments };
+  const statement = renderMarkdown(problem.content, { assetBase: `/problems/${problem.id}/attachments` });
+  // The Markdown source stays on the server; the page only needs the HTML.
+  return { problem: { ...problem, content: undefined }, statement, stats, attachments };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -32,7 +35,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [
 ];
 
 export default function Problem({ loaderData, actionData }: Route.ComponentProps) {
-  const { problem, stats, attachments } = loaderData;
+  const { problem, statement, stats, attachments } = loaderData;
   const { user } = useRoot();
   const busy = useNavigation().state === 'submitting';
   const total = stats.verdicts.reduce((sum, row) => sum + row.count, 0);
@@ -70,8 +73,8 @@ export default function Problem({ loaderData, actionData }: Route.ComponentProps
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="space-y-6">
           <Card className="p-5">
-            {problem.content.trim() ? (
-              <Markdown source={problem.content} assetBase={`/problems/${problem.id}/attachments`} />
+            {statement ? (
+              <Markdown html={statement} />
             ) : (
               <p className="text-muted">This problem has no statement yet.</p>
             )}

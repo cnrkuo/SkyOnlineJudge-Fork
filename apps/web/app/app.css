@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@import 'katex/dist/katex.min.css';
 
 :root {
   --bg: #f4f7fb;
@@ -50,6 +49,12 @@
   --color-info: var(--info);
   --font-sans: ui-sans-serif, system-ui, 'Segoe UI', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+@font-face {
+  font-family: 'SkyOJ Math';
+  src: url('@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2') format('woff2');
+  font-display: swap;
 }
 
 @layer base {
@@ -161,7 +166,22 @@
   .prose img {
     @apply max-w-full;
   }
-  .prose .katex-display {
+  /* Math is MathML laid out by the browser. It needs an OpenType math font:
+     Windows and macOS ship one (first two names). Elsewhere the bundled
+     fallback is fetched — only then, and only on pages that contain math. */
+  .prose math {
+    font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'SkyOJ Math', math;
+    font-size: 1.1em;
+  }
+  .prose .math-display {
     @apply overflow-x-auto overflow-y-hidden py-1;
+  }
+  .prose .math-display > math {
+    display: block math;
+  }
+  /* Malformed TeX: Temml's message, kept on one compact line. */
+  .prose .temml-error {
+    @apply font-mono text-sm;
+    white-space: normal !important;
   }
 }

@@ -79,7 +79,7 @@ purpose, and what was not carried over.
 | Password rule | 3–30 characters from `[._@a-zA-Z0-9]` | 6–128 characters, any (old shorter passwords still log in) | Security |
 | Session | PHP session + CSRF tokens per form | signed http-only `SameSite=Lax` cookie holding an API token | Stateless web server |
 | First administrator | `$_E['site']['admin'] = [1]` in a settings file | the first registered account becomes site owner | No config edit needed |
-| Statement markup | Markdown via Parsedown (raw HTML allowed), MathJax optional | Markdown + KaTeX, raw HTML not rendered | No script injection through statements |
+| Statement markup | Markdown via Parsedown (raw HTML allowed), MathJax in the browser (optional) | Markdown rendered on the server, TeX converted to MathML there; raw HTML not rendered | No script injection through statements, no math library in the browser |
 | Scoreboard announcement | raw HTML | Markdown | Same reason |
 
 ## Not carried over

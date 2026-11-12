@@ -3,10 +3,12 @@ import { Form, Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
 import { Card, Empty, idParam, Notice, PageHeader, Time, UserLink, useRoot } from '~/components/ui';
 import { api, load, submit } from '~/lib/api.server';
+import { renderMarkdown } from '~/lib/markdown.server';
 import type { Route } from './+types/board';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return load(request, (o) => api.board.get({ id: idParam(params.id) }, o));
+  const board = await load(request, (o) => api.board.get({ id: idParam(params.id) }, o));
+  return { ...board, announce: renderMarkdown(board.announce) };
 }
 
 /** "Join" button. */
@@ -62,9 +64,9 @@ export default function Board({ loaderData: board, actionData }: Route.Component
       />
       <div className="space-y-6">
         <Notice result={actionData} />
-        {board.announce.trim() && (
+        {board.announce && (
           <Card className="p-5">
-            <Markdown source={board.announce} />
+            <Markdown html={board.announce} />
           </Card>
         )}
         <Card>

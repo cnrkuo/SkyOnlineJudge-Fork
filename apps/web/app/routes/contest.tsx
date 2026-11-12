@@ -3,11 +3,13 @@ import { Form, Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
 import { Card, Empty, idParam, Notice, PageHeader, PhaseBadge, Time, UserLink, useRoot } from '~/components/ui';
 import { api, load, submit } from '~/lib/api.server';
+import { renderMarkdown } from '~/lib/markdown.server';
 import { formatDuration } from '~/lib/time';
 import type { Route } from './+types/contest';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return load(request, (o) => api.contest.get({ id: idParam(params.id) }, o));
+  const contest = await load(request, (o) => api.contest.get({ id: idParam(params.id) }, o));
+  return { ...contest, description: renderMarkdown(contest.description) };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -115,9 +117,9 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
           <Registration contest={contest} loggedIn={user !== null} />
         </Card>
 
-        {contest.description.trim() && (
+        {contest.description && (
           <Card className="p-5">
-            <Markdown source={contest.description} />
+            <Markdown html={contest.description} />
           </Card>
         )}
 

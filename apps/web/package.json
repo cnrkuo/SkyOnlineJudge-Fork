@@ -11,30 +11,39 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@fontsource/stix-two-math": "^5.3.0",
     "@orpc/client": "^1.16.2",
     "@orpc/contract": "^1.16.2",
     "@orpc/openapi-client": "^1.16.2",
     "@react-router/node": "^8.5.1",
     "@react-router/serve": "^8.5.1",
     "@skyoj/contract": "workspace:*",
+    "hast-util-from-html": "^2.1.0",
     "isbot": "^5.1.36",
-    "katex": "^0.16.22",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-markdown": "^10.1.0",
     "react-router": "^8.5.1",
-    "rehype-katex": "^7.0.1",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "temml": "^0.14.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.2.0"
   },
   "devDependencies": {
     "@react-router/dev": "^8.5.1",
     "@tailwindcss/vite": "^4.3.5",
+    "@types/hast": "^3.0.5",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^22.18.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
+    "vfile": "^6.0.3",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   }

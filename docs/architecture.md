@@ -176,9 +176,30 @@ API calls, so the token is out of reach of page scripts and the API needs no
 CORS setup and can stay on a private network.
 
 Pages are plain forms and links (they work before hydration); JavaScript adds
-auto-refresh for pending submissions and running scoreboards. Statements are
-rendered with `react-markdown` + KaTeX; raw HTML in Markdown is not rendered.
-All times are shown in one site-wide zone (`SITE_TIMEZONE`).
+auto-refresh for pending submissions and running scoreboards. All times are
+shown in one site-wide zone (`SITE_TIMEZONE`).
+
+### Markdown and math
+
+Statements, contest descriptions and scoreboard announcements are rendered
+to HTML **on the server**, in the loaders (`app/lib/markdown.server.ts`):
+remark (GFM + math) → rehype → sanitize → MathML → HTML string. The browser
+receives finished markup; no Markdown or math library is part of the client
+bundle, and the Markdown source itself is not sent either.
+
+- **Math** (`$inline$`, `$$display$$`) is converted from TeX to MathML with
+  Temml and laid out natively by the browser. `$$…$$` counts as a displayed
+  equation when it is fenced on its own lines *or* is a paragraph by itself.
+  Malformed TeX shows Temml's error in place instead of failing the page.
+- **Fonts.** MathML needs an OpenType math font. Windows and macOS have one;
+  for everyone else a single STIX Two Math file (about 400 kB, OFL) is
+  bundled as the last fallback. Browsers fetch it only when no system math
+  font matches and the page actually contains math.
+- **Safety.** Raw HTML in the source is dropped and the tree is sanitized
+  (no scripts, event handlers or `javascript:` URLs) *before* the MathML is
+  inserted; the MathML comes from Temml with `trust: false` and bounded
+  macro expansion, never from the author. That is what makes it safe for the
+  `Markdown` component to inject the string.
 
 ## The judge machine
 

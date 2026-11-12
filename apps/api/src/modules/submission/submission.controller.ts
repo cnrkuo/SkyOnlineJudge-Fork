@@ -25,7 +25,7 @@ export class SubmissionController {
       }),
       rejudgeProblem: os.rejudgeProblem.handler(({ input }) => submissions.rejudgeProblem(actor, input.problemId)),
       setComment: os.setComment.handler(async ({ input }) => {
-        await submissions.setComment(actor, input.id, input.comment);
+        await submissions.setComment(actor, input.id, input.comment, input.verdict);
         return ok;
       }),
     };

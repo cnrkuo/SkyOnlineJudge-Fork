@@ -24,9 +24,18 @@ export default [
     route(':id', 'routes/contest.tsx'),
     route(':id/edit', 'routes/contest-edit.tsx'),
     route(':id/scoreboard', 'routes/contest-scoreboard.tsx'),
+    route(':id/scoreboard.csv', 'routes/contest-scoreboard-csv.ts'),
+  ]),
+
+  ...prefix('scoreboards', [
+    index('routes/boards.tsx'),
+    route('new', 'routes/board-new.tsx'),
+    route(':id', 'routes/board.tsx'),
+    route(':id/edit', 'routes/board-edit.tsx'),
   ]),
 
   ...prefix('codepad', [index('routes/codepad.tsx'), route(':hash', 'routes/codepad-view.tsx')]),
 
   route('admin', 'routes/admin.tsx'),
+  route('admin/users/:id', 'routes/admin-user.tsx'),
 ] satisfies RouteConfig;

@@ -32,6 +32,7 @@ export async function action({ request }: Route.ActionArgs) {
         nickname: text('nickname'),
         realname: text('realname') || null,
         quote: text('quote') || null,
+        quoteRef: text('quoteRef') || null,
         avatarUrl: text('avatarUrl') || null,
       },
       o,
@@ -60,11 +61,14 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
           <Field label="Real name" hint="Optional.">
             <input className="input" name="realname" defaultValue={profile.realname ?? ''} maxLength={30} />
           </Field>
-          <Field label="Avatar URL" hint="Optional link to an image.">
-            <input className="input" name="avatarUrl" type="url" defaultValue={profile.avatarUrl ?? ''} maxLength={500} />
+          <Field label="Avatar URL" hint="Optional link to an image. Without one, your Gravatar is shown.">
+            <input className="input" name="avatarUrl" type="url" defaultValue={profile.avatarUrl?.includes('gravatar.com/avatar/') ? '' : (profile.avatarUrl ?? '')} maxLength={500} />
           </Field>
           <Field label="Quote">
             <textarea className="input" name="quote" rows={3} defaultValue={profile.quote ?? ''} maxLength={500} />
+          </Field>
+          <Field label="Quote source" hint="Who said it.">
+            <input className="input" name="quoteRef" defaultValue={profile.quoteRef ?? ''} maxLength={80} />
           </Field>
           <button className="btn btn-primary">Save profile</button>
         </Form>

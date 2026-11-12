@@ -64,7 +64,7 @@ export class ProblemRepository {
         .from(problems)
         .innerJoin(users, eq(users.id, problems.ownerId))
         .where(where)
-        .orderBy(desc(problems.id))
+        .orderBy(asc(problems.id))
         .limit(page.pageSize)
         .offset(offsetOf(page)),
       this.db

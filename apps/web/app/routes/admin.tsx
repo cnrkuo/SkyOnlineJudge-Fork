@@ -1,5 +1,5 @@
 import { UserLevel } from '@skyoj/contract';
-import { Form } from 'react-router';
+import { Form, Link } from 'react-router';
 import { Card, Empty, Notice, PageHeader, pageParam, Pagination, Time, UserLink, useRoot } from '~/components/ui';
 import { api, load, submit } from '~/lib/api.server';
 import type { Route } from './+types/admin';
@@ -158,6 +158,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                       <td className="tabular-nums">{user.id}</td>
                       <td>
                         <UserLink user={user} />
+                        {(editable || user.id === me?.id) && (
+                          <Link className="ml-2 text-xs" to={`/admin/users/${user.id}`}>
+                            edit
+                          </Link>
+                        )}
                       </td>
                       <td className="text-muted">{user.email}</td>
                       <td className="text-muted">

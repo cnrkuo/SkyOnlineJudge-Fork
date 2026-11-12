@@ -19,6 +19,7 @@
     "@orpc/nest": "^1.16.2",
     "@orpc/server": "^1.16.2",
     "@skyoj/contract": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.4",
     "express": "^5.1.0",
     "fflate": "^0.8.2",

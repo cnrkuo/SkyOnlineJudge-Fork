@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserLevel } from '@skyoj/contract';
 import { requireAdmin, type Actor } from '../../common/actor.js';
-import { randomToken, sha256 } from '../../common/crypto.js';
+import { hashPassword, randomToken, sha256 } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { pageOf, type PageInput } from '../../common/pagination.js';
 import { SessionRepository } from '../auth/session.repository.js';
@@ -55,6 +55,33 @@ export class AdminService {
     await this.users.update(userId, { level });
     // Force a fresh login so a ban or demotion takes effect immediately.
     if (level < target.level) await this.sessions.deleteByUser(userId);
+  }
+
+  /**
+   * Edits another account. As in the legacy system an administrator does not
+   * need the account's old password; they may only touch lower-ranked users.
+   */
+  async updateUser(
+    actor: Actor,
+    input: { userId: number; nickname?: string; realname?: string | null; newPassword?: string },
+  ): Promise<void> {
+    requireAdmin(actor);
+    const target = await this.users.findById(input.userId);
+    if (!target) throw new NotFoundError('User');
+    if (target.id !== actor.id && target.level >= actor.level) {
+      throw new ForbiddenError('You may not edit this user');
+    }
+    if (input.nickname && input.nickname !== target.nickname) {
+      if (await this.users.emailOrNicknameTaken('', input.nickname, target.id)) {
+        throw new ConflictError('This nickname is already taken');
+      }
+    }
+    await this.users.update(target.id, {
+      ...(input.nickname === undefined ? {} : { nickname: input.nickname }),
+      ...(input.realname === undefined ? {} : { realname: input.realname }),
+      ...(input.newPassword === undefined ? {} : { passwordHash: await hashPassword(input.newPassword) }),
+    });
+    if (input.newPassword !== undefined) await this.sessions.deleteByUser(target.id);
   }
 
   async listJudges(actor: Actor) {

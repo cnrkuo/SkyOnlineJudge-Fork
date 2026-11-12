@@ -21,6 +21,10 @@ export class AdminController {
         await admin.setUserLevel(actor, input.userId, input.level);
         return ok;
       }),
+      updateUser: os.updateUser.handler(async ({ input }) => {
+        await admin.updateUser(actor, input);
+        return ok;
+      }),
       listJudges: os.listJudges.handler(() => admin.listJudges(actor)),
       createJudge: os.createJudge.handler(({ input }) => admin.createJudge(actor, input.name)),
       setJudgeEnabled: os.setJudgeEnabled.handler(async ({ input }) => {

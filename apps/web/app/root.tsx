@@ -55,6 +55,7 @@ const navLinks = [
   { to: '/problems', label: 'Problems' },
   { to: '/submissions', label: 'Submissions' },
   { to: '/contests', label: 'Contests' },
+  { to: '/scoreboards', label: 'Scoreboards' },
   { to: '/codepad', label: 'Codepad' },
 ];
 

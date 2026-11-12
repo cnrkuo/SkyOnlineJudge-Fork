@@ -55,7 +55,7 @@ export default function Problems({ loaderData, actionData }: Route.ComponentProp
                   <th className="w-16">#</th>
                   <th>Title</th>
                   <th className="num">Solved by</th>
-                  <th className="num">Submissions</th>
+                  <th className="num">AC rate</th>
                   <th className="w-24">You</th>
                 </tr>
               </thead>
@@ -71,7 +71,10 @@ export default function Problems({ loaderData, actionData }: Route.ComponentProp
                     </td>
                     <td className="num">{problem.acceptedUsers}</td>
                     <td className="num">
-                      <Link to={`/submissions?problem=${problem.id}`}>{problem.submissions}</Link>
+                      <Link to={`/submissions?problem=${problem.id}`} title="accepted / all submissions">
+                        {problem.submissions ? ((100 * problem.accepted) / problem.submissions).toFixed(2) : '0.00'}% (
+                        {problem.accepted}/{problem.submissions})
+                      </Link>
                     </td>
                     <td>{problem.myVerdict !== null && <VerdictBadge verdict={problem.myVerdict} />}</td>
                   </tr>

@@ -162,20 +162,25 @@ export class SubmissionRepository {
     return rows.length;
   }
 
-  async setComment(id: number, comment: string): Promise<void> {
-    await this.db.update(submissions).set({ comment }).where(eq(submissions.id, id));
+  /** Stores the judges' comment and, optionally, a hand-picked verdict. */
+  async review(id: number, comment: string, verdict?: number): Promise<void> {
+    await this.db
+      .update(submissions)
+      .set(verdict === undefined ? { comment } : { comment, verdict, judgedAt: new Date() })
+      .where(eq(submissions.id, id));
   }
 
   // --------------------------------------------------------------- statistics
 
   /** Per-problem totals for a page of the problem list. */
-  async countersFor(problemIds: number[]): Promise<Map<number, { submissions: number; acceptedUsers: number }>> {
-    const result = new Map<number, { submissions: number; acceptedUsers: number }>();
+  async countersFor(problemIds: number[]): Promise<Map<number, { submissions: number; accepted: number; acceptedUsers: number }>> {
+    const result = new Map<number, { submissions: number; accepted: number; acceptedUsers: number }>();
     if (problemIds.length === 0) return result;
     const rows = await this.db
       .select({
         problemId: submissions.problemId,
         submissions: count(),
+        accepted: sql<number>`count(*) filter (where ${submissions.verdict} = ${Verdict.AC})`.mapWith(Number),
         acceptedUsers: sql<number>`count(distinct ${submissions.userId}) filter (where ${submissions.verdict} = ${Verdict.AC})`.mapWith(
           Number,
         ),

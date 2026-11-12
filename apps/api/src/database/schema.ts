@@ -25,6 +25,8 @@ export const users = pgTable(
     realname: varchar({ length: 30 }),
     level: integer().notNull(),
     quote: text(),
+    /** Who the quote is attributed to. */
+    quoteRef: varchar({ length: 80 }),
     avatarUrl: text(),
     createdAt: createdAt(),
   },
@@ -208,4 +210,46 @@ export const judges = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('judges_name_key').on(t.name), uniqueIndex('judges_token_key').on(t.tokenHash)],
+);
+
+/** Training scoreboards ("rank" in the legacy system): a set of users × a set of problems. */
+export const boards = pgTable('boards', {
+  id: id(),
+  ownerId: integer()
+    .notNull()
+    .references(() => users.id),
+  title: varchar({ length: 200 }).notNull(),
+  announce: text().notNull().default(''),
+  startAt: timestamp({ withTimezone: true }).notNull(),
+  endAt: timestamp({ withTimezone: true }).notNull(),
+  allowJoin: boolean().notNull().default(true),
+  createdAt: createdAt(),
+});
+
+export const boardProblems = pgTable(
+  'board_problems',
+  {
+    boardId: integer()
+      .notNull()
+      .references(() => boards.id, { onDelete: 'cascade' }),
+    problemId: integer()
+      .notNull()
+      .references(() => problems.id),
+    ordinal: integer().notNull(),
+    note: varchar({ length: 100 }).notNull().default(''),
+  },
+  (t) => [primaryKey({ columns: [t.boardId, t.problemId] })],
+);
+
+export const boardUsers = pgTable(
+  'board_users',
+  {
+    boardId: integer()
+      .notNull()
+      .references(() => boards.id, { onDelete: 'cascade' }),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.boardId, t.userId] })],
 );

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UserLevel } from '@skyoj/contract';
 import { GUEST, type Actor } from '../../common/actor.js';
-import { hashPassword, randomToken, sha256, verifyPassword } from '../../common/crypto.js';
+import { hashPassword, isLegacyHash, randomToken, sha256, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, UnauthorizedError } from '../../common/errors.js';
 import { config } from '../../config.js';
 import { UserRepository, type UserRow } from '../user/user.repository.js';
@@ -39,6 +39,10 @@ export class AuthService {
       throw new UnauthorizedError('Wrong account or password');
     }
     if (user.level <= UserLevel.BANNED) throw new ForbiddenError('This account has been banned');
+    // Accounts imported from the PHP system upgrade to the current scheme on first login.
+    if (isLegacyHash(user.passwordHash)) {
+      await this.users.update(user.id, { passwordHash: await hashPassword(input.password) });
+    }
     return this.openSession(user);
   }
 

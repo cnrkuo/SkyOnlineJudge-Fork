@@ -79,9 +79,9 @@ export class SubmissionService {
     return { count: await this.submissions.requeue({ problemId }) };
   }
 
-  async setComment(actor: Actor, id: number, comment: string): Promise<void> {
+  async setComment(actor: Actor, id: number, comment: string, verdict?: Verdict): Promise<void> {
     requireAdmin(actor);
     if (!(await this.submissions.findById(id))) throw new NotFoundError('Submission');
-    await this.submissions.setComment(id, comment);
+    await this.submissions.review(id, comment, verdict);
   }
 }

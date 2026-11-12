@@ -54,7 +54,8 @@ function compare(style: string, a: BoardRow, b: BoardRow): number {
  * - Submissions after a user's first AC on a problem are ignored.
  * - ICPC penalty = minutes to AC + `penaltySec` per earlier rejected attempt.
  * - A cell's score is the best score among counted submissions.
- * - Ties share a rank ("1, 1, 3" ranking).
+ * - Ties share a rank and the next rank follows directly ("1, 1, 2"), as
+ *   the legacy scoreboard did.
  */
 export function buildScoreboard(
   contest: { style: string; startAt: Date; penaltySec: number },
@@ -111,7 +112,8 @@ export function buildScoreboard(
   const ordered = [...rows.values()].sort((a, b) => compare(contest.style, a, b) || a.user.id - b.user.id);
   ordered.forEach((row, index) => {
     const previous = ordered[index - 1];
-    row.rank = previous && compare(contest.style, previous, row) === 0 ? previous.rank : index + 1;
+    if (!previous) row.rank = 1;
+    else row.rank = compare(contest.style, previous, row) === 0 ? previous.rank : previous.rank + 1;
   });
   return { problems: totals, rows: ordered };
 }

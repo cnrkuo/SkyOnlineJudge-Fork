@@ -68,10 +68,16 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
             {live && ' · updates automatically'}
           </>
         }
+        actions={
+          <a className="btn" href="scoreboard.csv" download>
+            Download CSV
+          </a>
+        }
       />
       {board.frozen && (
         <p role="status" className="mb-4 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
-          The scoreboard is frozen: submissions from the final stretch are not shown until the contest ends.
+          The scoreboard is frozen: submissions from the final stretch of the contest are not shown until the organisers
+          publish the final standings.
         </p>
       )}
       <Card>

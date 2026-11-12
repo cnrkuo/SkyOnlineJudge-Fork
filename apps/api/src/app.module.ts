@@ -6,6 +6,7 @@ import { orpcConfig } from './common/orpc.js';
 import { DatabaseModule } from './database/database.module.js';
 import { PersistenceModule } from './database/persistence.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { BoardModule } from './modules/board/board.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CodepadModule } from './modules/codepad/codepad.module.js';
 import { ContestModule } from './modules/contest/contest.module.js';
@@ -30,6 +31,7 @@ import { StorageModule } from './storage/storage.module.js';
     ProblemModule,
     SubmissionModule,
     ContestModule,
+    BoardModule,
     CodepadModule,
     AdminModule,
     JudgeModule,

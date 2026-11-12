@@ -66,7 +66,7 @@ export function ContestForm({
         <Field label="Contest password" hint="Only used with password registration.">
           <input className="input" name="registerPassword" defaultValue={values.registerPassword} maxLength={100} autoComplete="off" />
         </Field>
-        <Field label="Scoreboard freeze (minutes before the end)" hint="0 disables freezing. The board unfreezes when the contest ends.">
+        <Field label="Scoreboard freeze (minutes before the end)" hint="0 disables freezing. A frozen board stays frozen after the contest; set this to 0 to publish the final standings.">
           <input className="input" type="number" name="freezeMin" min={0} defaultValue={Math.round(values.freezeSec / 60)} />
         </Field>
       </div>

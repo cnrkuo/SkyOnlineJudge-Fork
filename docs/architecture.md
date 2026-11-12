@@ -22,8 +22,8 @@
 ## The contract
 
 `packages/contract/src/contract.ts` groups procedures into namespaces
-(`auth`, `user`, `problem`, `submission`, `contest`, `codepad`, `admin`,
-`judge`). `populateContractRouterPaths` exposes each one as
+(`auth`, `user`, `problem`, `submission`, `contest`, `board`, `codepad`,
+`admin`, `judge`). `populateContractRouterPaths` exposes each one as
 `POST /<namespace>/<procedure>` with a JSON body (multipart when the input
 contains a file). Timestamps travel as ISO-8601 strings; enums
 (`packages/contract/src/enums.ts`) keep the numeric values of the legacy

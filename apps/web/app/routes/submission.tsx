@@ -1,4 +1,4 @@
-import { LANGUAGE_LABEL, Verdict } from '@skyoj/contract';
+import { LANGUAGE_LABEL, Verdict, VERDICT_LABEL } from '@skyoj/contract';
 import { useEffect } from 'react';
 import { Form, Link, useRevalidator } from 'react-router';
 import { CodeBlock } from '~/components/code';
@@ -17,7 +17,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     return { ...(await submit(request, (o) => api.submission.rejudge({ id }, o))), message: 'Queued for rejudging.' };
   }
   const comment = String(form.get('comment') ?? '');
-  return { ...(await submit(request, (o) => api.submission.setComment({ id, comment }, o))), message: 'Comment saved.' };
+  const verdict = Object.values(Verdict).find((value) => String(value) === form.get('verdict'));
+  return { ...(await submit(request, (o) => api.submission.setComment({ id, comment, verdict }, o))), message: 'Saved.' };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Submission #${loaderData?.id ?? ''}` }];
@@ -136,11 +137,25 @@ export default function Submission({ loaderData: submission, actionData }: Route
         </Card>
 
         {submission.canRejudge && (
-          <Card title="Comment (shown to the author)">
+          <Card title="Review">
             <Form method="post" className="space-y-3 p-4">
-              <textarea className="input" name="comment" rows={3} maxLength={2000} defaultValue={submission.comment} aria-label="Comment" />
+              <label className="block">
+                <span className="label">Comment (shown to the author)</span>
+                <textarea className="input" name="comment" rows={3} maxLength={2000} defaultValue={submission.comment} />
+              </label>
+              <label className="block">
+                <span className="label">Override verdict</span>
+                <select className="input w-auto" name="verdict" defaultValue="">
+                  <option value="">Keep the judge's verdict</option>
+                  {Object.values(Verdict).map((verdict) => (
+                    <option key={verdict} value={verdict}>
+                      {VERDICT_LABEL[verdict]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button className="btn" name="intent" value="comment">
-                Save comment
+                Save review
               </button>
             </Form>
           </Card>

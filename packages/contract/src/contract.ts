@@ -63,8 +63,9 @@ const submission = {
   get: base.input(byId).output(s.SubmissionSchema),
   rejudge: base.input(byId).output(s.OkSchema),
   rejudgeProblem: base.input(byProblem).output(z.object({ count: z.number().int() })),
+  /** Judges' note on a submission; may also override the verdict by hand. */
   setComment: base
-    .input(z.object({ id: s.IdSchema, comment: z.string().max(2000) }))
+    .input(z.object({ id: s.IdSchema, comment: z.string().max(2000), verdict: s.VerdictSchema.optional() }))
     .output(s.OkSchema),
 };
 
@@ -91,6 +92,16 @@ const contest = {
   scoreboard: base.input(byId).output(s.ScoreboardSchema),
 };
 
+/** Training scoreboards: progress of a group of users on a problem set. */
+const board = {
+  list: base.input(s.PageInputSchema).output(s.paged(s.BoardSummarySchema)),
+  get: base.input(byId).output(s.BoardSchema),
+  create: base.input(s.BoardCreateInputSchema).output(created),
+  update: base.input(s.BoardUpdateInputSchema).output(s.OkSchema),
+  /** Adds the caller to a board that allows joining. */
+  join: base.input(byId).output(s.OkSchema),
+};
+
 const codepad = {
   create: base.input(s.CodepadCreateInputSchema).output(z.object({ hash: z.string() })),
   get: base.input(z.object({ hash: z.string().max(32) })).output(s.CodepadSchema),
@@ -104,6 +115,7 @@ const admin = {
   setUserLevel: base
     .input(z.object({ userId: s.IdSchema, level: s.UserLevelSchema }))
     .output(s.OkSchema),
+  updateUser: base.input(s.AdminUpdateUserInputSchema).output(s.OkSchema),
   listJudges: base.output(z.array(s.JudgeMachineSchema)),
   /** The plaintext token is returned exactly once. */
   createJudge: base
@@ -140,6 +152,7 @@ export const contract = populateContractRouterPaths({
   problem,
   submission,
   contest,
+  board,
   codepad,
   admin,
   judge,

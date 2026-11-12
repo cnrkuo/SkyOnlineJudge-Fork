@@ -68,6 +68,18 @@ describe('buildScoreboard (IOI)', () => {
       sub(3, 10, Verdict.AC, 4),
       sub(3, 20, Verdict.WA, 5, 20),
     ]);
+    const more = buildScoreboard(contest, problems, [...users, { id: 4, nickname: 'dave', state: TeamState.ACCEPTED }], [
+      sub(1, 10, Verdict.WA, 1, 40),
+      sub(2, 10, Verdict.WA, 3, 40),
+      sub(4, 10, Verdict.WA, 4, 10),
+    ]);
+    // Dense ranking: after two teams tied for first comes rank 2, not 3.
+    expect(more.rows.map((r) => [r.user.nickname, r.rank])).toEqual([
+      ['alice', 1],
+      ['bob', 1],
+      ['dave', 2],
+      ['carol', 3],
+    ]);
     expect(board.rows.map((r) => [r.user.nickname, r.score, r.rank])).toEqual([
       ['carol', 120, 1],
       ['alice', 40, 2],

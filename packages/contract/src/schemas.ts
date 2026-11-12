@@ -79,6 +79,8 @@ export const UserProfileSchema = UserRefSchema.extend({
   level: UserLevelSchema,
   realname: z.string().nullable(),
   quote: z.string().nullable(),
+  quoteRef: z.string().nullable(),
+  /** The user's own picture, or their Gravatar when none is set. */
   avatarUrl: z.string().nullable(),
   createdAt: TimestampSchema,
   stats: z.object({
@@ -116,7 +118,16 @@ export const UpdateProfileInputSchema = z.object({
   nickname: NicknameSchema.optional(),
   realname: z.string().max(30).nullable().optional(),
   quote: z.string().max(500).nullable().optional(),
+  quoteRef: z.string().max(80).nullable().optional(),
   avatarUrl: z.url().max(500).nullable().optional(),
+});
+
+/** Administrators editing someone else's account; no old password needed. */
+export const AdminUpdateUserInputSchema = z.object({
+  userId: IdSchema,
+  nickname: NicknameSchema.optional(),
+  realname: z.string().max(30).nullable().optional(),
+  newPassword: PasswordSchema.optional(),
 });
 
 export const ChangePasswordInputSchema = z.object({
@@ -136,6 +147,8 @@ export const ProblemSummarySchema = z.object({
   title: z.string(),
   contentAccess: AccessLevelSchema,
   acceptedUsers: z.number().int(),
+  /** Accepted submissions; with `submissions` this gives the AC rate. */
+  accepted: z.number().int(),
   submissions: z.number().int(),
   /** Best verdict of the current user on this problem, if any. */
   myVerdict: VerdictSchema.nullable(),
@@ -366,6 +379,50 @@ export const ScoreboardSchema = z.object({
     }),
   ),
 });
+
+// --------------------------------------------------------------------- board
+
+export const BoardSummarySchema = z.object({
+  id: z.number().int(),
+  title: z.string(),
+  startAt: TimestampSchema,
+  endAt: TimestampSchema,
+  users: z.number().int(),
+  problems: z.number().int(),
+});
+
+export const BoardSchema = BoardSummarySchema.omit({ users: true, problems: true }).extend({
+  owner: UserRefSchema,
+  /** Markdown. */
+  announce: z.string(),
+  allowJoin: z.boolean(),
+  canManage: z.boolean(),
+  /** Whether the viewer may add themselves to the board. */
+  canJoin: z.boolean(),
+  problems: z.array(z.object({ problemId: z.number().int(), title: z.string(), note: z.string() })),
+  /** Sorted by total score, best first. */
+  rows: z.array(
+    z.object({
+      user: UserRefSchema,
+      score: z.number(),
+      accepted: z.number().int(),
+      /** One cell per entry of `problems`; `verdict` is null when untried. */
+      cells: z.array(z.object({ verdict: VerdictSchema.nullable(), score: z.number() })),
+    }),
+  ),
+});
+
+const boardFields = {
+  title: z.string().trim().min(1).max(200),
+  announce: z.string().max(30_000),
+  startAt: TimestampSchema,
+  endAt: TimestampSchema,
+  allowJoin: z.boolean(),
+  userIds: z.array(IdSchema).max(2000),
+  problems: z.array(z.object({ problemId: IdSchema, note: z.string().max(100).default('') })).max(200),
+};
+export const BoardCreateInputSchema = z.object(boardFields);
+export const BoardUpdateInputSchema = z.object(boardFields).partial().extend({ id: IdSchema });
 
 // ------------------------------------------------------------------- codepad
 

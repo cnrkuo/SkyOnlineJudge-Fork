@@ -9,7 +9,7 @@ import { StorageService } from '../../storage/storage.service.js';
 import { ContestRepository } from '../contest/contest.repository.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
 import { ProblemRepository, type ProblemPatch, type ProblemWithOwner } from './problem.repository.js';
-import { readTestdataArchive } from './testdata-archive.js';
+import { naturalOrder, readTestdataArchive } from './testdata-archive.js';
 
 const MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024;
 
@@ -72,6 +72,7 @@ export class ProblemService {
       title: row.title,
       contentAccess: row.contentAccess as AccessLevel,
       submissions: counters.get(row.id)?.submissions ?? 0,
+      accepted: counters.get(row.id)?.accepted ?? 0,
       acceptedUsers: counters.get(row.id)?.acceptedUsers ?? 0,
       myVerdict: (best.get(row.id) ?? null) as Verdict | null,
     }));
@@ -125,7 +126,7 @@ export class ProblemService {
     await this.access(actor, id);
     const [verdicts, fastest] = await Promise.all([
       this.submissions.verdictHistogram(id),
-      this.submissions.fastestAccepted(id, 10),
+      this.submissions.fastestAccepted(id, 20),
     ]);
     return {
       verdicts: verdicts.map((row) => ({ verdict: row.verdict as Verdict, count: row.count })),
@@ -146,6 +147,7 @@ export class ProblemService {
     return this.problems.listTestcases(problemId);
   }
 
+  /** Returns the total number of testcases after the upload. */
   async uploadTestdata(actor: Actor, problemId: number, archive: File): Promise<{ testcases: number }> {
     await this.editable(actor, problemId);
     const cases = readTestdataArchive(new Uint8Array(await archive.arrayBuffer()), config.maxUploadBytes * 4);
@@ -153,18 +155,24 @@ export class ProblemService {
       throw new BadRequestError('No testcases found: the archive must contain <name>.in / <name>.ans pairs');
     }
 
+    // Like the legacy uploader, an archive adds to the existing set: cases
+    // with a known name are overwritten, the others are kept. ("Remove all
+    // testcases" starts over.) The merged set is re-ordered by name.
+    const previous = await this.problems.listTestcases(problemId);
+    const merged = new Map(
+      previous.map(({ name, inputSha256, outputSha256, inputSize, outputSize }) => [
+        name,
+        { name, inputSha256, outputSha256, inputSize, outputSize },
+      ]),
+    );
     // Blobs are content-addressed, so new files never overwrite ones a judge
-    // may still be downloading; stale blobs are swept after the swap.
-    const rows = [];
-    const keep = new Set<string>();
-    for (const [ordinal, testcase] of cases.entries()) {
+    // may still be downloading; unreferenced blobs are swept after the swap.
+    for (const testcase of cases) {
       const inputSha256 = sha256(testcase.input);
       const outputSha256 = sha256(testcase.output);
       await this.storage.put(StorageService.testdataKey(problemId, inputSha256), testcase.input);
       await this.storage.put(StorageService.testdataKey(problemId, outputSha256), testcase.output);
-      keep.add(inputSha256).add(outputSha256);
-      rows.push({
-        ordinal,
+      merged.set(testcase.name, {
         name: testcase.name,
         inputSha256,
         outputSha256,
@@ -172,8 +180,12 @@ export class ProblemService {
         outputSize: testcase.output.byteLength,
       });
     }
-    const previous = await this.problems.listTestcases(problemId);
+    const rows = [...merged.values()]
+      .sort((a, b) => naturalOrder.compare(a.name, b.name))
+      .map((row, ordinal) => ({ ...row, ordinal }));
     await this.problems.replaceTestcases(problemId, rows);
+
+    const keep = new Set(rows.flatMap((row) => [row.inputSha256, row.outputSha256]));
     for (const old of previous) {
       for (const hash of [old.inputSha256, old.outputSha256]) {
         if (!keep.has(hash)) await this.storage.delete(StorageService.testdataKey(problemId, hash));

@@ -79,9 +79,13 @@ Day-to-day
 - **Scoring** is either the average of passed testcases or subtasks
   (`group_min`: a group of testcases scores only if all of them pass).
 - **Contests** follow ICPC or IOI rules, with open / password / approval /
-  invitation registration and an optional scoreboard freeze. Participants can
+  invitation registration and an optional scoreboard freeze (a frozen board
+  stays frozen until an administrator sets the freeze to 0). Participants can
   read and submit a contest's problems during the contest even while those
   problems are hidden from the public list.
+
+- **Scoreboards** track a group of users on a set of problems over a date
+  range — handy for classes and training plans.
 
 Scripts
 -------
@@ -95,16 +99,16 @@ Scripts
 | `pnpm build:judge` | Configure and build the C++ judge |
 | `ctest --test-dir judge/build` | Judge tests (checker and sandbox) |
 
-Migrating from the PHP version
-------------------------------
+Coming from the PHP version
+---------------------------
 
 The legacy code remains in the git history (last commit before the rewrite:
-`bd7b867`). There is no automatic data migration: the database moved from
-MySQL to PostgreSQL with a new schema, and passwords are hashed differently.
-The following legacy features were intentionally not carried over:
+`bd7b867`). [docs/compatibility.md](docs/compatibility.md) maps every old
+page to its new place and lists what behaves the same, what changed on
+purpose and what was not carried over.
 
-- scoreboards that scrape other online judges (TOJ / UVa capture plugins);
-- the plugin installer, the HypeX judge bridge (replaced by `judge/`), the
-  balloon page and the Bangkok resolver;
-- PDF problem statements (attach the PDF and link it from the Markdown
-  statement instead).
+In short: levels and permissions, verdict codes, both score modes, contest
+rules and scoreboards, training scoreboards and the codepad work as before,
+and password hashes from the PHP database are still accepted. There is no
+data importer from MySQL yet, and scoreboards no longer pull results from
+other online judges.

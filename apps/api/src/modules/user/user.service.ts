@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Verdict, type UserLevel } from '@skyoj/contract';
 import { requireLogin, type Actor } from '../../common/actor.js';
-import { hashPassword, verifyPassword } from '../../common/crypto.js';
+import { hashPassword, md5, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { toActor } from '../auth/auth.service.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
@@ -27,13 +27,15 @@ export class UserService {
       level: user.level as UserLevel,
       realname: user.realname,
       quote: user.quote,
-      avatarUrl: user.avatarUrl,
+      quoteRef: user.quoteRef,
+      // Like the legacy site, fall back to the e-mail's Gravatar.
+      avatarUrl: user.avatarUrl || `https://www.gravatar.com/avatar/${md5(user.email.trim().toLowerCase())}?d=identicon&s=200`,
       createdAt: user.createdAt.toISOString(),
       stats: { ...totals, solvedProblemIds: solved.sort(byId), triedProblemIds: tried.sort(byId) },
     };
   }
 
-  async updateProfile(actor: Actor, patch: Pick<UserPatch, 'nickname' | 'realname' | 'quote' | 'avatarUrl'>) {
+  async updateProfile(actor: Actor, patch: Pick<UserPatch, 'nickname' | 'realname' | 'quote' | 'quoteRef' | 'avatarUrl'>) {
     requireLogin(actor);
     if (patch.nickname && patch.nickname !== actor.nickname) {
       if (await this.users.emailOrNicknameTaken('', patch.nickname, actor.id)) {

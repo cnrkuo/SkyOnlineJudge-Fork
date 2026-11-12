@@ -78,7 +78,7 @@ export async function action({ request, params }: Route.ActionArgs): Promise<Fee
     case 'testdata': {
       if (!(file instanceof File) || file.size === 0) return { intent, ok: false, error: 'Choose a zip archive first' };
       const result = await submit(request, (o) => api.problem.uploadTestdata({ problemId, archive: file }, o));
-      return feedback(intent, result, result.ok ? `Loaded ${result.data.testcases} testcases.` : '');
+      return feedback(intent, result, result.ok ? `Uploaded — the problem now has ${result.data.testcases} testcases.` : '');
     }
     case 'clear-testdata':
       return feedback('testdata', await submit(request, (o) => api.problem.clearTestdata({ problemId }, o)), 'All testcases removed.');
@@ -194,11 +194,11 @@ export default function ProblemEdit({ loaderData, actionData }: Route.ComponentP
                 <input type="hidden" name="intent" value="testdata" />
                 <input className="input" type="file" name="file" accept=".zip,application/zip" aria-label="Testdata archive" required />
                 <p className="hint">
-                  A zip of <code>name.in</code> + <code>name.ans</code> (or <code>.out</code>) pairs. Uploading replaces all
-                  testcases; they run in natural order of their names.
+                  A zip of <code>name.in</code> + <code>name.ans</code> (or <code>.out</code>) pairs. Uploading adds to the
+                  existing testcases and overwrites those with the same name; they run in natural order of their names.
                 </p>
                 <button className="btn" disabled={pending === 'testdata'}>
-                  {pending === 'testdata' ? 'Uploading…' : 'Upload and replace'}
+                  {pending === 'testdata' ? 'Uploading…' : 'Upload testcases'}
                 </button>
               </Form>
             </div>

@@ -56,7 +56,12 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
           }
         />
       </div>
-      {user.quote && <blockquote className="mb-5 border-l-4 border-line pl-4 whitespace-pre-wrap text-muted">{user.quote}</blockquote>}
+      {user.quote && (
+        <blockquote className="mb-5 border-l-4 border-line pl-4 text-muted">
+          <p className="whitespace-pre-wrap">{user.quote}</p>
+          {user.quoteRef && <footer className="mt-1 text-sm">— {user.quoteRef}</footer>}
+        </blockquote>
+      )}
 
       <dl className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

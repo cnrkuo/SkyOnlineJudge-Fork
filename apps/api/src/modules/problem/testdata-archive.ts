@@ -10,7 +10,8 @@ export interface TestcaseFiles {
 
 const INPUT_EXT = 'in';
 const OUTPUT_EXTS = ['ans', 'out'];
-const naturalOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+/** Orders testcase names the way people read them: `2` before `10`. */
+export const naturalOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 /**
  * Extracts testcases from a zip archive. A testcase is a `<name>.in` file

@@ -75,7 +75,7 @@ function Registration({ contest, loggedIn }: { contest: Contest; loggedIn: boole
 
 export default function Contest({ loaderData: contest, actionData }: Route.ComponentProps) {
   const { user } = useRoot();
-  const boardVisible = contest.canManage || contest.phase === ContestPhase.ENDED || (contest.canEnter && contest.phase === ContestPhase.RUNNING);
+  const boardVisible = contest.canManage || contest.phase !== ContestPhase.PREPARING;
   return (
     <>
       <PageHeader
@@ -93,6 +93,11 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
             {boardVisible && (
               <Link className="btn" to="scoreboard">
                 Scoreboard
+              </Link>
+            )}
+            {user && contest.canEnter && (
+              <Link className="btn" to={`/submissions?user=${user.id}`}>
+                My submissions
               </Link>
             )}
             {contest.canManage && (

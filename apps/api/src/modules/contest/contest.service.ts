@@ -211,25 +211,25 @@ export class ContestService {
   }
 
   /**
-   * Scoreboard rules:
+   * Scoreboard rules, as in the legacy system:
+   * - Public (guests included) from the moment the contest starts.
+   * - Everyone except managers sees the frozen board: only submissions made
+   *   before the last `freezeSec` seconds count. It stays frozen after the
+   *   contest ends, so results can be revealed at a ceremony; publish the
+   *   final standings by setting the freeze to 0.
    * - Managers always see everything.
-   * - Participants see it while the contest runs; everyone once it has ended.
-   * - During the last `freezeSec` seconds, non-managers only see results from
-   *   before the freeze point. The board unfreezes when the contest ends.
    * - HIDDEN teams appear only to managers and to themselves.
    */
   async scoreboard(actor: Actor, id: number) {
     const now = new Date();
     const { contest } = await this.load(id);
-    const phase = phaseOf(contest, now);
     const canManage = isAdmin(actor);
-    const myState = (await this.contests.stateOf(id, actor.id)) ?? TeamState.NOT_REGISTERED;
-    if (!canManage && !(phase === ContestPhase.ENDED || (phase === ContestPhase.RUNNING && isParticipating(myState)))) {
-      throw new ForbiddenError('The scoreboard is not available to you yet');
+    if (!canManage && phaseOf(contest, now) === ContestPhase.PREPARING) {
+      throw new ForbiddenError('The scoreboard opens when the contest starts');
     }
 
     const freezeAt = new Date(Math.max(contest.startAt.getTime(), contest.endAt.getTime() - contest.freezeSec * 1000));
-    const frozen = !canManage && phase === ContestPhase.RUNNING && contest.freezeSec > 0 && now >= freezeAt;
+    const frozen = !canManage && contest.freezeSec > 0 && now >= freezeAt;
 
     const [problemRows, participantRows] = await Promise.all([
       this.contests.listProblems(id),

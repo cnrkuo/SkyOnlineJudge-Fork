@@ -1,5 +1,6 @@
-import { Form, Link } from 'react-router';
-import { Card, Field, idParam, Notice, PageHeader } from '~/components/ui';
+import { Form } from 'react-router';
+import { idParam } from '~/lib/params';
+import { Button, ButtonLink, Card, Field, Measure, Notice, PageHeader, Stack } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import type { Route } from './+types/admin-user';
 
@@ -31,30 +32,27 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Edit user
 
 export default function AdminUser({ loaderData: user, actionData }: Route.ComponentProps) {
   return (
-    <div className="mx-auto max-w-xl">
-      <PageHeader
-        title={`Edit user #${user.id}`}
-        actions={
-          <Link className="btn" to="/admin">
-            Back to administration
-          </Link>
-        }
-      />
+    <Measure size="page">
+      <PageHeader title={`Edit user #${user.id}`} actions={<ButtonLink to="/admin">Back to administration</ButtonLink>} />
       <Card>
-        <Form method="post" className="space-y-4 p-4">
-          <Notice result={actionData} />
-          <Field label="Nickname">
-            <input className="input" name="nickname" defaultValue={user.nickname} minLength={2} maxLength={32} required />
-          </Field>
-          <Field label="Real name">
-            <input className="input" name="realname" defaultValue={user.realname ?? ''} maxLength={30} />
-          </Field>
-          <Field label="New password" hint="Leave empty to keep the current one. The old password is not needed.">
-            <input className="input" name="newPassword" type="password" autoComplete="new-password" minLength={6} />
-          </Field>
-          <button className="btn btn-primary">Save</button>
+        <Form method="post">
+          <Stack>
+            <Notice result={actionData} />
+            <Field label="Nickname">
+              <input name="nickname" defaultValue={user.nickname} minLength={2} maxLength={32} required />
+            </Field>
+            <Field label="Real name">
+              <input name="realname" defaultValue={user.realname ?? ''} maxLength={30} />
+            </Field>
+            <Field label="New password" hint="Leave empty to keep the current one. The old password is not needed.">
+              <input name="newPassword" type="password" autoComplete="new-password" minLength={6} />
+            </Field>
+            <div>
+              <Button>Save</Button>
+            </div>
+          </Stack>
         </Form>
       </Card>
-    </div>
+    </Measure>
   );
 }

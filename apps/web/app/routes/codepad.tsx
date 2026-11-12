@@ -1,8 +1,7 @@
-import { LANGUAGE_LABEL } from '@skyoj/contract';
 import { Form, Link, redirect } from 'react-router';
-import { CodeInput, LanguageSelect, parseLanguage } from '~/components/code';
-import { Card, Notice, PageHeader, Time } from '~/components/ui';
 import { api, as, submit } from '~/lib/api.server';
+import { Button, Card, Cluster, css, Muted, Notice, PageHeader, Split, Stack, Time } from '~/ui';
+import { CodeInput, LanguageSelect, languageName, parseLanguage } from '~/ui/code';
 import type { Route } from './+types/codepad';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -23,45 +22,53 @@ export const meta: Route.MetaFunction = () => [{ title: 'Codepad' }];
 
 export default function Codepad({ loaderData, actionData }: Route.ComponentProps) {
   const { loggedIn, mine } = loaderData;
+  if (!loggedIn) {
+    return (
+      <>
+        <PageHeader title="Codepad" meta="Share a snippet of code through an unguessable link." />
+        <Card>
+          <Muted>
+            <Link to="/login?next=/codepad">Log in</Link> to create a pad. Anyone with a pad's link can read it.
+          </Muted>
+        </Card>
+      </>
+    );
+  }
   return (
     <>
       <PageHeader title="Codepad" meta="Share a snippet of code through an unguessable link." />
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <Split>
         <Card>
-          {loggedIn ? (
-            <Form method="post" className="space-y-3 p-4">
+          <Form method="post">
+            <Stack gap="sm">
               <Notice result={actionData} />
               <CodeInput maxLength={15000} />
-              <div className="flex flex-wrap items-center gap-2">
+              <Cluster>
                 <LanguageSelect />
-                <button className="btn btn-primary">Save and get a link</button>
-              </div>
-            </Form>
+                <Button>Save and get a link</Button>
+              </Cluster>
+            </Stack>
+          </Form>
+        </Card>
+        <Card flush title="Your pads">
+          {mine.length === 0 ? (
+            <div className={css.cardBody}>
+              <Muted>You have not saved any pads yet.</Muted>
+            </div>
           ) : (
-            <p className="p-4 text-sm">
-              <Link to="/login?next=/codepad">Log in</Link> to create a pad. Anyone with a pad's link can read it.
-            </p>
+            <ul className={css.list}>
+              {mine.map((pad) => (
+                <li key={pad.hash} className={css.listItem}>
+                  <Link to={`/codepad/${pad.hash}`} className={css.grow}>
+                    <Time value={pad.createdAt} />
+                  </Link>
+                  <Muted small>{languageName(pad.language)}</Muted>
+                </li>
+              ))}
+            </ul>
           )}
         </Card>
-        {loggedIn && (
-          <Card title="Your pads">
-            {mine.length === 0 ? (
-              <p className="p-4 text-sm text-muted">You have not saved any pads yet.</p>
-            ) : (
-              <ul className="text-sm">
-                {mine.map((pad) => (
-                  <li key={pad.hash} className="border-b border-line px-4 py-2 last:border-b-0">
-                    <Link to={`/codepad/${pad.hash}`}>
-                      <Time value={pad.createdAt} />
-                    </Link>
-                    <div className="text-xs text-muted">{LANGUAGE_LABEL[pad.language].split(' (')[0]}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        )}
-      </div>
+      </Split>
     </>
   );
 }

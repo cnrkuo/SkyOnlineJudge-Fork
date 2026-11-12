@@ -1,7 +1,7 @@
 import { UserLevel } from '@skyoj/contract';
 import { redirect } from 'react-router';
 import { BoardForm } from '~/components/board-form';
-import { PageHeader } from '~/components/ui';
+import { Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseBoardForm } from '~/lib/board-form.server';
 import type { Route } from './+types/board-new';
@@ -26,13 +26,13 @@ export const meta: Route.MetaFunction = () => [{ title: 'New scoreboard' }];
 
 export default function BoardNew({ loaderData, actionData }: Route.ComponentProps) {
   return (
-    <div className="mx-auto max-w-3xl">
+    <Measure size="page">
       <PageHeader title="New scoreboard" />
       <BoardForm
         submitLabel="Create scoreboard"
         result={actionData}
         values={{ title: '', announce: '', ...loaderData, allowJoin: true, users: '', problems: '' }}
       />
-    </div>
+    </Measure>
   );
 }

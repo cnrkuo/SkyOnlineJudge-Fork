@@ -1,6 +1,6 @@
-import { Link } from 'react-router';
 import { BoardForm } from '~/components/board-form';
-import { idParam, PageHeader } from '~/components/ui';
+import { idParam } from '~/lib/params';
+import { ButtonLink, Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseBoardForm } from '~/lib/board-form.server';
 import type { Route } from './+types/board-edit';
@@ -34,16 +34,12 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Edit: ${l
 
 export default function BoardEdit({ loaderData, actionData }: Route.ComponentProps) {
   return (
-    <div className="mx-auto max-w-3xl">
+    <Measure size="page">
       <PageHeader
         title="Edit scoreboard"
-        actions={
-          <Link className="btn" to={`/scoreboards/${loaderData.id}`}>
-            View scoreboard
-          </Link>
-        }
+        actions={<ButtonLink to={`/scoreboards/${loaderData.id}`}>View scoreboard</ButtonLink>}
       />
       <BoardForm values={loaderData} submitLabel="Save scoreboard" result={actionData} />
-    </div>
+    </Measure>
   );
 }

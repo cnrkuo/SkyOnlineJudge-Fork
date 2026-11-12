@@ -1,5 +1,5 @@
 import { ContestStyle } from '@skyoj/contract';
-import { idParam } from '~/components/ui';
+import { idParam } from '~/lib/params';
 import { api, load } from '~/lib/api.server';
 import type { Route } from './+types/contest-scoreboard-csv';
 

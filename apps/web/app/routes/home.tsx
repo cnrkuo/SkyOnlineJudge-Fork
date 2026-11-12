@@ -1,33 +1,39 @@
 import { ContestPhase } from '@skyoj/contract';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { Card, Empty, Time, VerdictBadge } from '~/components/ui';
-import { api, load } from '~/lib/api.server';
+import { prefetch } from '~/lib/api.server';
+import { orpc } from '~/lib/orpc';
+import { Card, css, Empty, Muted, PhaseBadge, Split, Time, VerdictBadge } from '~/ui';
 import type { Route } from './+types/home';
 
+const problemsInput = { page: 1, pageSize: 10 };
+const contestsInput = { page: 1, pageSize: 20 };
+
 export async function loader({ request }: Route.LoaderArgs) {
-  const [problems, contests] = await Promise.all([
-    load(request, (o) => api.problem.list({ pageSize: 8 }, o)),
-    load(request, (o) => api.contest.list({ pageSize: 20 }, o)),
+  const dehydrated = await prefetch(request, (context) => [
+    orpc.problem.list.queryOptions({ input: problemsInput, context }),
+    orpc.contest.list.queryOptions({ input: contestsInput, context }),
   ]);
-  return {
-    problems: problems.items,
-    contests: contests.items.filter((contest) => contest.phase !== ContestPhase.ENDED).reverse(),
-  };
+  return { dehydrated };
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-  const { problems, contests } = loaderData;
+export default function Home() {
+  const problems = useQuery(orpc.problem.list.queryOptions({ input: problemsInput })).data?.items ?? [];
+  const contests = (useQuery(orpc.contest.list.queryOptions({ input: contestsInput })).data?.items ?? [])
+    .filter((contest) => contest.phase !== ContestPhase.ENDED)
+    .reverse();
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[3fr_2fr]">
-      <Card title="Latest problems">
+    <Split aside="half">
+      <Card flush title="Problems" footer={<Link to="/problems">All problems →</Link>}>
         {problems.length === 0 ? (
           <Empty>No problems have been published yet.</Empty>
         ) : (
-          <ul>
+          <ul className={css.list}>
             {problems.map((problem) => (
-              <li key={problem.id} className="flex items-center gap-3 border-b border-line px-4 py-2 last:border-b-0">
-                <span className="w-10 text-sm text-muted tabular-nums">#{problem.id}</span>
-                <Link to={`/problems/${problem.id}`} className="min-w-0 flex-1 truncate">
+              <li key={problem.id} className={css.listItem}>
+                <Muted small>#{problem.id}</Muted>
+                <Link to={`/problems/${problem.id}`} className={`${css.grow} ${css.truncate}`}>
                   {problem.title}
                 </Link>
                 {problem.myVerdict !== null && <VerdictBadge verdict={problem.myVerdict} />}
@@ -35,40 +41,30 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             ))}
           </ul>
         )}
-        <p className="border-t border-line px-4 py-2 text-sm">
-          <Link to="/problems">All problems →</Link>
-        </p>
       </Card>
 
-      <Card title="Running and upcoming contests">
+      <Card flush title="Running and upcoming contests" footer={<Link to="/contests">All contests →</Link>}>
         {contests.length === 0 ? (
           <Empty>No contests are scheduled.</Empty>
         ) : (
-          <ul>
+          <ul className={css.list}>
             {contests.map((contest) => (
-              <li key={contest.id} className="border-b border-line px-4 py-2.5 last:border-b-0">
-                <Link to={`/contests/${contest.id}`} className="font-medium">
-                  {contest.title}
-                </Link>
-                <div className="text-sm text-muted">
-                  {contest.phase === ContestPhase.RUNNING ? (
-                    <>
-                      <span className="font-medium text-good">Running</span> · ends <Time value={contest.endAt} />
-                    </>
-                  ) : (
-                    <>
-                      Starts <Time value={contest.startAt} />
-                    </>
-                  )}
+              <li key={contest.id} className={css.listItem}>
+                <div className={css.grow}>
+                  <Link to={`/contests/${contest.id}`}>{contest.title}</Link>
+                  <div>
+                    <Muted small>
+                      {contest.phase === ContestPhase.RUNNING ? 'Ends ' : 'Starts '}
+                      <Time value={contest.phase === ContestPhase.RUNNING ? contest.endAt : contest.startAt} />
+                    </Muted>
+                  </div>
                 </div>
+                <PhaseBadge phase={contest.phase} />
               </li>
             ))}
           </ul>
         )}
-        <p className="border-t border-line px-4 py-2 text-sm">
-          <Link to="/contests">All contests →</Link>
-        </p>
       </Card>
-    </div>
+    </Split>
   );
 }

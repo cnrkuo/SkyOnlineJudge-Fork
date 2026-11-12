@@ -38,4 +38,7 @@ export default [
 
   route('admin', 'routes/admin.tsx'),
   route('admin/users/:id', 'routes/admin-user.tsx'),
+
+  // Gateway for the browser's oRPC client.
+  route('rpc/*', 'routes/rpc.ts'),
 ] satisfies RouteConfig;

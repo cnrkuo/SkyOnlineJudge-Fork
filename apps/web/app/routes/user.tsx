@@ -1,7 +1,8 @@
 import { UserLevel } from '@skyoj/contract';
 import { Link } from 'react-router';
-import { Card, Empty, idParam, PageHeader, Time } from '~/components/ui';
 import { api, load } from '~/lib/api.server';
+import { idParam } from '~/lib/params';
+import { Badge, ButtonLink, Card, Cluster, css, Empty, Grid, PageHeader, Stack, Stats, Time } from '~/ui';
 import type { Route } from './+types/user';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -20,15 +21,13 @@ function role(level: UserLevel): string | null {
 function ProblemLinks({ ids }: { ids: number[] }) {
   if (ids.length === 0) return <Empty>Nothing here yet.</Empty>;
   return (
-    <ul className="flex flex-wrap gap-1.5 p-4">
+    <Cluster gap="xs">
       {ids.map((id) => (
-        <li key={id}>
-          <Link to={`/problems/${id}`} className="btn px-2 py-0.5 tabular-nums">
-            {id}
-          </Link>
-        </li>
+        <ButtonLink key={id} to={`/problems/${id}`} size="sm">
+          {id}
+        </ButtonLink>
       ))}
-    </ul>
+    </Cluster>
   );
 }
 
@@ -36,58 +35,50 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
   const { stats } = user;
   const badge = role(user.level);
   return (
-    <>
-      <div className="mb-5 flex items-center gap-4">
-        {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt="" className="size-16 rounded-full border border-line object-cover" />
-        ) : (
-          <div className="grid size-16 place-items-center rounded-full bg-sunken text-2xl font-semibold text-muted" aria-hidden>
-            {user.nickname.slice(0, 1).toUpperCase()}
-          </div>
-        )}
+    <Stack gap="lg">
+      <Cluster gap="md">
+        {user.avatarUrl && <img src={user.avatarUrl} alt="" className={css.avatar} />}
         <PageHeader
           title={user.nickname}
           meta={
-            <>
-              {badge && <span className="mr-2 font-medium text-accent">{badge}</span>}
-              {user.realname && <span className="mr-2">{user.realname}</span>}
-              Joined <Time value={user.createdAt} />
-            </>
+            <Cluster>
+              {badge && <Badge tone="primary">{badge}</Badge>}
+              {user.realname && <span>{user.realname}</span>}
+              <span>
+                Joined <Time value={user.createdAt} />
+              </span>
+            </Cluster>
           }
         />
-      </div>
+      </Cluster>
+
       {user.quote && (
-        <blockquote className="mb-5 border-l-4 border-line pl-4 text-muted">
-          <p className="whitespace-pre-wrap">{user.quote}</p>
-          {user.quoteRef && <footer className="mt-1 text-sm">— {user.quoteRef}</footer>}
+        <blockquote>
+          <p className={css.preWrap}>{user.quote}</p>
+          {user.quoteRef && <small>— {user.quoteRef}</small>}
         </blockquote>
       )}
 
-      <dl className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
+      <Stats
+        items={[
           ['Solved', stats.solvedProblemIds.length],
           ['Tried, unsolved', stats.triedProblemIds.length],
           ['Submissions', stats.submissions],
           ['Accepted', stats.accepted],
-        ].map(([label, value]) => (
-          <div key={label} className="card px-4 py-3">
-            <dt className="text-xs text-muted">{label}</dt>
-            <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
+        ]}
+      />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <Grid columns={2}>
         <Card title="Solved problems">
           <ProblemLinks ids={stats.solvedProblemIds} />
         </Card>
         <Card title="Tried but not solved">
           <ProblemLinks ids={stats.triedProblemIds} />
         </Card>
-      </div>
-      <p className="mt-4 text-sm">
+      </Grid>
+      <p>
         <Link to={`/submissions?user=${user.id}`}>All submissions by {user.nickname} →</Link>
       </p>
-    </>
+    </Stack>
   );
 }

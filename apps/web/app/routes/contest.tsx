@@ -1,7 +1,9 @@
 import { ContestPhase, ContestProblemState, ContestStyle, RegisterType, TeamState } from '@skyoj/contract';
 import { Form, Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
-import { Card, Empty, idParam, Notice, PageHeader, PhaseBadge, Time, UserLink, useRoot } from '~/components/ui';
+import { idParam } from '~/lib/params';
+import { Badge, Button, ButtonLink, Callout, Card, Cluster, css, Empty, Field, Muted, Notice, PageHeader, PhaseBadge, Stack, Time, UserLink, useRoot } from '~/ui';
+import { DataTable, type Column } from '~/ui/data-table';
 import { api, load, submit } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
 import { formatDuration } from '~/lib/time';
@@ -9,7 +11,7 @@ import type { Route } from './+types/contest';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const contest = await load(request, (o) => api.contest.get({ id: idParam(params.id) }, o));
-  return { ...contest, description: renderMarkdown(contest.description) };
+  return { ...contest, description: await renderMarkdown(contest.description) };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -33,47 +35,56 @@ type Contest = Route.ComponentProps['loaderData'];
 function Registration({ contest, loggedIn }: { contest: Contest; loggedIn: boolean }) {
   switch (contest.myState) {
     case TeamState.PENDING:
-      return <p className="text-sm">Your registration is waiting for approval by an administrator.</p>;
+      return <Callout>Your registration is waiting for approval by an administrator.</Callout>;
     case TeamState.REJECTED:
-      return <p className="text-sm text-bad">Your registration was rejected.</p>;
+      return <Callout tone="danger">Your registration was rejected.</Callout>;
     case TeamState.DROPPED:
-      return <p className="text-sm text-bad">You have been disqualified from this contest.</p>;
+      return <Callout tone="danger">You have been disqualified from this contest.</Callout>;
     case TeamState.NOT_REGISTERED:
       break;
     default:
       return (
-        <p className="text-sm text-good">
+        <Callout tone="success">
           You are registered{contest.myState === TeamState.UNOFFICIAL ? ' as an unofficial participant' : ''}.
           {contest.phase === ContestPhase.PREPARING && ' The problems appear here when the contest starts.'}
-        </p>
+        </Callout>
       );
   }
-  if (contest.phase === ContestPhase.ENDED) return <p className="text-sm text-muted">This contest has ended.</p>;
-  if (contest.registerType === RegisterType.CLOSED) {
-    return <p className="text-sm text-muted">Registration is by invitation only.</p>;
-  }
+  if (contest.phase === ContestPhase.ENDED) return <Muted>This contest has ended.</Muted>;
+  if (contest.registerType === RegisterType.CLOSED) return <Muted>Registration is by invitation only.</Muted>;
   if (!loggedIn) {
     return (
-      <p className="text-sm">
+      <Muted>
         <Link to={`/login?next=/contests/${contest.id}`}>Log in</Link> to register for this contest.
-      </p>
+      </Muted>
     );
   }
   return (
-    <Form method="post" className="flex flex-wrap items-end gap-2">
-      {contest.registerType === RegisterType.PASSWORD && (
-        <label className="text-sm">
-          <span className="label">Contest password</span>
-          <input className="input w-56" name="password" type="password" autoComplete="off" required />
-        </label>
-      )}
-      <button className="btn btn-primary">Register</button>
-      {contest.registerType === RegisterType.PERMIT_REQUIRED && (
-        <span className="text-sm text-muted">An administrator has to approve your registration.</span>
-      )}
+    <Form method="post">
+      <Cluster align="end" gap="md">
+        {contest.registerType === RegisterType.PASSWORD && (
+          <Field label="Contest password">
+            <input className={css.inputWidth.md} name="password" type="password" autoComplete="off" required />
+          </Field>
+        )}
+        <Button>Register</Button>
+        {contest.registerType === RegisterType.PERMIT_REQUIRED && <Muted small>An administrator has to approve your registration.</Muted>}
+      </Cluster>
     </Form>
   );
 }
+
+const problemColumns: Column<Contest['problems'][number]>[] = [
+  { id: 'tag', header: '#', cell: (p) => <strong>{p.tag}</strong> },
+  { id: 'title', header: 'Title', cell: (p) => <Link to={`/problems/${p.problemId}`}>{p.title}</Link> },
+  {
+    id: 'state',
+    header: 'Status',
+    align: 'right',
+    cell: (p) =>
+      p.state === ContestProblemState.READONLY ? <Badge>submissions closed</Badge> : p.state === ContestProblemState.HIDDEN ? <Badge>hidden from participants</Badge> : null,
+  },
+];
 
 export default function Contest({ loaderData: contest, actionData }: Route.ComponentProps) {
   const { user } = useRoot();
@@ -83,78 +94,53 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
       <PageHeader
         title={contest.title}
         meta={
-          <>
-            <PhaseBadge phase={contest.phase} /> · <Time value={contest.startAt} /> → <Time value={contest.endAt} /> (
-            {formatDuration((Date.parse(contest.endAt) - Date.parse(contest.startAt)) / 1000)}) ·{' '}
-            {contest.style === ContestStyle.IOI ? 'IOI rules' : 'ICPC rules'} · {contest.participants} participant
-            {contest.participants === 1 ? '' : 's'} · by <UserLink user={contest.owner} />
-          </>
+          <Cluster>
+            <PhaseBadge phase={contest.phase} />
+            <span>
+              <Time value={contest.startAt} /> → <Time value={contest.endAt} /> (
+              {formatDuration((Date.parse(contest.endAt) - Date.parse(contest.startAt)) / 1000)})
+            </span>
+            <span>{contest.style === ContestStyle.IOI ? 'IOI rules' : 'ICPC rules'}</span>
+            <span>
+              {contest.participants} participant{contest.participants === 1 ? '' : 's'}
+            </span>
+            <span>
+              by <UserLink user={contest.owner} />
+            </span>
+          </Cluster>
         }
         actions={
           <>
-            {boardVisible && (
-              <Link className="btn" to="scoreboard">
-                Scoreboard
-              </Link>
-            )}
-            {user && contest.canEnter && (
-              <Link className="btn" to={`/submissions?user=${user.id}`}>
-                My submissions
-              </Link>
-            )}
-            {contest.canManage && (
-              <Link className="btn" to="edit">
-                Edit
-              </Link>
-            )}
+            {boardVisible && <ButtonLink to="scoreboard">Scoreboard</ButtonLink>}
+            {user && contest.canEnter && <ButtonLink to={`/submissions?user=${user.id}`}>My submissions</ButtonLink>}
+            {contest.canManage && <ButtonLink to="edit">Edit</ButtonLink>}
           </>
         }
       />
 
-      <div className="space-y-6">
-        <Card className="space-y-3 p-4">
+      <Stack gap="lg">
+        <Stack gap="sm">
           <Notice result={actionData} />
           <Registration contest={contest} loggedIn={user !== null} />
-        </Card>
+        </Stack>
 
         {contest.description && (
-          <Card className="p-5">
+          <Card>
             <Markdown html={contest.description} />
           </Card>
         )}
 
         {contest.canEnter && (
-          <Card title="Problems">
-            {contest.problems.length === 0 ? (
-              <Empty>This contest has no problems yet.</Empty>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th className="w-16">#</th>
-                    <th>Title</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {contest.problems.map((problem) => (
-                    <tr key={problem.problemId}>
-                      <td className="font-semibold">{problem.tag}</td>
-                      <td>
-                        <Link to={`/problems/${problem.problemId}`}>{problem.title}</Link>
-                      </td>
-                      <td className="text-right text-xs text-muted">
-                        {problem.state === ContestProblemState.READONLY && 'submissions closed'}
-                        {problem.state === ContestProblemState.HIDDEN && 'hidden from participants'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <Card flush title="Problems">
+            <DataTable
+              data={contest.problems}
+              columns={problemColumns}
+              rowKey={(p) => p.problemId}
+              empty={<Empty>This contest has no problems yet.</Empty>}
+            />
           </Card>
         )}
-      </div>
+      </Stack>
     </>
   );
 }

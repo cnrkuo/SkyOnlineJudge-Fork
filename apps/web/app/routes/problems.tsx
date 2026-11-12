@@ -1,14 +1,25 @@
 import { AccessLevel, UserLevel } from '@skyoj/contract';
-import { Form, Link, redirect } from 'react-router';
-import { Card, Empty, Notice, PageHeader, pageParam, Pagination, useRoot, VerdictBadge } from '~/components/ui';
-import { api, load, submit } from '~/lib/api.server';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Form, Link, redirect, useSearchParams } from 'react-router';
+import { api, prefetch, submit } from '~/lib/api.server';
+import { orpc } from '~/lib/orpc';
+import { paging } from '~/lib/params';
+import { unlessOnlySearchChanged } from '~/lib/revalidate';
+import { Badge, Button, Card, Cluster, css, Empty, Notice, PageHeader, Stack, useRoot, VerdictBadge } from '~/ui';
+import { DataTable, Pager, type Column } from '~/ui/data-table';
 import type { Route } from './+types/problems';
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const search = new URL(request.url).searchParams.get('q')?.trim() || undefined;
-  const list = await load(request, (o) => api.problem.list({ page: pageParam(request), pageSize: 50, search }, o));
-  return { list, search: search ?? '' };
+/** The list query for a given query string — shared by the loader and the page. */
+function listInput(params: URLSearchParams) {
+  return { ...paging(params), search: params.get('q')?.trim() || undefined };
 }
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const input = listInput(new URL(request.url).searchParams);
+  return { dehydrated: await prefetch(request, (context) => [orpc.problem.list.queryOptions({ input, context })]) };
+}
+
+export const shouldRevalidate = unlessOnlySearchChanged;
 
 /** Creates a draft problem and jumps to its editor. */
 export async function action({ request }: Route.ActionArgs) {
@@ -19,72 +30,95 @@ export async function action({ request }: Route.ActionArgs) {
 
 export const meta: Route.MetaFunction = () => [{ title: 'Problems' }];
 
-export default function Problems({ loaderData, actionData }: Route.ComponentProps) {
-  const { list, search } = loaderData;
+type Problem = Awaited<ReturnType<typeof api.problem.list>>['items'][number];
+
+const columns: Column<Problem>[] = [
+  { id: 'id', header: '#', fixed: true, sortValue: (p) => p.id, cell: (p) => <span className={css.muted}>{p.id}</span> },
+  {
+    id: 'title',
+    header: 'Title',
+    fixed: true,
+    sortValue: (p) => p.title.toLowerCase(),
+    cell: (p) => (
+      <Cluster>
+        <Link to={`/problems/${p.id}`}>{p.title}</Link>
+        {p.contentAccess !== AccessLevel.OPEN && <Badge>hidden</Badge>}
+      </Cluster>
+    ),
+  },
+  { id: 'solved', header: 'Solved by', align: 'right', descFirst: true, sortValue: (p) => p.acceptedUsers, cell: (p) => p.acceptedUsers },
+  {
+    id: 'rate',
+    header: 'AC rate',
+    align: 'right',
+    descFirst: true,
+    sortValue: (p) => (p.submissions ? p.accepted / p.submissions : -1),
+    cell: (p) => (p.submissions ? `${((100 * p.accepted) / p.submissions).toFixed(1)}%` : '—'),
+  },
+  {
+    id: 'submissions',
+    header: 'Submissions',
+    align: 'right',
+    descFirst: true,
+    hidden: true,
+    sortValue: (p) => p.submissions,
+    cell: (p) => <Link to={`/submissions?problem=${p.id}`}>{p.submissions}</Link>,
+  },
+  {
+    id: 'mine',
+    header: 'You',
+    sortValue: (p) => p.myVerdict ?? 999,
+    cell: (p) => p.myVerdict !== null && <VerdictBadge verdict={p.myVerdict} />,
+  },
+];
+
+export default function Problems({ actionData }: Route.ComponentProps) {
+  const [params] = useSearchParams();
+  const input = listInput(params);
+  const query = useQuery({ ...orpc.problem.list.queryOptions({ input }), placeholderData: keepPreviousData });
+  const list = query.data;
   const { user } = useRoot();
   const isAdmin = (user?.level ?? 0) >= UserLevel.ADMIN;
+
   return (
     <>
-      <PageHeader
-        title="Problems"
-        meta={`${list.total} problem${list.total === 1 ? '' : 's'}`}
-        actions={
-          <Form method="get" role="search" className="flex gap-2">
-            <input className="input w-56" type="search" name="q" defaultValue={search} placeholder="Search titles" aria-label="Search problems" />
-            <button className="btn">Search</button>
-          </Form>
-        }
-      />
-
-      {isAdmin && (
-        <Form method="post" className="card mb-4 flex flex-wrap items-center gap-2 p-3">
-          <input className="input max-w-md flex-1" name="title" placeholder="Title of a new problem" aria-label="New problem title" maxLength={200} required />
-          <button className="btn btn-primary">Create problem</button>
-          <Notice result={actionData} />
-        </Form>
-      )}
-
-      <Card>
-        {list.items.length === 0 ? (
-          <Empty>{search ? 'No problems match your search.' : 'No problems have been published yet.'}</Empty>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th className="w-16">#</th>
-                  <th>Title</th>
-                  <th className="num">Solved by</th>
-                  <th className="num">AC rate</th>
-                  <th className="w-24">You</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.items.map((problem) => (
-                  <tr key={problem.id}>
-                    <td className="text-muted tabular-nums">{problem.id}</td>
-                    <td>
-                      <Link to={`/problems/${problem.id}`}>{problem.title}</Link>
-                      {problem.contentAccess !== AccessLevel.OPEN && (
-                        <span className="ml-2 rounded bg-sunken px-1.5 py-0.5 text-xs text-muted">hidden</span>
-                      )}
-                    </td>
-                    <td className="num">{problem.acceptedUsers}</td>
-                    <td className="num">
-                      <Link to={`/submissions?problem=${problem.id}`} title="accepted / all submissions">
-                        {problem.submissions ? ((100 * problem.accepted) / problem.submissions).toFixed(2) : '0.00'}% (
-                        {problem.accepted}/{problem.submissions})
-                      </Link>
-                    </td>
-                    <td>{problem.myVerdict !== null && <VerdictBadge verdict={problem.myVerdict} />}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <PageHeader title="Problems" meta={list && `${list.total} problem${list.total === 1 ? '' : 's'}`} />
+      <Stack>
+        {isAdmin && (
+          <Card>
+            <Form method="post">
+              <Stack gap="sm">
+                <Notice result={actionData} />
+                <Cluster>
+                  <input className={css.grow} name="title" placeholder="Title of a new problem" aria-label="New problem title" maxLength={200} required />
+                  <Button>Create problem</Button>
+                </Cluster>
+              </Stack>
+            </Form>
+          </Card>
         )}
-      </Card>
-      <Pagination page={list.page} pageSize={list.pageSize} total={list.total} />
+
+        <Card flush>
+          <DataTable
+            caption="Problems"
+            data={list?.items ?? []}
+            columns={columns}
+            rowKey={(p) => p.id}
+            columnMenu
+            stale={query.isPlaceholderData}
+            toolbar={
+              <Form method="get" role="search">
+                <Cluster>
+                  <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Search titles" aria-label="Search problems" />
+                  <Button variant="secondary">Search</Button>
+                </Cluster>
+              </Form>
+            }
+            empty={<Empty>{input.search ? 'No problems match your search.' : 'No problems have been published yet.'}</Empty>}
+            footer={list && <Pager page={list.page} pageSize={list.pageSize} total={list.total} sizes />}
+          />
+        </Card>
+      </Stack>
     </>
   );
 }

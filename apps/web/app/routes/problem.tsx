@@ -1,10 +1,12 @@
-import { AccessLevel, LANGUAGE_LABEL, ScoreMode } from '@skyoj/contract';
+import { AccessLevel, ScoreMode } from '@skyoj/contract';
 import { Form, Link, redirect, useNavigation } from 'react-router';
-import { CodeInput, LanguageSelect, parseLanguage } from '~/components/code';
 import { Markdown } from '~/components/markdown';
-import { Card, idParam, Notice, PageHeader, UserLink, useRoot, VerdictBadge } from '~/components/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
+import { idParam } from '~/lib/params';
+import { Badge, Button, ButtonLink, Card, CardBody, Cluster, Muted, Notice, PageHeader, Split, Stack, UserLink, useRoot, VerdictBadge } from '~/ui';
+import { CodeInput, LanguageSelect, languageName, parseLanguage } from '~/ui/code';
+import { DataTable, type Column } from '~/ui/data-table';
 import type { Route } from './+types/problem';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -14,7 +16,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     load(request, (o) => api.problem.stats({ id }, o)),
     load(request, (o) => api.problem.listAttachments({ problemId: id }, o)),
   ]);
-  const statement = renderMarkdown(problem.content, { assetBase: `/problems/${problem.id}/attachments` });
+  const statement = await renderMarkdown(problem.content, { assetBase: `/problems/${problem.id}/attachments` });
   // The Markdown source stays on the server; the page only needs the HTML.
   return { problem: { ...problem, content: undefined }, statement, stats, attachments };
 }
@@ -34,155 +36,129 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [
   { title: loaderData ? `${loaderData.problem.id}. ${loaderData.problem.title}` : 'Problem' },
 ];
 
+type Stats = Route.ComponentProps['loaderData']['stats'];
+
+const subtaskColumns: Column<{ index: number; points: number; count: number }>[] = [
+  { id: 'n', header: '#', cell: (g) => g.index + 1 },
+  { id: 'count', header: 'Testcases', align: 'right', cell: (g) => g.count },
+  { id: 'points', header: 'Points', align: 'right', cell: (g) => g.points },
+];
+
+const fastestColumns: Column<Stats['fastest'][number]>[] = [
+  { id: 'user', header: 'User', cell: (r) => <UserLink user={r.user} /> },
+  { id: 'language', header: 'Language', cell: (r) => <Muted>{languageName(r.language)}</Muted> },
+  { id: 'time', header: 'Time', align: 'right', cell: (r) => <Link to={`/submissions/${r.submissionId}`}>{r.timeMs} ms</Link> },
+];
+
 export default function Problem({ loaderData, actionData }: Route.ComponentProps) {
   const { problem, statement, stats, attachments } = loaderData;
   const { user } = useRoot();
   const busy = useNavigation().state === 'submitting';
   const total = stats.verdicts.reduce((sum, row) => sum + row.count, 0);
+  const verdictColumns: Column<Stats['verdicts'][number]>[] = [
+    { id: 'verdict', header: 'Verdict', cell: (r) => <VerdictBadge verdict={r.verdict} long /> },
+    { id: 'count', header: 'Count', align: 'right', cell: (r) => r.count },
+    { id: 'share', header: 'Share', align: 'right', cell: (r) => <Muted>{Math.round((100 * r.count) / total)}%</Muted> },
+  ];
 
   return (
     <>
       <PageHeader
         title={
           <>
-            <span className="text-muted">#{problem.id}</span> {problem.title}
+            <Muted>#{problem.id}</Muted> {problem.title}
           </>
         }
         meta={
-          <>
-            Time limit {problem.timeLimitMs} ms · Memory limit {Math.round(problem.memoryLimitKb / 1024)} MB ·{' '}
-            {problem.scoreMode === ScoreMode.GROUP_MIN ? 'Subtask scoring' : 'Per-testcase scoring'} · by{' '}
-            <UserLink user={problem.owner} />
-            {problem.contentAccess !== AccessLevel.OPEN && <span className="ml-2 rounded bg-sunken px-1.5 py-0.5 text-xs">hidden</span>}
-          </>
+          <Cluster>
+            <span>Time limit {problem.timeLimitMs} ms</span>
+            <span>Memory limit {Math.round(problem.memoryLimitKb / 1024)} MB</span>
+            <span>{problem.scoreMode === ScoreMode.GROUP_MIN ? 'Subtask scoring' : 'Per-testcase scoring'}</span>
+            <span>
+              by <UserLink user={problem.owner} />
+            </span>
+            {problem.contentAccess !== AccessLevel.OPEN && <Badge>hidden</Badge>}
+          </Cluster>
         }
         actions={
           <>
-            <Link className="btn" to={`/submissions?problem=${problem.id}`}>
-              Submissions
-            </Link>
-            {problem.canEdit && (
-              <Link className="btn" to="edit">
-                Edit
-              </Link>
-            )}
+            <ButtonLink to={`/submissions?problem=${problem.id}`}>Submissions</ButtonLink>
+            {problem.canEdit && <ButtonLink to="edit">Edit</ButtonLink>}
           </>
         }
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="space-y-6">
-          <Card className="p-5">
-            {statement ? (
-              <Markdown html={statement} />
-            ) : (
-              <p className="text-muted">This problem has no statement yet.</p>
-            )}
-          </Card>
+      <Split>
+        <Stack gap="lg">
+          <Card>{statement ? <Markdown html={statement} /> : <Muted>This problem has no statement yet.</Muted>}</Card>
 
           <Card title="Submit a solution">
             {problem.canSubmit ? (
-              <Form method="post" className="space-y-3 p-4">
-                <Notice result={actionData} />
-                <CodeInput />
-                <div className="flex flex-wrap items-center gap-2">
-                  <LanguageSelect />
-                  <button className="btn btn-primary" disabled={busy}>
-                    {busy ? 'Submitting…' : 'Submit'}
-                  </button>
-                </div>
+              <Form method="post">
+                <Stack gap="sm">
+                  <Notice result={actionData} />
+                  <CodeInput />
+                  <Cluster>
+                    <LanguageSelect />
+                    <Button busy={busy}>Submit</Button>
+                  </Cluster>
+                </Stack>
               </Form>
+            ) : user ? (
+              <Muted>Submissions are closed for this problem.</Muted>
             ) : (
-              <p className="p-4 text-sm text-muted">
-                {user ? (
-                  'Submissions are closed for this problem.'
-                ) : (
-                  <>
-                    <Link to={`/login?next=/problems/${problem.id}`}>Log in</Link> to submit a solution.
-                  </>
-                )}
-              </p>
+              <Muted>
+                <Link to={`/login?next=/problems/${problem.id}`}>Log in</Link> to submit a solution.
+              </Muted>
             )}
           </Card>
-        </div>
+        </Stack>
 
-        <aside className="space-y-6">
+        <Stack gap="lg">
           {problem.scoreMode === ScoreMode.GROUP_MIN && problem.scoreGroups.length > 0 && (
-            <Card title="Subtasks">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th className="num">Testcases</th>
-                    <th className="num">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {problem.scoreGroups.map(([points, count], index) => (
-                    <tr key={index}>
-                      <td>{index + 1}</td>
-                      <td className="num">{count}</td>
-                      <td className="num">{points}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <Card flush title="Subtasks">
+              <DataTable
+                data={problem.scoreGroups.map(([points, count], index) => ({ index, points, count }))}
+                columns={subtaskColumns}
+                rowKey={(g) => g.index}
+                empty={null}
+              />
             </Card>
           )}
 
           {attachments.length > 0 && (
             <Card title="Attachments">
-              <ul className="p-4 text-sm">
+              <Stack gap="xs">
                 {attachments.map((file) => (
-                  <li key={file.name}>
-                    <a href={`/problems/${problem.id}/attachments/${file.name}`}>{file.name}</a>{' '}
-                    <span className="text-muted">({Math.ceil(file.size / 1024)} KB)</span>
-                  </li>
+                  <Cluster key={file.name} justify="between">
+                    <a href={`/problems/${problem.id}/attachments/${file.name}`}>{file.name}</a>
+                    <Muted small>{Math.ceil(file.size / 1024)} KB</Muted>
+                  </Cluster>
                 ))}
-              </ul>
+              </Stack>
             </Card>
           )}
 
-          <Card title="Statistics">
-            {total === 0 ? (
-              <p className="p-4 text-sm text-muted">No submissions yet.</p>
-            ) : (
-              <table className="table">
-                <tbody>
-                  {stats.verdicts.map((row) => (
-                    <tr key={row.verdict}>
-                      <td>
-                        <VerdictBadge verdict={row.verdict} long />
-                      </td>
-                      <td className="num">{row.count}</td>
-                      <td className="num text-muted">{Math.round((100 * row.count) / total)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <Card flush title="Statistics">
+            <DataTable
+              data={stats.verdicts}
+              columns={verdictColumns}
+              rowKey={(r) => r.verdict}
+              empty={
+                <CardBody>
+                  <Muted>No submissions yet.</Muted>
+                </CardBody>
+              }
+            />
           </Card>
 
           {stats.fastest.length > 0 && (
-            <Card title="Fastest solutions">
-              <table className="table">
-                <tbody>
-                  {stats.fastest.map((row) => (
-                    <tr key={row.submissionId}>
-                      <td>
-                        <UserLink user={row.user} />
-                      </td>
-                      <td className="num" title={LANGUAGE_LABEL[row.language]}>
-                        <Link to={`/submissions/${row.submissionId}`}>{row.timeMs} ms</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <Card flush title="Fastest solutions">
+              <DataTable data={stats.fastest} columns={fastestColumns} rowKey={(r) => r.submissionId} empty={null} />
             </Card>
           )}
-        </aside>
-      </div>
+        </Stack>
+      </Split>
     </>
   );
 }

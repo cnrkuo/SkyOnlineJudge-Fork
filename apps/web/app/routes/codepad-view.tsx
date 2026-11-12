@@ -1,34 +1,29 @@
-import { LANGUAGE_LABEL } from '@skyoj/contract';
-import { Link } from 'react-router';
-import { CodeBlock } from '~/components/code';
-import { PageHeader, Time, UserLink } from '~/components/ui';
 import { api, load } from '~/lib/api.server';
+import { highlight } from '~/lib/highlight.server';
+import { ButtonLink, PageHeader, Time, UserLink } from '~/ui';
+import { CodeView, languageName } from '~/ui/code';
 import type { Route } from './+types/codepad-view';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return load(request, (o) => api.codepad.get({ hash: params.hash }, o));
+  const { content, ...pad } = await load(request, (o) => api.codepad.get({ hash: params.hash }, o));
+  return { pad, html: await highlight(content, pad.language) };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: 'Codepad' }, { name: 'robots', content: 'noindex' }];
 
-export default function CodepadView({ loaderData: pad }: Route.ComponentProps) {
+export default function CodepadView({ loaderData: { pad, html } }: Route.ComponentProps) {
   return (
     <>
       <PageHeader
         title="Codepad"
         meta={
           <>
-            {LANGUAGE_LABEL[pad.language].split(' (')[0]} · {pad.owner ? <UserLink user={pad.owner} /> : 'deleted user'} ·{' '}
-            <Time value={pad.createdAt} />
+            {languageName(pad.language)} · {pad.owner ? <UserLink user={pad.owner} /> : 'deleted user'} · <Time value={pad.createdAt} />
           </>
         }
-        actions={
-          <Link className="btn" to="/codepad">
-            New pad
-          </Link>
-        }
+        actions={<ButtonLink to="/codepad">New pad</ButtonLink>}
       />
-      <CodeBlock code={pad.content} />
+      <CodeView html={html} />
     </>
   );
 }

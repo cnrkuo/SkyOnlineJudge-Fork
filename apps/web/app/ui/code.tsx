@@ -1,8 +1,12 @@
 import { CODE_MAX_LENGTH, Language, LANGUAGE_LABEL } from '@skyoj/contract';
 import type { ChangeEvent } from 'react';
 import { useRef } from 'react';
+import * as css from './code.css';
+import { inputWidth, monoInput, srOnly } from './kit.css';
 
 const languages = Object.values(Language);
+
+export const languageName = (language: Language) => LANGUAGE_LABEL[language].split(' (')[0]!;
 
 export function parseLanguage(value: FormDataEntryValue | null): Language {
   return languages.find((language) => language === value) ?? Language.CPP;
@@ -10,7 +14,7 @@ export function parseLanguage(value: FormDataEntryValue | null): Language {
 
 export function LanguageSelect({ defaultValue = Language.CPP }: { defaultValue?: Language }) {
   return (
-    <select className="input w-auto" name="language" defaultValue={defaultValue} aria-label="Language">
+    <select className={inputWidth.auto} name="language" defaultValue={defaultValue} aria-label="Language">
       {languages.map((language) => (
         <option key={language} value={language}>
           {LANGUAGE_LABEL[language]}
@@ -32,7 +36,7 @@ export function CodeInput({ name = 'code', maxLength = CODE_MAX_LENGTH, rows = 1
     <div>
       <textarea
         ref={area}
-        className="input code"
+        className={monoInput}
         name={name}
         rows={rows}
         maxLength={maxLength}
@@ -43,27 +47,18 @@ export function CodeInput({ name = 'code', maxLength = CODE_MAX_LENGTH, rows = 1
         placeholder="Paste your source code here"
         required
       />
-      <label className="hint mt-1 inline-flex cursor-pointer items-center gap-2">
-        <span className="text-accent underline">or load it from a file</span>
-        <input type="file" className="sr-only" onChange={loadFile} />
+      <label className={css.fileLink}>
+        or load it from a file
+        <input type="file" className={srOnly} onChange={loadFile} />
       </label>
     </div>
   );
 }
 
-/** Read-only source listing with line numbers. */
-export function CodeBlock({ code }: { code: string }) {
-  const lines = code.replace(/\n$/, '').split('\n');
-  return (
-    <div className="overflow-x-auto rounded-md border border-line bg-sunken">
-      <pre className="code grid min-w-max grid-cols-[auto_1fr] py-2 leading-5">
-        {lines.map((line, index) => (
-          <span key={index} className="contents">
-            <span className="px-3 text-right text-muted select-none">{index + 1}</span>
-            <code className="pr-4">{line || ' '}</code>
-          </span>
-        ))}
-      </pre>
-    </div>
-  );
+/**
+ * Shows code highlighted on the server by `highlight()` (lib/highlight.server).
+ * The HTML comes from Shiki, never from the author directly.
+ */
+export function CodeView({ html, lineNumbers = true }: { html: string; lineNumbers?: boolean }) {
+  return <div className={`${css.code} ${lineNumbers ? css.numbered : ''}`} dangerouslySetInnerHTML={{ __html: html }} />;
 }

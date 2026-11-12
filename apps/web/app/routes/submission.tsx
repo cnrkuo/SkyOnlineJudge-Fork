@@ -1,23 +1,32 @@
-import { LANGUAGE_LABEL, Verdict, VERDICT_LABEL } from '@skyoj/contract';
-import { useEffect } from 'react';
-import { Form, Link, useRevalidator } from 'react-router';
-import { CodeBlock } from '~/components/code';
-import { Card, idParam, Notice, PageHeader, Time, UserLink, VerdictBadge } from '~/components/ui';
-import { api, load, submit } from '~/lib/api.server';
+import { Verdict, VERDICT_LABEL } from '@skyoj/contract';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Form, Link } from 'react-router';
+import { api, load, seed, submit } from '~/lib/api.server';
+import { highlight } from '~/lib/highlight.server';
+import { orpc } from '~/lib/orpc';
+import { idParam } from '~/lib/params';
+import { Button, Callout, Card, CardBody, css, Field, Muted, Notice, PageHeader, Stack, Stats, Time, UserLink, VerdictBadge } from '~/ui';
+import { CodeView, languageName } from '~/ui/code';
+import { DataTable, type Column } from '~/ui/data-table';
+import { Tabs } from '~/ui/overlays';
 import type { Route } from './+types/submission';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
+  const id = idParam(params.id);
   // Arriving straight from the submit form: the insert may still be queued.
   const awaitCreation = new URL(request.url).searchParams.has('new');
-  return load(request, (o) => api.submission.get({ id: idParam(params.id) }, o), { awaitCreation });
+  const submission = await load(request, (o) => api.submission.get({ id }, o), { awaitCreation });
+  return {
+    id,
+    // Highlighted once here; the source never changes while the page polls.
+    codeHtml: submission.code === null ? null : await highlight(submission.code, submission.language),
+    dehydrated: seed([[orpc.submission.get.queryKey({ input: { id } }), submission]]),
+  };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
   const id = idParam(params.id);
   const form = await request.formData();
-  if (form.get('intent') === 'rejudge') {
-    return { ...(await submit(request, (o) => api.submission.rejudge({ id }, o))), message: 'Queued for rejudging.' };
-  }
   const comment = String(form.get('comment') ?? '');
   const verdict = Object.values(Verdict).find((value) => String(value) === form.get('verdict'));
   return { ...(await submit(request, (o) => api.submission.setComment({ id, comment, verdict }, o))), message: 'Saved.' };
@@ -27,18 +36,60 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Submissio
 
 const isPending = (verdict: Verdict) => verdict === Verdict.WAIT || verdict === Verdict.JUDGING;
 
-export default function Submission({ loaderData: submission, actionData }: Route.ComponentProps) {
-  const pending = isPending(submission.verdict);
-  const { revalidate, state } = useRevalidator();
+type Result = Awaited<ReturnType<typeof api.submission.get>>['results'][number];
 
+const resultColumns: Column<Result>[] = [
+  { id: 'n', header: '#', cell: (r) => r.ordinal + 1 },
+  { id: 'verdict', header: 'Verdict', sortValue: (r) => r.verdict, cell: (r) => <VerdictBadge verdict={r.verdict} long /> },
+  { id: 'time', header: 'Time', align: 'right', sortValue: (r) => r.timeMs, cell: (r) => `${r.timeMs} ms` },
+  { id: 'memory', header: 'Memory', align: 'right', sortValue: (r) => r.memoryKb, cell: (r) => `${r.memoryKb} KB` },
+  { id: 'message', header: 'Message', cell: (r) => <Muted>{r.message}</Muted> },
+];
+
+export default function Submission({ loaderData, actionData }: Route.ComponentProps) {
+  const { id, codeHtml } = loaderData;
+  const queryClient = useQueryClient();
+  const options = orpc.submission.get.queryOptions({ input: { id } });
   // Poll while the judge is working; stops as soon as a verdict arrives.
-  useEffect(() => {
-    if (!pending) return;
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible' && state === 'idle') void revalidate();
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [pending, revalidate, state]);
+  const { data: submission } = useQuery({
+    ...options,
+    refetchInterval: (current) => (current.state.data && isPending(current.state.data.verdict) ? 1500 : false),
+  });
+  const rejudge = useMutation(
+    orpc.submission.rejudge.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: options.queryKey }) }),
+  );
+  if (!submission) return null;
+  const pending = isPending(submission.verdict);
+
+  const tabs = [
+    ...(submission.compileMessage
+      ? [
+          {
+            id: 'message',
+            label: submission.verdict === Verdict.CE ? 'Compiler output' : 'Judge message',
+            content: (
+              <CardBody>
+                <pre className={css.preWrap}>{submission.compileMessage}</pre>
+              </CardBody>
+            ),
+          },
+        ]
+      : []),
+    ...(submission.results.length > 0
+      ? [
+          {
+            id: 'testcases',
+            label: `Testcases (${submission.results.length})`,
+            content: <DataTable data={submission.results} columns={resultColumns} rowKey={(r) => r.testcaseId} empty={null} />,
+          },
+        ]
+      : []),
+    {
+      id: 'source',
+      label: 'Source code',
+      content: <CardBody>{codeHtml === null ? <Muted>The source code of this submission is not public.</Muted> : <CodeView html={codeHtml} />}</CardBody>,
+    },
+  ];
 
   return (
     <>
@@ -55,114 +106,67 @@ export default function Submission({ loaderData: submission, actionData }: Route
         }
         actions={
           submission.canRejudge && (
-            <Form method="post">
-              <button className="btn" name="intent" value="rejudge">
-                Rejudge
-              </button>
-            </Form>
+            <Button variant="secondary" busy={rejudge.isPending} onClick={() => rejudge.mutate({ id })}>
+              Rejudge
+            </Button>
           )
         }
       />
-      <div className="mb-4">
+
+      <Stack gap="lg">
         <Notice result={actionData} />
-      </div>
+        {rejudge.isError && <Notice result={{ ok: false, error: rejudge.error.message }} />}
 
-      <dl className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5" aria-live="polite">
-        {[
-          ['Verdict', <VerdictBadge key="v" verdict={submission.verdict} long />],
-          ['Score', Math.round(submission.score * 100) / 100],
-          ['Total time', `${submission.timeMs} ms`],
-          ['Peak memory', `${submission.memoryKb} KB`],
-          ['Language', LANGUAGE_LABEL[submission.language].split(' (')[0]],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="card px-4 py-3">
-            <dt className="text-xs text-muted">{label}</dt>
-            <dd className="font-semibold">{value}</dd>
-          </div>
-        ))}
-      </dl>
+        <div aria-live="polite">
+          <Stats
+            items={[
+              ['Verdict', <VerdictBadge key="v" verdict={submission.verdict} long />],
+              ['Score', Math.round(submission.score * 100) / 100],
+              ['Total time', `${submission.timeMs} ms`],
+              ['Peak memory', `${submission.memoryKb} KB`],
+              ['Language', languageName(submission.language)],
+            ]}
+          />
+        </div>
 
-      <div className="space-y-6">
-        {pending && <p className="text-sm text-muted">Waiting for a judge… this page refreshes by itself.</p>}
+        {pending && <Callout>Waiting for a judge… this page updates by itself.</Callout>}
 
         {submission.comment && (
           <Card title="Comment from the judges">
-            <p className="p-4 whitespace-pre-wrap">{submission.comment}</p>
+            <p className={css.preWrap}>{submission.comment}</p>
           </Card>
         )}
 
-        {submission.compileMessage && (
-          <Card title={submission.verdict === Verdict.CE ? 'Compiler output' : 'Judge message'}>
-            <pre className="code overflow-x-auto p-4 whitespace-pre-wrap">{submission.compileMessage}</pre>
-          </Card>
-        )}
-
-        {submission.results.length > 0 && (
-          <Card title="Testcases">
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Verdict</th>
-                    <th className="num">Time</th>
-                    <th className="num">Memory</th>
-                    <th>Message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {submission.results.map((result) => (
-                    <tr key={result.testcaseId}>
-                      <td className="tabular-nums">{result.ordinal + 1}</td>
-                      <td>
-                        <VerdictBadge verdict={result.verdict} long />
-                      </td>
-                      <td className="num">{result.timeMs} ms</td>
-                      <td className="num">{result.memoryKb} KB</td>
-                      <td className="text-muted">{result.message}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-
-        <Card title="Source code">
-          {submission.code === null ? (
-            <p className="p-4 text-sm text-muted">The source code of this submission is not public.</p>
-          ) : (
-            <div className="p-4">
-              <CodeBlock code={submission.code} />
-            </div>
-          )}
+        <Card flush>
+          {/* Remount when the set of tabs changes so the first one is selected. */}
+          <Tabs key={tabs.map((tab) => tab.id).join()} tabs={tabs} />
         </Card>
 
         {submission.canRejudge && (
           <Card title="Review">
-            <Form method="post" className="space-y-3 p-4">
-              <label className="block">
-                <span className="label">Comment (shown to the author)</span>
-                <textarea className="input" name="comment" rows={3} maxLength={2000} defaultValue={submission.comment} />
-              </label>
-              <label className="block">
-                <span className="label">Override verdict</span>
-                <select className="input w-auto" name="verdict" defaultValue="">
-                  <option value="">Keep the judge's verdict</option>
-                  {Object.values(Verdict).map((verdict) => (
-                    <option key={verdict} value={verdict}>
-                      {VERDICT_LABEL[verdict]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="btn" name="intent" value="comment">
-                Save review
-              </button>
+            <Form method="post">
+              <Stack>
+                <Field label="Comment (shown to the author)">
+                  <textarea name="comment" rows={3} maxLength={2000} defaultValue={submission.comment} />
+                </Field>
+                <Field label="Override verdict">
+                  <select className={css.inputWidth.auto} name="verdict" defaultValue="">
+                    <option value="">Keep the judge's verdict</option>
+                    {Object.values(Verdict).map((verdict) => (
+                      <option key={verdict} value={verdict}>
+                        {VERDICT_LABEL[verdict]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <div>
+                  <Button variant="secondary">Save review</Button>
+                </div>
+              </Stack>
             </Form>
           </Card>
         )}
-      </div>
+      </Stack>
     </>
   );
 }

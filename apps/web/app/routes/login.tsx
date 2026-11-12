@@ -1,5 +1,5 @@
 import { Form, Link, redirect, useNavigation } from 'react-router';
-import { Field, Notice } from '~/components/ui';
+import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import { api, submit } from '~/lib/api.server';
 import { getToken, startSession } from '~/lib/session.server';
 import type { Route } from './+types/login';
@@ -32,24 +32,30 @@ export const meta: Route.MetaFunction = () => [{ title: 'Log in' }];
 export default function Login({ loaderData, actionData }: Route.ComponentProps) {
   const busy = useNavigation().state !== 'idle';
   return (
-    <div className="mx-auto max-w-sm">
-      <h1 className="mb-4">Log in</h1>
-      <Form method="post" className="card space-y-4 p-4">
-        <input type="hidden" name="next" value={loaderData.next} />
-        <Notice result={actionData} />
-        <Field label="E-mail or nickname">
-          <input className="input" name="identifier" autoComplete="username" required autoFocus />
-        </Field>
-        <Field label="Password">
-          <input className="input" name="password" type="password" autoComplete="current-password" required />
-        </Field>
-        <button className="btn btn-primary w-full" disabled={busy}>
-          {busy ? 'Logging in…' : 'Log in'}
-        </button>
-      </Form>
-      <p className="mt-3 text-center text-sm text-muted">
-        No account yet? <Link to="/register">Register</Link>
-      </p>
-    </div>
+    <Measure size="form">
+      <Stack>
+        <h1>Log in</h1>
+        <Card>
+          <Form method="post">
+            <Stack>
+              <input type="hidden" name="next" value={loaderData.next} />
+              <Notice result={actionData} />
+              <Field label="E-mail or nickname">
+                <input name="identifier" autoComplete="username" required autoFocus />
+              </Field>
+              <Field label="Password">
+                <input name="password" type="password" autoComplete="current-password" required />
+              </Field>
+              <Button block busy={busy}>
+                Log in
+              </Button>
+            </Stack>
+          </Form>
+        </Card>
+        <Muted small>
+          No account yet? <Link to="/register">Register</Link>
+        </Muted>
+      </Stack>
+    </Measure>
   );
 }

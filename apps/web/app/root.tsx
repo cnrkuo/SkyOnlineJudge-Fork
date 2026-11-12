@@ -1,10 +1,27 @@
 import { UserLevel } from '@skyoj/contract';
-import { data, Form, isRouteErrorResponse, Link, Links, Meta, NavLink, Outlet, Scripts, ScrollRestoration } from 'react-router';
+import { HydrationBoundary, QueryClient, QueryClientProvider, type DehydratedState } from '@tanstack/react-query';
+import { useState, type ReactNode } from 'react';
+import {
+  data,
+  Form,
+  isRouteErrorResponse,
+  Link,
+  Links,
+  Meta,
+  NavLink,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useMatches,
+} from 'react-router';
 import type { Route } from './+types/root';
-import './app.css';
 import { api, as } from './lib/api.server';
 import { SITE_NAME, SITE_TIMEZONE } from './lib/site.server';
-
+import './styles/fonts.css';
+import './styles/global.css';
+import * as shell from './styles/shell.css';
+import { Button, ButtonLink, css } from './ui';
+import { TooltipProvider } from './ui/overlays';
 
 const MAX_BODY_BYTES = Number(process.env.MAX_UPLOAD_MB ?? 256) * 1024 * 1024;
 
@@ -33,12 +50,13 @@ export function shouldRevalidate({ formMethod }: { formMethod?: string }) {
   return formMethod !== undefined && formMethod !== 'GET';
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="dark" />
         <Meta />
         <Links />
       </head>
@@ -51,6 +69,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Puts everything the active routes prefetched (`prefetch()` in their
+ * loaders) into the query cache before the page renders, so `useQuery`
+ * starts with data on the server and in the browser alike.
+ */
+function Hydrated({ children }: { children: ReactNode }) {
+  const states = useMatches()
+    .map((match) => (match.loaderData as { dehydrated?: DehydratedState } | undefined)?.dehydrated)
+    .filter((state) => state !== undefined);
+  return states.reduceRight<ReactNode>((inner, state) => <HydrationBoundary state={state}>{inner}</HydrationBoundary>, children);
+}
+
 const navLinks = [
   { to: '/problems', label: 'Problems' },
   { to: '/submissions', label: 'Submissions' },
@@ -59,66 +89,77 @@ const navLinks = [
   { to: '/codepad', label: 'Codepad' },
 ];
 
-function navClass({ isActive }: { isActive: boolean }) {
-  return `rounded-md px-2.5 py-1.5 text-sm font-medium no-underline hover:bg-sunken hover:no-underline ${
-    isActive ? 'bg-sunken text-text' : 'text-muted'
-  }`;
-}
-
 export default function App({ loaderData }: Route.ComponentProps) {
   const { user, siteName } = loaderData;
+  // One cache per browser tab, and a fresh one for every server render.
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          // Server-rendered data is fresh; do not refetch it on arrival.
+          queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: true },
+        },
+      }),
+  );
+
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
-          <Link to="/" className="mr-2 text-base font-semibold tracking-tight text-text no-underline hover:no-underline">
-            <span className="text-accent">▲</span> {siteName}
-          </Link>
-          <nav aria-label="Main" className="flex flex-wrap items-center gap-1">
-            {navLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} className={navClass}>
-                {link.label}
-              </NavLink>
-            ))}
-            {user && user.level >= UserLevel.ADMIN && (
-              <NavLink to="/admin" className={navClass}>
-                Admin
-              </NavLink>
-            )}
-          </nav>
-          <div className="ml-auto flex items-center gap-1">
-            {user ? (
-              <>
-                <NavLink to={`/users/${user.id}`} className={navClass}>
-                  {user.nickname}
-                </NavLink>
-                <NavLink to="/settings" className={navClass}>
-                  Settings
-                </NavLink>
-                <Form method="post" action="/logout">
-                  <button className="cursor-pointer rounded-md px-2.5 py-1.5 text-sm font-medium text-muted hover:bg-sunken">
-                    Log out
-                  </button>
-                </Form>
-              </>
-            ) : (
-              <>
-                <NavLink to="/login" className={navClass}>
-                  Log in
-                </NavLink>
-                <Link to="/register" className="btn btn-primary">
-                  Register
-                </Link>
-              </>
-            )}
-          </div>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider delayDuration={200}>
+        <div className={shell.page}>
+          <header className={shell.header}>
+            <nav aria-label="Main" className={`${css.container} ${shell.nav}`}>
+              <Link to="/" className={shell.brand}>
+                <span className={shell.brandMark}>▲</span> {siteName}
+              </Link>
+              <div className={shell.navLinks}>
+                {navLinks.map((link) => (
+                  <NavLink key={link.to} to={link.to} className={shell.navLink}>
+                    {link.label}
+                  </NavLink>
+                ))}
+                {user && user.level >= UserLevel.ADMIN && (
+                  <NavLink to="/admin" className={shell.navLink}>
+                    Admin
+                  </NavLink>
+                )}
+              </div>
+              <div className={shell.navEnd}>
+                {user ? (
+                  <>
+                    <NavLink to={`/users/${user.id}`} className={shell.navLink}>
+                      {user.nickname}
+                    </NavLink>
+                    <NavLink to="/settings" className={shell.navLink}>
+                      Settings
+                    </NavLink>
+                    <Form method="post" action="/logout">
+                      <Button variant="secondary" size="sm">
+                        Log out
+                      </Button>
+                    </Form>
+                  </>
+                ) : (
+                  <>
+                    <NavLink to="/login" className={shell.navLink}>
+                      Log in
+                    </NavLink>
+                    <ButtonLink to="/register" variant="primary" size="sm">
+                      Register
+                    </ButtonLink>
+                  </>
+                )}
+              </div>
+            </nav>
+          </header>
+          <main className={`${css.container} ${shell.main}`}>
+            <Hydrated>
+              <Outlet />
+            </Hydrated>
+          </main>
+          <footer className={shell.footer}>{siteName}</footer>
         </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        <Outlet />
-      </main>
-      <footer className="border-t border-line py-4 text-center text-xs text-muted">{siteName}</footer>
-    </div>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -132,11 +173,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     detail = error.message;
   }
   return (
-    <main className="mx-auto max-w-xl px-4 py-24 text-center">
+    <main className={shell.errorPage}>
       <h1>{title}</h1>
-      <p className="mt-2 text-muted">{detail}</p>
-      <p className="mt-6">
-        <a className="btn" href="/">
+      <p className={css.muted}>{detail}</p>
+      <p>
+        <a role="button" className={css.button({ variant: 'secondary' })} href="/">
           Back to the home page
         </a>
       </p>

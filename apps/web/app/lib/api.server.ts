@@ -1,31 +1,10 @@
-import { createORPCClient, ORPCError } from '@orpc/client';
-import type { ContractRouterClient } from '@orpc/contract';
-import type { JsonifiedClient } from '@orpc/openapi-client';
-import { OpenAPILink } from '@orpc/openapi-client/fetch';
-import { contract } from '@skyoj/contract';
+import { ORPCError } from '@orpc/client';
+import { dehydrate, QueryClient, type DehydratedState, type FetchQueryOptions } from '@tanstack/react-query';
 import { data, redirect } from 'react-router';
+import { api, type ClientContext } from './orpc';
 import { getToken } from './session.server';
 
-/** Per-call context: whose session the call is made with. */
-interface ClientContext {
-  token?: string;
-}
-
-const API_URL = process.env.API_URL ?? 'http://127.0.0.1:3001';
-
-/**
- * The one and only API client of the web app.
- *
- * It lives on the web server: loaders and actions call the NestJS API through
- * it and browsers never talk to the API directly. Inputs, outputs and error
- * codes are all inferred from the shared oRPC contract.
- */
-export const api: JsonifiedClient<ContractRouterClient<typeof contract, ClientContext>> = createORPCClient(
-  new OpenAPILink<ClientContext>(contract, {
-    url: API_URL,
-    headers: ({ context }) => (context.token ? { authorization: `Bearer ${context.token}` } : {}),
-  }),
-);
+export { api };
 
 type CallOptions = { context: ClientContext };
 
@@ -66,6 +45,40 @@ function fail(request: Request, error: unknown): never {
     throw redirect(`/login?next=${encodeURIComponent(url.pathname + url.search)}`);
   }
   throw data(error.message, { status: error.status });
+}
+
+/**
+ * Runs queries on the server and returns their results in TanStack Query's
+ * dehydrated form. A loader returns this as `dehydrated`; the root layout
+ * hydrates it, and the page's `useQuery` calls with the same options find
+ * the data already there — rendered on the server, then kept fresh in the
+ * browser.
+ *
+ * @example
+ *   const dehydrated = await prefetch(request, (context) => [
+ *     orpc.submission.get.queryOptions({ input: { id }, context }),
+ *   ]);
+ */
+export async function prefetch(
+  request: Request,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  build: (context: ClientContext) => FetchQueryOptions<any, any, any, any>[],
+  options: { awaitCreation?: boolean } = {},
+): Promise<DehydratedState> {
+  const { context } = await as(request);
+  const client = new QueryClient();
+  await load(request, () => Promise.all(build(context).map((query) => client.fetchQuery(query))), options);
+  return dehydrate(client);
+}
+
+/**
+ * Dehydrated state for data a loader already has in hand (because it needed
+ * the value itself, e.g. to highlight code): `[queryKey, data]` pairs.
+ */
+export function seed(entries: [key: readonly unknown[], value: unknown][]): DehydratedState {
+  const client = new QueryClient();
+  for (const [key, value] of entries) client.setQueryData(key, value);
+  return dehydrate(client);
 }
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };

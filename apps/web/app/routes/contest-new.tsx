@@ -1,7 +1,7 @@
 import { ContestStyle, RegisterType, UserLevel } from '@skyoj/contract';
 import { redirect } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
-import { PageHeader } from '~/components/ui';
+import { Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseContestForm } from '~/lib/contest-form.server';
 import type { Route } from './+types/contest-new';
@@ -26,7 +26,7 @@ export const meta: Route.MetaFunction = () => [{ title: 'New contest' }];
 
 export default function ContestNew({ loaderData, actionData }: Route.ComponentProps) {
   return (
-    <div className="mx-auto max-w-3xl">
+    <Measure size="page">
       <PageHeader title="New contest" />
       <ContestForm
         submitLabel="Create contest"
@@ -43,6 +43,6 @@ export default function ContestNew({ loaderData, actionData }: Route.ComponentPr
           problems: '',
         }}
       />
-    </div>
+    </Measure>
   );
 }

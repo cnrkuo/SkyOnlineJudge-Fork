@@ -10,6 +10,8 @@ import remarkRehype from 'remark-rehype';
 import temml from 'temml';
 import { unified } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
+import { code as codeClass } from '~/ui/code.css';
+import { highlightToHast } from './highlight.server';
 import type { VFile } from 'vfile';
 
 /**
@@ -19,11 +21,13 @@ import type { VFile } from 'vfile';
  *
  * Math (`$inline$`, `$$display$$`) becomes MathML, which browsers lay out
  * natively — no script, stylesheet or font has to be shipped for it.
+ * Fenced code blocks are highlighted with Shiki, also here.
  *
  * Safety: raw HTML in the source is dropped, the generated tree is
  * sanitized (GitHub's allow-list: no scripts, event handlers or
- * `javascript:` URLs), and only then is the MathML — produced by Temml from
- * the TeX, never taken from the author — inserted.
+ * `javascript:` URLs), and only then are the generated parts inserted: MathML
+ * produced by Temml from the TeX and code markup produced by Shiki — neither
+ * is taken from the author.
  */
 
 const hasClass = (node: Element, name: string) =>
@@ -107,6 +111,34 @@ function wrapDisplay(children: ElementContent[]): Element {
   return { type: 'element', tagName: 'div', properties: { className: ['math-display'] }, children };
 }
 
+/**
+ * Replaces fenced code blocks (`<pre><code class="language-x">`) with
+ * Shiki's highlighted markup, wrapped like every other code view.
+ */
+function rehypeHighlight() {
+  return async (tree: Root) => {
+    const blocks: { parent: Element | Root; index: number; code: Element }[] = [];
+    visit(tree, 'element', (node, index, parent) => {
+      const child = node.tagName === 'pre' ? node.children.find((c) => c.type === 'element') : undefined;
+      if (!parent || index === undefined || child?.type !== 'element' || child.tagName !== 'code') return;
+      if (hasClass(child, 'language-math')) return;
+      blocks.push({ parent, index, code: child });
+      return SKIP;
+    });
+    for (const { parent, index, code } of blocks) {
+      const names = Array.isArray(code.properties.className) ? code.properties.className.map(String) : [];
+      const language = names.find((name) => name.startsWith('language-'))?.slice('language-'.length);
+      const highlighted = await highlightToHast(textOf(code), language);
+      parent.children[index] = {
+        type: 'element',
+        tagName: 'div',
+        properties: { className: [codeClass] },
+        children: highlighted.children as ElementContent[],
+      };
+    }
+  };
+}
+
 const isRelative = (url: string) => !/^([a-z][a-z0-9+.-]*:|\/|#)/i.test(url);
 
 /**
@@ -126,9 +158,9 @@ function rehypeAssetBase(assetBase: string | undefined) {
   };
 }
 
-export function renderMarkdown(source: string, options: { assetBase?: string } = {}): string {
+export async function renderMarkdown(source: string, options: { assetBase?: string } = {}): Promise<string> {
   if (!source.trim()) return '';
-  const file = unified()
+  const file = await unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
@@ -136,8 +168,9 @@ export function renderMarkdown(source: string, options: { assetBase?: string } =
     .use(remarkRehype) // raw HTML is not carried over
     .use(rehypeSanitize)
     .use(rehypeAssetBase, options.assetBase)
+    .use(rehypeHighlight)
     .use(rehypeMathML)
     .use(rehypeStringify)
-    .processSync(source);
+    .process(source);
   return String(file);
 }

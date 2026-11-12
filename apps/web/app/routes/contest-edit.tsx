@@ -1,7 +1,9 @@
 import { TeamState } from '@skyoj/contract';
-import { Form, Link } from 'react-router';
+import { Form } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
-import { Card, Empty, idParam, Notice, PageHeader, Time, UserLink } from '~/components/ui';
+import { idParam } from '~/lib/params';
+import { Button, ButtonLink, Card, CardBody, Cluster, css, Empty, Field, Measure, Muted, Notice, PageHeader, Stack, Time, UserLink } from '~/ui';
+import { DataTable, type Column } from '~/ui/data-table';
 import { api, load, submit } from '~/lib/api.server';
 import { parseContestForm, stateWord } from '~/lib/contest-form.server';
 import type { Route } from './+types/contest-edit';
@@ -47,75 +49,73 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Edit: ${loaderData?.settings.title ?? 'contest'}` }];
 
+type Participant = Route.ComponentProps['loaderData']['participants'][number];
+
+const participantColumns: Column<Participant>[] = [
+  {
+    id: 'user',
+    header: 'User',
+    sortValue: (p) => p.user.nickname.toLowerCase(),
+    cell: (p) => (
+      <Cluster>
+        <UserLink user={p.user} /> <Muted small>#{p.user.id}</Muted>
+      </Cluster>
+    ),
+  },
+  { id: 'registered', header: 'Registered', sortValue: (p) => p.registeredAt, cell: (p) => <Muted><Time value={p.registeredAt} /></Muted> },
+  {
+    id: 'state',
+    header: 'State',
+    sortValue: (p) => p.state,
+    // A native form per row: changing a participant works without JavaScript.
+    cell: (p) => (
+      <Form method="post">
+        <Cluster>
+          <input type="hidden" name="intent" value="participant" />
+          <input type="hidden" name="userId" value={p.user.id} />
+          <select className={css.inputWidth.auto} name="state" defaultValue={p.state} aria-label={`State of ${p.user.nickname}`}>
+            {TEAM_STATES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <Button variant="secondary" size="sm">
+            Set
+          </Button>
+        </Cluster>
+      </Form>
+    ),
+  },
+];
+
 export default function ContestEdit({ loaderData, actionData }: Route.ComponentProps) {
   const { settings, participants } = loaderData;
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader
-        title="Edit contest"
-        actions={
-          <Link className="btn" to={`/contests/${settings.id}`}>
-            View contest
-          </Link>
-        }
-      />
-      <ContestForm values={settings} submitLabel="Save contest" result={actionData?.intent === 'settings' ? actionData : null} />
+    <Measure size="page">
+      <PageHeader title="Edit contest" actions={<ButtonLink to={`/contests/${settings.id}`}>View contest</ButtonLink>} />
+      <Stack gap="lg">
+        <ContestForm values={settings} submitLabel="Save contest" result={actionData?.intent === 'settings' ? actionData : null} />
 
-      <Card title={`Participants (${participants.length})`}>
-        <div className="space-y-3 p-4">
-          {actionData?.intent === 'participant' && <Notice result={actionData} />}
-          <Form method="post" className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="intent" value="participant" />
-            <input type="hidden" name="state" value={TeamState.ACCEPTED} />
-            <label className="text-sm">
-              <span className="label">Add a user by id</span>
-              <input className="input w-32" name="userId" inputMode="numeric" required />
-            </label>
-            <button className="btn">Add as accepted</button>
-          </Form>
-        </div>
-        {participants.length === 0 ? (
-          <Empty>Nobody has registered yet.</Empty>
-        ) : (
-          <div className="overflow-x-auto border-t border-line">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Registered</th>
-                  <th>State</th>
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map((participant) => (
-                  <tr key={participant.user.id}>
-                    <td>
-                      <UserLink user={participant.user} /> <span className="text-muted">#{participant.user.id}</span>
-                    </td>
-                    <td className="text-muted">
-                      <Time value={participant.registeredAt} />
-                    </td>
-                    <td>
-                      <Form method="post" className="flex items-center gap-2">
-                        <input type="hidden" name="intent" value="participant" />
-                        <input type="hidden" name="userId" value={participant.user.id} />
-                        <select className="input w-auto" name="state" defaultValue={participant.state} aria-label={`State of ${participant.user.nickname}`}>
-                          {TEAM_STATES.map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                        <button className="btn">Set</button>
-                      </Form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
+        <Card flush title={`Participants (${participants.length})`}>
+          <CardBody>
+            <Stack gap="sm">
+              {actionData?.intent === 'participant' && <Notice result={actionData} />}
+              <Form method="post">
+                <Cluster align="end" gap="md">
+                  <input type="hidden" name="intent" value="participant" />
+                  <input type="hidden" name="state" value={TeamState.ACCEPTED} />
+                  <Field label="Add a user by id">
+                    <input className={css.inputWidth.sm} name="userId" inputMode="numeric" required />
+                  </Field>
+                  <Button variant="secondary">Add as accepted</Button>
+                </Cluster>
+              </Form>
+            </Stack>
+          </CardBody>
+          <DataTable data={participants} columns={participantColumns} rowKey={(p) => p.user.id} empty={<Empty>Nobody has registered yet.</Empty>} />
+        </Card>
+      </Stack>
+    </Measure>
   );
 }

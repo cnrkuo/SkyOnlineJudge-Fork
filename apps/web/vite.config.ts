@@ -1,9 +1,9 @@
 import { reactRouter } from '@react-router/dev/vite';
-import tailwindcss from '@tailwindcss/vite';
+import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [tailwindcss(), reactRouter()],
+  plugins: [vanillaExtractPlugin(), reactRouter()],
   resolve: { tsconfigPaths: true },
   server: { port: 3000 },
 });

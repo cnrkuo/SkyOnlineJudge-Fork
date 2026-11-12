@@ -1,5 +1,5 @@
 import { Form, Link, redirect, useNavigation } from 'react-router';
-import { Field, Notice } from '~/components/ui';
+import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import { api, submit } from '~/lib/api.server';
 import { startSession } from '~/lib/session.server';
 import type { Route } from './+types/register';
@@ -20,29 +20,35 @@ export const meta: Route.MetaFunction = () => [{ title: 'Register' }];
 export default function Register({ actionData }: Route.ComponentProps) {
   const busy = useNavigation().state !== 'idle';
   return (
-    <div className="mx-auto max-w-sm">
-      <h1 className="mb-4">Create an account</h1>
-      <Form method="post" className="card space-y-4 p-4">
-        <Notice result={actionData} />
-        <Field label="E-mail">
-          <input className="input" name="email" type="email" autoComplete="email" maxLength={64} required />
-        </Field>
-        <Field label="Nickname" hint="2–32 characters; shown on scoreboards.">
-          <input className="input" name="nickname" autoComplete="nickname" minLength={2} maxLength={32} required />
-        </Field>
-        <Field label="Password" hint="At least 6 characters.">
-          <input className="input" name="password" type="password" autoComplete="new-password" minLength={6} required />
-        </Field>
-        <Field label="Repeat password">
-          <input className="input" name="repeat" type="password" autoComplete="new-password" minLength={6} required />
-        </Field>
-        <button className="btn btn-primary w-full" disabled={busy}>
-          {busy ? 'Creating…' : 'Register'}
-        </button>
-      </Form>
-      <p className="mt-3 text-center text-sm text-muted">
-        Already registered? <Link to="/login">Log in</Link>
-      </p>
-    </div>
+    <Measure size="form">
+      <Stack>
+        <h1>Create an account</h1>
+        <Card>
+          <Form method="post">
+            <Stack>
+              <Notice result={actionData} />
+              <Field label="E-mail">
+                <input name="email" type="email" autoComplete="email" maxLength={64} required />
+              </Field>
+              <Field label="Nickname" hint="2–32 characters; shown on scoreboards.">
+                <input name="nickname" autoComplete="nickname" minLength={2} maxLength={32} required />
+              </Field>
+              <Field label="Password" hint="At least 6 characters.">
+                <input name="password" type="password" autoComplete="new-password" minLength={6} required />
+              </Field>
+              <Field label="Repeat password">
+                <input name="repeat" type="password" autoComplete="new-password" minLength={6} required />
+              </Field>
+              <Button block busy={busy}>
+                Register
+              </Button>
+            </Stack>
+          </Form>
+        </Card>
+        <Muted small>
+          Already registered? <Link to="/login">Log in</Link>
+        </Muted>
+      </Stack>
+    </Measure>
   );
 }

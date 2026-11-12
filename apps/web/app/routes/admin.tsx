@@ -1,201 +1,220 @@
 import { UserLevel } from '@skyoj/contract';
-import { Form, Link } from 'react-router';
-import { Card, Empty, Notice, PageHeader, pageParam, Pagination, Time, UserLink, useRoot } from '~/components/ui';
-import { api, load, submit } from '~/lib/api.server';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { Form, Link, useSearchParams } from 'react-router';
+import { api, prefetch, submit } from '~/lib/api.server';
+import { orpc } from '~/lib/orpc';
+import { paging } from '~/lib/params';
+import { unlessOnlySearchChanged } from '~/lib/revalidate';
+import { Badge, Button, Card, CardBody, Cluster, css, Empty, Field, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
+import { DataTable, Pager, type Column } from '~/ui/data-table';
+import { Confirm, SelectBox } from '~/ui/overlays';
 import type { Route } from './+types/admin';
 
-const LEVELS: [UserLevel, string][] = [
-  [UserLevel.BANNED, 'Banned'],
-  [UserLevel.UNVERIFIED, 'Unverified'],
-  [UserLevel.USER, 'User'],
-  [UserLevel.ADMIN, 'Administrator'],
-  [UserLevel.ROOT, 'Site owner'],
+const LEVELS: { value: string; level: UserLevel; label: string }[] = [
+  { value: String(UserLevel.BANNED), level: UserLevel.BANNED, label: 'Banned' },
+  { value: String(UserLevel.UNVERIFIED), level: UserLevel.UNVERIFIED, label: 'Unverified' },
+  { value: String(UserLevel.USER), level: UserLevel.USER, label: 'User' },
+  { value: String(UserLevel.ADMIN), level: UserLevel.ADMIN, label: 'Administrator' },
+  { value: String(UserLevel.ROOT), level: UserLevel.ROOT, label: 'Site owner' },
 ];
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const search = new URL(request.url).searchParams.get('q')?.trim() || undefined;
-  const [users, judges] = await Promise.all([
-    load(request, (o) => api.admin.listUsers({ page: pageParam(request), pageSize: 50, search }, o)),
-    load(request, (o) => api.admin.listJudges(undefined, o)),
-  ]);
-  return { users, judges, search: search ?? '', now: Date.now() };
+function usersInput(params: URLSearchParams) {
+  return { ...paging(params), search: params.get('q')?.trim() || undefined };
 }
 
+export async function loader({ request }: Route.LoaderArgs) {
+  const input = usersInput(new URL(request.url).searchParams);
+  const dehydrated = await prefetch(request, (context) => [
+    orpc.admin.listUsers.queryOptions({ input, context }),
+    orpc.admin.listJudges.queryOptions({ context }),
+  ]);
+  return { dehydrated };
+}
+
+export const shouldRevalidate = unlessOnlySearchChanged;
+
+/** Creating a judge returns its token exactly once, so it is a form action. */
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  const id = Number(form.get('id'));
-  switch (form.get('intent')) {
-    case 'level': {
-      const level = LEVELS.find(([value]) => String(value) === form.get('level'))?.[0] ?? UserLevel.USER;
-      return { scope: 'users', ...(await submit(request, (o) => api.admin.setUserLevel({ userId: id, level }, o))), message: 'User updated.' };
-    }
-    case 'create-judge': {
-      const result = await submit(request, (o) => api.admin.createJudge({ name: String(form.get('name') ?? '') }, o));
-      if (!result.ok) return { scope: 'judges', ...result };
-      return { scope: 'judges', ok: true as const, message: `Judge "${result.data.judge.name}" created.`, token: result.data.token };
-    }
-    case 'toggle-judge': {
-      const enabled = form.get('enabled') === 'true';
-      return { scope: 'judges', ...(await submit(request, (o) => api.admin.setJudgeEnabled({ id, enabled }, o))), message: enabled ? 'Judge enabled.' : 'Judge disabled.' };
-    }
-    case 'delete-judge':
-      return { scope: 'judges', ...(await submit(request, (o) => api.admin.deleteJudge({ id }, o))), message: 'Judge deleted.' };
-    default:
-      return { scope: 'users', ok: false as const, error: 'Unknown action' };
-  }
+  const result = await submit(request, (o) => api.admin.createJudge({ name: String(form.get('name') ?? '') }, o));
+  if (!result.ok) return result;
+  return { ok: true as const, message: `Judge "${result.data.judge.name}" created.`, token: result.data.token };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: 'Administration' }];
 
-export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
-  const { users, judges, search, now } = loaderData;
-  const { user: me } = useRoot();
-  const myLevel = me?.level ?? 0;
+type Judge = Awaited<ReturnType<typeof api.admin.listJudges>>[number];
+type AdminUser = Awaited<ReturnType<typeof api.admin.listUsers>>['items'][number];
+
+function Judges({ actionData }: { actionData: Route.ComponentProps['actionData'] }) {
+  const queryClient = useQueryClient();
+  const options = orpc.admin.listJudges.queryOptions();
+  // Refresh often enough for the online indicator to mean something.
+  const { data: judges = [], dataUpdatedAt } = useQuery({ ...options, refetchInterval: 10_000 });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: options.queryKey });
+  const toggle = useMutation(orpc.admin.setJudgeEnabled.mutationOptions({ onSuccess: refresh }));
+  const remove = useMutation(orpc.admin.deleteJudge.mutationOptions({ onSuccess: refresh }));
+  const failure = toggle.error ?? remove.error;
+
+  const columns: Column<Judge>[] = [
+    { id: 'name', header: 'Name', sortValue: (j) => j.name.toLowerCase(), cell: (j) => <strong>{j.name}</strong> },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (j) => {
+        if (!j.enabled) return <Badge>Disabled</Badge>;
+        const online = j.lastSeenAt !== null && dataUpdatedAt - Date.parse(j.lastSeenAt) < 30_000;
+        return online ? <Badge tone="success">Online</Badge> : <Badge tone="warning">Offline</Badge>;
+      },
+    },
+    { id: 'seen', header: 'Last seen', cell: (j) => <Muted>{j.lastSeenAt ? <Time value={j.lastSeenAt} /> : 'never'}</Muted> },
+    {
+      id: 'actions',
+      header: 'Actions',
+      align: 'right',
+      cell: (j) => (
+        <Cluster justify="end">
+          <Button variant="secondary" size="sm" onClick={() => toggle.mutate({ id: j.id, enabled: !j.enabled })}>
+            {j.enabled ? 'Disable' : 'Enable'}
+          </Button>
+          <Confirm
+            trigger={
+              <Button variant="danger" size="sm">
+                Delete
+              </Button>
+            }
+            title={`Delete judge "${j.name}"?`}
+            confirmLabel="Delete judge"
+            onConfirm={() => remove.mutate({ id: j.id })}
+          >
+            Its token stops working immediately. Submissions it is judging are handed to another judge.
+          </Confirm>
+        </Cluster>
+      ),
+    },
+  ];
   const token = actionData && 'token' in actionData ? actionData.token : null;
 
   return (
-    <>
-      <PageHeader title="Administration" />
-      <div className="space-y-6">
-        <Card title="Judge machines">
-          <div className="space-y-3 p-4">
-            {actionData?.scope === 'judges' && <Notice result={actionData} />}
-            {token && (
-              <div className="rounded-md border border-line bg-sunken p-3 text-sm">
-                <p className="mb-1 font-medium">Copy this token into the judge's config now — it will not be shown again.</p>
-                <code className="code break-all select-all">{token}</code>
+    <Card flush title="Judge machines">
+      <CardBody>
+        <Stack gap="sm">
+          <Notice result={actionData} />
+          {failure && <Notice result={{ ok: false, error: failure.message }} />}
+          {token && (
+            <div className={`${css.notice} ${css.toneFill.primary}`}>
+              <strong>Copy this token into the judge's config now — it will not be shown again.</strong>
+              <div>
+                <code className={css.preWrap}>{token}</code>
               </div>
-            )}
-            <Form method="post" className="flex flex-wrap items-end gap-2">
-              <label className="text-sm">
-                <span className="label">Register a new judge</span>
-                <input className="input w-64" name="name" placeholder="e.g. judge-01" maxLength={64} required />
-              </label>
-              <button className="btn btn-primary" name="intent" value="create-judge">
-                Create token
-              </button>
-            </Form>
-          </div>
-          {judges.length === 0 ? (
-            <Empty>No judges registered. Submissions stay in the queue until a judge connects.</Empty>
-          ) : (
-            <div className="overflow-x-auto border-t border-line">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Last seen</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {judges.map((judge) => {
-                    const online = judge.lastSeenAt !== null && now - Date.parse(judge.lastSeenAt) < 30_000;
-                    return (
-                      <tr key={judge.id}>
-                        <td className="font-medium">{judge.name}</td>
-                        <td>
-                          {!judge.enabled ? (
-                            <span className="text-muted">Disabled</span>
-                          ) : online ? (
-                            <span className="font-semibold text-good">Online</span>
-                          ) : (
-                            <span className="text-warn">Offline</span>
-                          )}
-                        </td>
-                        <td className="text-muted">{judge.lastSeenAt ? <Time value={judge.lastSeenAt} /> : 'never'}</td>
-                        <td>
-                          <Form method="post" className="flex justify-end gap-2">
-                            <input type="hidden" name="id" value={judge.id} />
-                            <input type="hidden" name="enabled" value={String(!judge.enabled)} />
-                            <button className="btn" name="intent" value="toggle-judge">
-                              {judge.enabled ? 'Disable' : 'Enable'}
-                            </button>
-                            <button
-                              className="btn btn-danger"
-                              name="intent"
-                              value="delete-judge"
-                              onClick={(event) => confirm(`Delete judge "${judge.name}"? Its token stops working.`) || event.preventDefault()}
-                            >
-                              Delete
-                            </button>
-                          </Form>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
-        </Card>
+          <Form method="post">
+            <Cluster align="end" gap="md">
+              <Field label="Register a new judge">
+                <input className={css.inputWidth.md} name="name" placeholder="e.g. judge-01" maxLength={64} required />
+              </Field>
+              <Button>Create token</Button>
+            </Cluster>
+          </Form>
+        </Stack>
+      </CardBody>
+      <DataTable
+        caption="Judge machines"
+        data={judges}
+        columns={columns}
+        rowKey={(j) => j.id}
+        empty={<Empty>No judges registered. Submissions stay in the queue until a judge connects.</Empty>}
+      />
+    </Card>
+  );
+}
 
-        <Card title={`Users (${users.total})`}>
-          <div className="space-y-3 p-4">
-            {actionData?.scope === 'users' && <Notice result={actionData} />}
-            <Form method="get" role="search" className="flex gap-2">
-              <input className="input w-64" type="search" name="q" defaultValue={search} placeholder="Nickname or e-mail" aria-label="Search users" />
-              <button className="btn">Search</button>
-            </Form>
-          </div>
-          <div className="overflow-x-auto border-t border-line">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Nickname</th>
-                  <th>E-mail</th>
-                  <th>Joined</th>
-                  <th>Level</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.items.map((user) => {
-                  const editable = user.id !== me?.id && user.level < myLevel;
-                  return (
-                    <tr key={user.id}>
-                      <td className="tabular-nums">{user.id}</td>
-                      <td>
-                        <UserLink user={user} />
-                        {(editable || user.id === me?.id) && (
-                          <Link className="ml-2 text-xs" to={`/admin/users/${user.id}`}>
-                            edit
-                          </Link>
-                        )}
-                      </td>
-                      <td className="text-muted">{user.email}</td>
-                      <td className="text-muted">
-                        <Time value={user.createdAt} />
-                      </td>
-                      <td>
-                        {editable ? (
-                          <Form method="post" className="flex items-center gap-2">
-                            <input type="hidden" name="id" value={user.id} />
-                            <select className="input w-auto" name="level" defaultValue={user.level} aria-label={`Level of ${user.nickname}`}>
-                              {LEVELS.filter(([level]) => level < myLevel).map(([level, label]) => (
-                                <option key={level} value={level}>
-                                  {label}
-                                </option>
-                              ))}
-                            </select>
-                            <button className="btn" name="intent" value="level">
-                              Set
-                            </button>
-                          </Form>
-                        ) : (
-                          LEVELS.find(([level]) => level === user.level)?.[1]
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-      <Pagination page={users.page} pageSize={users.pageSize} total={users.total} />
+function Users() {
+  const { user: me } = useRoot();
+  const myLevel = me?.level ?? 0;
+  const [params] = useSearchParams();
+  const input = usersInput(params);
+  const queryClient = useQueryClient();
+  const query = useQuery({ ...orpc.admin.listUsers.queryOptions({ input }), placeholderData: keepPreviousData });
+  const setLevel = useMutation(
+    orpc.admin.setUserLevel.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.admin.listUsers.key() }) }),
+  );
+  const list = query.data;
+
+  const columns = useMemo<Column<AdminUser>[]>(
+    () => [
+      { id: 'id', header: '#', fixed: true, sortValue: (u) => u.id, cell: (u) => <Muted>{u.id}</Muted> },
+      { id: 'nickname', header: 'Nickname', fixed: true, sortValue: (u) => u.nickname.toLowerCase(), cell: (u) => <UserLink user={u} /> },
+      { id: 'email', header: 'E-mail', sortValue: (u) => u.email, cell: (u) => <Muted>{u.email}</Muted> },
+      { id: 'realname', header: 'Real name', hidden: true, cell: (u) => u.realname },
+      { id: 'joined', header: 'Joined', sortValue: (u) => u.createdAt, cell: (u) => <Muted><Time value={u.createdAt} /></Muted> },
+      {
+        id: 'level',
+        header: 'Level',
+        sortValue: (u) => u.level,
+        cell: (u) => {
+          const editable = u.id !== me?.id && u.level < myLevel;
+          if (!editable) return LEVELS.find((l) => l.level === u.level)?.label;
+          return (
+            <SelectBox
+              size="sm"
+              label={`Level of ${u.nickname}`}
+              value={String(u.level)}
+              options={LEVELS.filter((l) => l.level < myLevel)}
+              onChange={(value) => setLevel.mutate({ userId: u.id, level: LEVELS.find((l) => l.value === value)!.level })}
+            />
+          );
+        },
+      },
+      {
+        id: 'edit',
+        header: 'Account',
+        align: 'right',
+        cell: (u) => (u.id === me?.id || u.level < myLevel ? <Link to={`/admin/users/${u.id}`}>Edit</Link> : null),
+      },
+    ],
+    [me?.id, myLevel, setLevel],
+  );
+
+  return (
+    <Card flush title={`Users${list ? ` (${list.total})` : ''}`}>
+      {setLevel.isError && (
+        <CardBody>
+          <Notice result={{ ok: false, error: setLevel.error.message }} />
+        </CardBody>
+      )}
+      <DataTable
+        caption="Users"
+        data={list?.items ?? []}
+        columns={columns}
+        rowKey={(u) => u.id}
+        columnMenu
+        stale={query.isPlaceholderData}
+        toolbar={
+          <Form method="get" role="search">
+            <Cluster>
+              <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Nickname or e-mail" aria-label="Search users" />
+              <Button variant="secondary">Search</Button>
+            </Cluster>
+          </Form>
+        }
+        empty={<Empty>No users match.</Empty>}
+        footer={list && <Pager page={list.page} pageSize={list.pageSize} total={list.total} sizes />}
+      />
+    </Card>
+  );
+}
+
+export default function Admin({ actionData }: Route.ComponentProps) {
+  return (
+    <>
+      <PageHeader title="Administration" />
+      <Stack gap="lg">
+        <Judges actionData={actionData} />
+        <Users />
+      </Stack>
     </>
   );
 }

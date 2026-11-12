@@ -1,0 +1,17 @@
+{
+  "name": "sky-online-judge",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22.22" },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "dev:contract": "pnpm --filter @skyoj/contract dev",
+    "dev:api": "pnpm --filter @skyoj/api dev",
+    "dev:web": "pnpm --filter @skyoj/web dev",
+    "db:generate": "pnpm --filter @skyoj/api db:generate",
+    "build:judge": "cmake -S judge -B judge/build -DCMAKE_BUILD_TYPE=Release && cmake --build judge/build -j"
+  }
+}

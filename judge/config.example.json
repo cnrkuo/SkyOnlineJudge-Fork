@@ -1,0 +1,31 @@
+{
+  // Base URL of the Sky Online Judge API (apps/api).
+  "api_url": "http://127.0.0.1:3001",
+  // Create a judge under Admin → Judges in the web UI and paste its token.
+  // SKYOJ_JUDGE_TOKEN in the environment takes precedence.
+  "token": "skyoj_judge_REPLACE_ME",
+
+  "work_dir": "/var/lib/skyoj-judge/work",
+  "cache_dir": "/var/lib/skyoj-judge/cache",
+  "poll_interval_ms": 1000,
+
+  // Identity submissions run as when the judge is started as root.
+  "run_uid": 65534,
+  "run_gid": 65534,
+  // Set to true in production: refuse to judge without Linux namespaces.
+  "require_isolation": false,
+
+  "output_limit_kb": 65536,
+  "compile_time_ms": 15000,
+  "compile_memory_kb": 2097152,
+  "max_processes": 64
+
+  // Optional: override or add languages. Keys are the API's language ids.
+  // "languages": {
+  //   "cpp": {
+  //     "source": "main.cpp",
+  //     "compile": ["/usr/bin/g++", "-std=c++20", "-O2", "-o", "main", "main.cpp"],
+  //     "run": ["./main"]
+  //   }
+  // }
+}

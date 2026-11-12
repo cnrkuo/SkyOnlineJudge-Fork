@@ -27,13 +27,15 @@ export const vars = createGlobalTheme(':root', {
 
     text: '#c2c7d0',
     heading: '#f0f1f3',
-    muted: '#7b8495',
+    /** Lightened from Pico's #7b8495 so small text passes 4.5:1 on every surface. */
+    muted: '#8891a4',
 
     /** Links, focus, the one call to action on a page. */
     primary: '#01aaff',
     primaryHover: '#79c0ff',
     primaryBg: '#0172ad',
-    primaryBgHover: '#017fc0',
+    /** Pico uses #017fc0; this keeps white text at 4.5:1. */
+    primaryBgHover: '#0179b8',
     onPrimary: '#ffffff',
     focusRing: 'rgba(1, 170, 255, 0.375)',
 
@@ -92,7 +94,7 @@ export const vars = createGlobalTheme(':root', {
   /** Syntax highlighting; Shiki's output references these (see highlight.server.ts). */
   syntax: {
     foreground: '#c2c7d0',
-    comment: '#7b8495',
+    comment: '#8891a4',
     keyword: '#b290d9',
     string: '#62af9a',
     constant: '#d7a94b',

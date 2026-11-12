@@ -16,7 +16,8 @@
   compile.
 - **`apps/api`** owns all business rules and all data.
 - **`apps/web`** renders pages. It holds no business logic and no database
-  access; it only calls the API.
+  access; it only calls the API, on its own behalf and as a gateway for the
+  browser.
 - **`judge/`** turns queued submissions into verdicts. It is a client of the
   API like the web app, just written in C++.
 
@@ -161,29 +162,62 @@ Consequences worth knowing:
 
 ## Web app
 
-React Router 8 in framework mode with server rendering. All data access goes
-through **one oRPC client**, `apps/web/app/lib/api.server.ts`, which exists
-only on the web server:
+React Router 8 in framework mode with server rendering.
 
-- loaders call `load(request, (o) => api.problem.get({ id }, o))` — contract
-  errors become HTTP error responses or a redirect to the login page;
-- actions call `submit(...)` — contract errors come back as values so the
-  form can display them.
+### One client, two transports
 
-The browser never talks to the API. After login the web server keeps the API
-token in a signed, http-only, `SameSite=Lax` cookie and attaches it to its
-API calls, so the token is out of reach of page scripts and the API needs no
-CORS setup and can stay on a private network.
+All data access goes through **one oRPC client**, `app/lib/orpc.ts`, typed by
+the shared contract. The object is the same on both sides; only its transport
+differs:
 
-Pages are plain forms and links (they work before hydration); JavaScript adds
-auto-refresh for pending submissions and running scoreboards. All times are
-shown in one site-wide zone (`SITE_TIMEZONE`).
+- **On the web server** (loaders, actions, server rendering) it calls the API
+  directly, authenticating with the session token passed as call context.
+- **In the browser** it calls this site's own `/rpc/*` route
+  (`routes/rpc.ts`). That gateway takes the token from the signed, http-only,
+  `SameSite=Lax` session cookie, forwards the call unchanged, and relays the
+  answer. It refuses `auth.*` and `judge.*` and any cross-origin caller.
+
+So the browser never sees the token or the API's address, the API needs no
+CORS setup and can stay on a private network, and validation and
+authorization still happen in exactly one place — the API.
+
+### Loaders, actions and TanStack Query
+
+| Need | Tool |
+| --- | --- |
+| First render of a page | A **loader** calls `prefetch(request, …)`, which runs TanStack Query on the server and returns the cache in dehydrated form. The root layout hydrates it, so the page's `useQuery` has data during server rendering and on arrival — no request is repeated. |
+| Paging, filtering, searching a list | The state is in the URL. `shouldRevalidate` skips the loader when only the query string changes; `useQuery` sees the new input, fetches through `/rpc`, and keeps the previous rows on screen (dimmed) meanwhile. |
+| Live data | `refetchInterval` on the query: a submission polls until it has a verdict, a running contest's scoreboard and the judge list refresh on their own. |
+| One-click changes | `useMutation` (rejudge, join a scoreboard, enable a judge, change a user's level), invalidating the affected query. |
+| Forms | Plain React Router **actions** with native form controls. They work before JavaScript loads; afterwards the loader's fresh data re-hydrates the cache. |
+
+`orpc.<namespace>.<procedure>.queryOptions({ input })` (from
+`@orpc/tanstack-query`) produces both the query key and the fetch function,
+so the server prefetch and the browser query cannot disagree about a key.
+
+### Interface
+
+Styles are Vanilla Extract (static CSS at build time) in a Pico.css-like,
+dark-only design language; every table is one `DataTable` component built on
+TanStack Table, and menus, selects, tooltips, dialogs and tabs are Radix UI
+behind thin wrappers. [docs/design.md](design.md) explains the system and its
+rules. All times are shown in one site-wide zone (`SITE_TIMEZONE`).
+
+### Code highlighting
+
+Shiki highlights source code **on the server** (`app/lib/highlight.server.ts`):
+submissions and codepads in their loaders, fenced code blocks inside the
+Markdown pipeline. The browser receives coloured markup; no highlighter or
+grammar is in the client bundle. The theme consists of CSS variables bound to
+the design tokens, so code shares the interface's palette. Shiki runs on its
+Oniguruma (WebAssembly) engine — the pure-JavaScript engine cannot execute
+every pattern of the C++ grammar.
 
 ### Markdown and math
 
 Statements, contest descriptions and scoreboard announcements are rendered
 to HTML **on the server**, in the loaders (`app/lib/markdown.server.ts`):
-remark (GFM + math) → rehype → sanitize → MathML → HTML string. The browser
+remark (GFM + math) → rehype → sanitize → Shiki code blocks → MathML → HTML string. The browser
 receives finished markup; no Markdown or math library is part of the client
 bundle, and the Markdown source itself is not sent either.
 

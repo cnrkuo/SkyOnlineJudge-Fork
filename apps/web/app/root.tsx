@@ -143,7 +143,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
                     <NavLink to="/login" className={shell.navLink}>
                       Log in
                     </NavLink>
-                    <ButtonLink to="/register" variant="primary" size="sm">
+                    <ButtonLink to="/register" size="sm">
                       Register
                     </ButtonLink>
                   </>

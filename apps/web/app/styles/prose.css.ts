@@ -21,7 +21,7 @@ globalStyle(`${prose} h3`, { fontSize: vars.fontSize.md });
 globalStyle(`${prose} li + li`, { marginTop: space.xs });
 
 globalStyle(`${prose} table`, { width: 'auto', fontSize: vars.fontSize.sm });
-globalStyle(`${prose} th, ${prose} td`, { border: `${vars.borderWidth} solid ${color.border}` });
+globalStyle(`${prose} th, ${prose} td, ${prose} tbody tr:last-child > *`, { border: `${vars.borderWidth} solid ${color.border}` });
 globalStyle(`${prose} th`, { backgroundColor: color.raised });
 
 // Math is MathML laid out by the browser. It needs an OpenType math font:

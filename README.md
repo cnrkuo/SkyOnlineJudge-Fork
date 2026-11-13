@@ -19,8 +19,46 @@ together, the layering rules of the backend, the judge protocol and the
 sandbox, and [docs/design.md](docs/design.md) for how the Bootstrap interface is put
 together and the rules that keep it consistent.
 
-Requirements
-------------
+Quick start with Docker
+-----------------------
+
+Everything — PostgreSQL, RabbitMQ, API, web app and a judge — runs in
+containers. You need Docker Engine 25+ with Compose v2.24+ on Linux (the
+judge's sandbox needs the host kernel's namespaces; Docker Desktop's Linux VM
+works too).
+
+**Development** — live-reloading containers on your working copy:
+
+```sh
+pnpm docker:dev        # = docker compose up --build
+```
+
+Web http://localhost:3000, API http://localhost:3001, RabbitMQ console
+http://localhost:15672, PostgreSQL on localhost:5432 (`skyoj` / `skyoj`).
+Edits on the host rebuild the contract, restart the API and hot-reload the
+web app. Containers run as uid 1000; if your user's id differs, export
+`DEV_UID=$(id -u) DEV_GID=$(id -g)` first.
+
+**Production** — one command builds the images and starts the stack:
+
+```sh
+pnpm docker:prod       # = sh docker/prod.sh
+```
+
+The first run writes `.env.production` with freshly generated passwords and
+tokens (keep it; back it up with the volumes), then waits until every
+service is healthy. Serve port 3000 through a TLS reverse proxy. Run it
+again after `git pull` to upgrade; the API migrates the database on start.
+
+In both, open the site and register: **the first account becomes the site
+owner**; every later account is a regular user. A judge is already
+connected. [docs/deployment.md](docs/deployment.md) covers what runs where,
+configuration, backups, extra judge machines and troubleshooting.
+
+Running without Docker
+----------------------
+
+Requirements:
 
 - Node.js 22.22+ and pnpm 10
 - PostgreSQL 14+
@@ -32,15 +70,12 @@ Requirements
   — Debian/Ubuntu: `clang libc++-dev libc++abi-dev` — and `python3` by
   default; a judge disables any language whose toolchain is missing)
 
-Getting started
----------------
-
 ```sh
 pnpm install
 
 # 1. Database and message queue (or point DATABASE_URL / RABBITMQ_URL at
 #    existing servers)
-docker compose up -d
+docker compose up -d postgres rabbitmq
 
 # 2. Configuration
 cp apps/api/.env.example apps/api/.env
@@ -54,15 +89,16 @@ pnpm --filter @skyoj/api start     # http://127.0.0.1:3001, applies DB migration
 pnpm --filter @skyoj/web start     # http://localhost:3000
 ```
 
-Open http://localhost:3000 and register. **The first account becomes the
-site owner**; every later account is a regular user.
-
-For development use `pnpm dev:contract`, `pnpm dev:api` and `pnpm dev:web`
-(watch mode) instead of `build` + `start`.
+Open http://localhost:3000 and register (the first account becomes the
+owner). For development use `pnpm dev:contract`, `pnpm dev:api` and
+`pnpm dev:web` (watch mode) instead of `build` + `start`.
 
 ### Connecting a judge machine
 
-Submissions wait in RabbitMQ until a judge picks them up.
+Submissions wait in RabbitMQ until a judge picks them up. (The Docker
+stacks start one for you; this is for judges on other machines or without
+Docker. A judge can also run from the `skyoj/judge` image, see
+[docs/deployment.md](docs/deployment.md#more-judge-machines).)
 
 ```sh
 sudo judge/scripts/install-nsjail.sh     # → /usr/local/bin/nsjail (pinned 3.6)
@@ -106,6 +142,9 @@ Scripts
 
 | Command | What it does |
 | --- | --- |
+| `pnpm docker:dev` | Development stack in Docker, live reload (`compose.yaml`) |
+| `pnpm docker:prod` | Build and start (or upgrade) the production stack (`compose.prod.yaml`) |
+| `pnpm docker:prod:down` | Stop the production stack (data volumes are kept) |
 | `pnpm build` | Build contract, API and web |
 | `pnpm typecheck` | Type-check all TypeScript packages |
 | `pnpm test` | Unit tests (scoring, scoreboard, permissions, testdata archives, time zones, Markdown, interface rules, colour contrast) |

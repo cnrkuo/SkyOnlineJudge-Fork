@@ -29,6 +29,10 @@ export class JudgeRepository {
   }
 
   /** Records that the judge is alive and, when it said, which languages it handles. */
+  async setTokenHash(id: number, tokenHash: string): Promise<void> {
+    await this.db.update(judges).set({ tokenHash }).where(eq(judges.id, id));
+  }
+
   async touch(id: number, languages?: readonly string[]): Promise<void> {
     await this.db
       .update(judges)

@@ -6,3 +6,5 @@ build/
 *.tsbuildinfo
 data/
 judge/config.json
+.env.production
+compose.override.yaml

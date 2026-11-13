@@ -1,0 +1,10 @@
+# The Dockerfiles copy sources explicitly; this keeps the build context small.
+**/node_modules
+**/dist
+**/build
+**/.react-router
+**/data
+**/.env
+.env.*
+!.env.example
+.git

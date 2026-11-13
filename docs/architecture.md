@@ -304,6 +304,10 @@ signal or a non-zero exit → RE; otherwise the checker decides AC / PE / WA.
 The judge kills the jail itself at the exact wall-clock limit; nsjail's own
 `--time_limit` is a backstop one second later.
 
+**In Docker** the judge image ships nsjail and every toolchain; the
+container needs relaxed seccomp, AppArmor and `/proc` masking but no extra
+capabilities ([deployment.md](deployment.md#the-bundled-judge)).
+
 **Requirements and start-up.** nsjail is not packaged for Debian or Ubuntu;
 `judge/scripts/install-nsjail.sh` builds a pinned release (3.6) and checks
 the commit. The kernel must allow user namespaces. At start-up the judge

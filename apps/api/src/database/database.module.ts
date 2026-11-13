@@ -12,6 +12,26 @@ export type Database = NodePgDatabase<typeof schema>;
 export const DB = Symbol('DB');
 const POOL = Symbol('POOL');
 
+/**
+ * Waits up to `DATABASE_WAIT_SEC` (default 60) for PostgreSQL to accept
+ * connections, so the API can start together with its database (containers
+ * start in order but do not wait for each other to be ready).
+ */
+async function waitForDatabase(pool: pg.Pool): Promise<void> {
+  const logger = new Logger('Database');
+  const deadline = Date.now() + config.databaseWaitSec * 1000;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      (await pool.connect()).release();
+      return;
+    } catch (error) {
+      if (Date.now() >= deadline) throw error;
+      if (attempt === 1) logger.warn(`PostgreSQL is not reachable yet (${(error as Error).message}); waiting`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+}
+
 @Global()
 @Module({
   providers: [
@@ -20,6 +40,7 @@ const POOL = Symbol('POOL');
       provide: DB,
       inject: [POOL],
       useFactory: async (pool: pg.Pool): Promise<Database> => {
+        await waitForDatabase(pool);
         const db = drizzle(pool, { schema, casing: 'snake_case' });
         const migrationsFolder = fileURLToPath(new URL('../../migrations', import.meta.url));
         await migrate(db, { migrationsFolder });

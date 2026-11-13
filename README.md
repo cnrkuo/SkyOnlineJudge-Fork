@@ -97,7 +97,8 @@ Scripts
 | --- | --- |
 | `pnpm build` | Build contract, API and web |
 | `pnpm typecheck` | Type-check all TypeScript packages |
-| `pnpm test` | Unit tests (scoring, scoreboard, permissions, testdata archives, time zones) |
+| `pnpm test` | Unit tests (scoring, scoreboard, permissions, testdata archives, time zones, Markdown, interface rules, colour contrast) |
+| `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |
 | `pnpm build:judge` | Configure and build the C++ judge |
 | `ctest --test-dir judge/build` | Judge tests (checker and sandbox) |

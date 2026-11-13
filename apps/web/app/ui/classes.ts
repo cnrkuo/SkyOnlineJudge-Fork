@@ -1,7 +1,7 @@
 /**
- * Every class name the interface uses, in one place. Styling is Bootstrap 5;
- * the `oj-*` names are the few additions in `styles/app.css` for things
- * Bootstrap has no utility for.
+ * Every class name the interface uses, in one place. Styling is Bootstrap 5
+ * in its dark colour mode; the `oj-*` names are the few additions in
+ * `styles/app.css` for things Bootstrap has no utility for.
  *
  * Components in `ui/` read from here, and pages only use those components,
  * so a visual decision (say, how a secondary button looks) is made once.
@@ -26,9 +26,11 @@ const gapClass: Record<Gap, string> = { xs: 'gap-1', sm: 'gap-2', md: 'gap-3', l
 
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'link';
 const buttonVariant: Record<ButtonVariant, string> = {
-  primary: 'btn btn-primary',
-  secondary: 'btn btn-outline-secondary',
-  danger: 'btn btn-outline-danger',
+  primary: 'btn btn-primary oj-btn-primary',
+  // Bootstrap's outline colours are too dim on the dark background; the
+  // oj- classes keep its behaviour and swap in readable text colours.
+  secondary: 'btn btn-outline-secondary oj-btn-secondary',
+  danger: 'btn btn-outline-danger oj-btn-danger',
   link: 'btn btn-link p-0 align-baseline',
 };
 
@@ -71,18 +73,23 @@ export const css = {
   field: 'd-block mb-0',
   fieldLabel: 'form-label',
   fieldHint: 'form-text',
-  input: 'form-control',
-  select: 'form-select',
+  // `oj-control` gives fields a border visible against the page (3 : 1).
+  input: 'form-control oj-control',
+  select: 'form-select oj-control',
   check: 'form-check mb-0',
-  checkInput: 'form-check-input',
+  checkInput: 'form-check-input oj-control',
   checkLabel: 'form-check-label',
   /** Controls that should not stretch (filters, short numbers). */
   inputWidth: { xs: 'oj-w-xs', sm: 'oj-w-sm', md: 'oj-w-md', auto: 'w-auto' },
   monoInput: 'font-monospace oj-code-size',
 
   // ---- tones
-  /** Coloured text only — for values inside tables. */
-  toneText: byTone((name, tone) => (tone === 'neutral' ? 'fw-semibold text-body-secondary' : `fw-semibold text-${name}`)),
+  /**
+   * Coloured text only — for values inside tables. The `-emphasis` shades
+   * are Bootstrap's dark-mode text colours; the plain `text-success` and
+   * `text-danger` fall below 4.5 : 1 on the dark background.
+   */
+  toneText: byTone((name, tone) => (tone === 'neutral' ? 'fw-semibold text-body-secondary' : `fw-semibold text-${name}-emphasis`)),
   /** Tinted block or table cell with matching text. */
   toneFill: byTone((name) => `bg-${name}-subtle text-${name}-emphasis`),
   alert: byTone((name) => `alert alert-${name} py-2 mb-0`),
@@ -96,7 +103,7 @@ export const css = {
   empty: 'text-center text-body-secondary py-5 mb-0',
   list: 'list-group list-group-flush',
   listItem: 'list-group-item d-flex align-items-center gap-3',
-  avatar: 'rounded-circle border oj-avatar',
+  avatar: 'rounded border oj-avatar',
 
   // ---- text helpers
   muted: 'text-body-secondary',
@@ -162,7 +169,6 @@ export const shell = {
   header: 'navbar navbar-expand bg-body-tertiary border-bottom py-1',
   nav: 'd-flex flex-wrap align-items-center column-gap-3',
   brand: 'navbar-brand fw-semibold me-2',
-  brandMark: 'text-primary',
   navLinks: 'navbar-nav flex-wrap flex-grow-1',
   navLink: 'nav-link',
   navLinkActive: 'nav-link active fw-semibold',

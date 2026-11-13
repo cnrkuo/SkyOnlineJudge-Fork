@@ -17,6 +17,14 @@ import {
 import type { Route } from './+types/root';
 import { api, as } from './lib/api.server';
 import { SITE_NAME, SITE_TIMEZONE } from './lib/site.server';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/400-italic.css';
+import '@fontsource/ibm-plex-mono/600.css';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/400-italic.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
+import '@fontsource/ibm-plex-sans/700.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/app.css';
 import { Button, ButtonLink, css } from './ui';
@@ -50,22 +58,14 @@ export function shouldRevalidate({ formMethod }: { formMethod?: string }) {
   return formMethod !== undefined && formMethod !== 'GET';
 }
 
-/**
- * Bootstrap's colour mode follows the operating system: `data-bs-theme` is
- * set from `prefers-color-scheme` before the page paints, and kept in sync
- * if the preference changes while the page is open.
- */
-const COLOR_MODE_SCRIPT = `(function(){var q=matchMedia('(prefers-color-scheme: dark)');function s(){document.documentElement.setAttribute('data-bs-theme',q.matches?'dark':'light')}s();q.addEventListener('change',s)})()`;
-
 export function Layout({ children }: { children: ReactNode }) {
   return (
-    // The attribute is set by the script below before first paint.
-    <html lang="en" suppressHydrationWarning>
+    // Dark mode only: Bootstrap's dark palette, fixed for every visitor.
+    <html lang="en" data-bs-theme="dark">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="color-scheme" content="light dark" />
-        <script dangerouslySetInnerHTML={{ __html: COLOR_MODE_SCRIPT }} />
+        <meta name="color-scheme" content="dark" />
         <Meta />
         <Links />
       </head>
@@ -120,7 +120,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
           <header className={shell.header}>
             <nav aria-label="Main" className={`${css.container} ${shell.nav}`}>
               <Link to="/" className={shell.brand}>
-                <span className={shell.brandMark}>▲</span> {siteName}
+                {siteName}
               </Link>
               <div className={shell.navLinks}>
                 {navLinks.map((link) => (

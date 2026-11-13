@@ -55,6 +55,29 @@ describe('interface consistency', () => {
     expect(own.filter((name) => !name.startsWith('oj-') && !allowed.has(name))).toEqual([]);
   });
 
+  it('is dark mode only', () => {
+    expect(read(join(appDir, 'root.tsx'))).toMatch(/<html[^>]*data-bs-theme="dark"/);
+    const everything = [...sources.map(read), read(join(appDir, 'styles/app.css'))].map(code).join('\n');
+    // No colour-mode switching and no light palette anywhere.
+    expect(everything).not.toMatch(/prefers-color-scheme|data-bs-theme=['"]?light|setAttribute\(['"]data-bs-theme/);
+  });
+
+  it('self-hosts IBM Plex and loads no font from a CDN', () => {
+    const root = read(join(appDir, 'root.tsx'));
+    expect(root).toMatch(/@fontsource\/ibm-plex-sans\//);
+    expect(root).toMatch(/@fontsource\/ibm-plex-mono\//);
+    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-sans-serif:\s*'IBM Plex Sans'/);
+    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-monospace:\s*'IBM Plex Mono'/);
+    expect(offenders(sources, /fonts\.(googleapis|gstatic)\.com|use\.typekit|fonts\.bunny/)).toEqual([]);
+  });
+
+  it('keeps corners nearly square (at most 3 px)', () => {
+    const radii = [...read(join(appDir, 'styles/app.css')).matchAll(/--bs-border-radius(?:-\w+)?:\s*([\d.]+)rem/g)].map((m) => Number(m[1]));
+    expect(radii.length).toBeGreaterThanOrEqual(5);
+    expect(radii.every((rem) => rem <= 0.1875)).toBe(true);
+    expect(offenders(sources, /rounded-(pill|circle|[3-5])\b/)).toEqual([]);
+  });
+
   it('does not load Bootstrap JavaScript (Radix provides the behaviour)', () => {
     expect(offenders(sources, /from ['"]bootstrap(?!\/dist\/css)|import ['"]bootstrap(?!\/dist\/css)/)).toEqual([]);
   });

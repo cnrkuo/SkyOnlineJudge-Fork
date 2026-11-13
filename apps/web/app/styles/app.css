@@ -1,11 +1,31 @@
 /*
  * The application's own stylesheet, loaded after Bootstrap 5.
  *
- * Bootstrap provides the look; this file only adds what it has no class
- * for. Everything is expressed in Bootstrap's CSS variables (--bs-*), so it
- * follows the light and dark colour modes automatically. Class names are
- * prefixed `oj-` and are referenced from ui/classes.ts only.
+ * Bootstrap provides the look, always in its dark colour mode. This file
+ *   1. sets the site's typeface and corner radius through Bootstrap's own
+ *      variables (the theme block below), and
+ *   2. adds what Bootstrap has no class for.
+ * Everything else is expressed in Bootstrap's CSS variables (--bs-*). Class
+ * names are prefixed `oj-` and are referenced from ui/classes.ts only.
+ * `styles/contrast.test.ts` checks every text/background pair used here.
  */
+
+/* ------------------------------------------------------------ theme */
+
+:root[data-bs-theme='dark'] {
+  /* IBM Plex (self-hosted via @fontsource); CJK falls back to system fonts. */
+  --bs-font-sans-serif: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', 'PingFang TC',
+    'Microsoft JhengHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --bs-font-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Nearly square corners: 2 px on controls, 3 px at most anywhere.
+     Bootstrap's defaults are 6 px, 8 px and up to 32 px. */
+  --bs-border-radius: 0.125rem;
+  --bs-border-radius-sm: 0.125rem;
+  --bs-border-radius-lg: 0.1875rem;
+  --bs-border-radius-xl: 0.1875rem;
+  --bs-border-radius-xxl: 0.1875rem;
+}
 
 /* ------------------------------------------------------------ fonts */
 
@@ -87,6 +107,45 @@
 }
 .oj-w-md {
   width: 16rem;
+}
+
+/* ----------------------------------------------------- legibility */
+
+/* Primary button one shade darker than Bootstrap's #0d6efd, which puts its
+   white label at exactly 4.5 : 1 — the bare minimum. */
+.oj-btn-primary {
+  --bs-btn-bg: #0b5ed7;
+  --bs-btn-border-color: #0b5ed7;
+  --bs-btn-hover-bg: #0a58ca;
+  --bs-btn-hover-border-color: #0a58ca;
+  --bs-btn-active-bg: #0a53be;
+  --bs-btn-active-border-color: #0a53be;
+}
+
+/* Secondary and danger buttons: Bootstrap's dark-mode outline colours
+   (#6c757d, #dc3545) are under 3.5 : 1 against the page. */
+.oj-btn-secondary {
+  --bs-btn-color: var(--bs-body-color);
+  --bs-btn-border-color: var(--bs-gray-600);
+  --bs-btn-hover-color: var(--bs-emphasis-color);
+  --bs-btn-hover-bg: var(--bs-secondary-bg);
+  --bs-btn-hover-border-color: var(--bs-gray-500);
+  --bs-btn-active-color: var(--bs-emphasis-color);
+  --bs-btn-active-bg: var(--bs-secondary-bg);
+  --bs-btn-active-border-color: var(--bs-gray-500);
+  --bs-btn-disabled-color: var(--bs-secondary-color);
+  --bs-btn-disabled-border-color: var(--bs-border-color);
+}
+.oj-btn-danger {
+  --bs-btn-color: var(--bs-danger-text-emphasis);
+  --bs-btn-hover-color: var(--bs-white);
+  --bs-btn-active-color: var(--bs-white);
+}
+
+/* Field borders at 3 : 1 against the page, so inputs are visible as inputs
+   (Bootstrap's dark border colour is 1.9 : 1). Focus styles still win. */
+.oj-control {
+  border-color: var(--bs-gray-600);
 }
 
 /* ------------------------------------------------------------- text */
@@ -175,6 +234,8 @@ blockquote {
 
 .oj-pop {
   --bs-dropdown-min-width: 11rem;
+  /* Bootstrap hard-codes #6c757d here (3.3 : 1 in dark mode). */
+  --bs-dropdown-header-color: var(--bs-secondary-color);
   max-height: 20rem;
   overflow-y: auto;
 }
@@ -230,33 +291,26 @@ blockquote {
 /* ------------------------------------------------- highlighted code */
 
 /*
- * Shiki (server-side) emits spans coloured by these variables, so code
- * follows the colour mode like everything else.
+ * Shiki (server-side) emits spans coloured by these variables. Every token
+ * colour is at least 7 : 1 against the code background.
  */
 .oj-code {
   --shiki-foreground: var(--bs-body-color);
   --shiki-background: transparent;
-  --shiki-token-comment: var(--bs-secondary-color);
-  --shiki-token-keyword: #8250df;
-  --shiki-token-string: #0a7d45;
-  --shiki-token-string-expression: #0a7d45;
-  --shiki-token-constant: #9a6700;
-  --shiki-token-function: #0550ae;
+  --shiki-token-comment: #a3acb6;
+  --shiki-token-keyword: #d2a8ff;
+  --shiki-token-string: #7ee787;
+  --shiki-token-string-expression: #7ee787;
+  --shiki-token-constant: #f2cc60;
+  --shiki-token-function: #79c0ff;
   --shiki-token-parameter: var(--bs-emphasis-color);
-  --shiki-token-punctuation: var(--bs-secondary-color);
+  --shiki-token-punctuation: var(--bs-body-color);
   --shiki-token-link: var(--bs-link-color);
 
   overflow-x: auto;
   border: 1px solid var(--bs-border-color);
   border-radius: var(--bs-border-radius);
   background-color: var(--bs-tertiary-bg);
-}
-[data-bs-theme='dark'] .oj-code {
-  --shiki-token-keyword: #d2a8ff;
-  --shiki-token-string: #7ee787;
-  --shiki-token-string-expression: #7ee787;
-  --shiki-token-constant: #f2cc60;
-  --shiki-token-function: #79c0ff;
 }
 .oj-code pre {
   min-width: max-content;
@@ -354,8 +408,10 @@ blockquote {
 .oj-prose .math-display > math {
   display: block math;
 }
-/* Malformed TeX: Temml's message, kept on one compact line. */
+/* Malformed TeX: Temml's message, kept on one compact line. Temml colours
+   it with an inline #b22222 (2.3 : 1 here), hence the !important. */
 .oj-prose .temml-error {
+  color: var(--bs-danger-text-emphasis) !important;
   font-family: var(--bs-font-monospace);
   font-size: 0.875rem;
   white-space: normal !important;

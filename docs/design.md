@@ -1,9 +1,10 @@
 # Interface
 
-The web interface is plain [Bootstrap 5](https://getbootstrap.com) (5.3):
-its components, its spacing, its colours, in light and dark. This page
-explains how Bootstrap is used here and the few rules that keep every page
-looking like part of the same site. A test enforces most of them.
+The web interface is [Bootstrap 5](https://getbootstrap.com) (5.3) in its
+dark colour mode, set in IBM Plex, with nearly square corners and every
+colour pair checked for contrast. This page explains how it is put together
+and the rules that keep every page looking like part of the same site. Tests
+enforce most of them.
 
 ## How it is put together
 
@@ -11,8 +12,10 @@ looking like part of the same site. A test enforces most of them.
 apps/web/app/
 ├── root.tsx              loads bootstrap.min.css, then styles/app.css
 ├── styles/
-│   ├── app.css           the only stylesheet of our own (~300 lines)
-│   └── consistency.test.ts
+│   ├── app.css           the only stylesheet of our own (~350 lines)
+│   ├── consistency.test.ts   structure rules
+│   └── contrast.test.ts      WCAG AA for every colour pair
+├── ../scripts/audit-contrast.mjs  axe-core audit of the running site
 └── ui/
     ├── classes.ts        every class name the app uses, in one place
     ├── index.tsx         layout, card, button, field, badge, stats …
@@ -23,8 +26,9 @@ apps/web/app/
 
 Three layers, each with one job:
 
-1. **Bootstrap** decides how things look. Its stylesheet is used as shipped;
-   nothing is overridden or re-themed.
+1. **Bootstrap** decides how things look. Its stylesheet is used as shipped
+   and themed only through its own CSS variables (font, corner radius) plus a
+   handful of documented contrast fixes.
 2. **`ui/classes.ts`** is the single list of Bootstrap classes in use
    (`btn btn-outline-secondary`, `card`, `form-control`, `table table-hover
    table-sm` …). Changing how, say, a secondary button looks is a one-line
@@ -44,12 +48,61 @@ handles focus and keyboard use and works with React. The Radix parts simply
 wear Bootstrap's classes (`dropdown-menu`, `dropdown-item`, `nav nav-tabs`,
 `form-select`), so they are indistinguishable from the real thing.
 
-## Colour modes
+## Theme
 
-Light and dark both work and follow the operating system: a small inline
-script in `root.tsx` sets `data-bs-theme` from `prefers-color-scheme` before
-the first paint and updates it if the preference changes. To force one mode,
-set the attribute to a fixed value there.
+### Dark mode only
+
+`<html data-bs-theme="dark">` is fixed in `root.tsx`: every visitor gets
+Bootstrap's dark palette, whatever their system prefers, and there is no
+switch. Native controls and scrollbars follow (`color-scheme: dark`).
+
+### Typeface
+
+**IBM Plex Sans** for the interface and **IBM Plex Mono** for code, both
+self-hosted from the `@fontsource` packages — no request leaves the site.
+They are set through Bootstrap's own variables (`--bs-font-sans-serif`,
+`--bs-font-monospace`), so every component picks them up. Weights loaded:
+Sans 400, 500, 600, 700 and 400 italic; Mono 400, 600 and 400 italic.
+Browsers download only the character ranges a page uses, and the Mono file
+only on pages that show code. Chinese text falls back to the system's CJK
+font (Plex has no CJK glyphs).
+
+### Corners
+
+Bootstrap's rounded corners (6 px on controls, 8 px on cards, up to 32 px)
+are reduced to **2 px** on everything and 3 px at most, by setting its
+`--bs-border-radius*` variables. Avatars are square. Nothing is pill-shaped
+or circular.
+
+### Contrast
+
+Everything meets **WCAG 2.2 AA**: 4.5 : 1 for text, 3 : 1 for the borders
+that identify a control. Bootstrap's dark mode falls short in a few places,
+fixed in `app.css`:
+
+| Element | Bootstrap dark | Here |
+| --- | --- | --- |
+| Verdict and tone text (`text-success`, `text-danger`) | 3.4 : 1 | `*-text-emphasis` shades, ≥ 6 : 1 |
+| Secondary (outline) buttons | 2.8–3.3 : 1 | body text colour, 11.9 : 1 |
+| Danger (outline) buttons | 3.4 : 1 | danger emphasis, 6.1 : 1 |
+| Primary button label | 4.5 : 1 (bare minimum) | button one shade darker, 5.2 : 1 |
+| Menu section headers | 3.3 : 1 | secondary text colour |
+| Input and checkbox borders | 1.9 : 1 | grey-600, 3.3 : 1 |
+| TeX error messages (Temml) | 2.3 : 1 | danger emphasis |
+| Code comments | — | ≥ 5.8 : 1; every syntax colour ≥ 4.5 : 1 |
+
+Two checks keep it that way:
+
+- **`styles/contrast.test.ts`** (runs with `pnpm test`) reads Bootstrap's
+  dark palette straight from `bootstrap.css`, applies `app.css`, and checks
+  every pair the interface uses: text on each surface, every tone as text,
+  badge, alert and scoreboard cell, buttons in each state, menus, control
+  borders and every syntax colour. Upgrading Bootstrap re-checks all of it.
+- **`pnpm --filter @skyoj/web audit:contrast`** crawls the running site with
+  axe-core — as a guest, and as `AUDIT_USER` / `AUDIT_PASSWORD` if given —
+  opening every tab and column menu, and fails on any violation. It catches
+  what only rendering shows; it found the menu-header colour that the unit
+  test had not covered.
 
 ## Building blocks
 
@@ -96,6 +149,9 @@ thing everywhere:
 | `secondary` (grey) | Nothing to report yet | Waiting, Judging |
 | `primary` (blue) | Links, the main action, "your row" on a scoreboard | — |
 
+Tone text always uses Bootstrap's `*-text-emphasis` shade, which is the
+readable one on the dark background.
+
 Colour is never the only signal: a verdict always shows its code or name and
 a scoreboard cell always shows its numbers.
 
@@ -110,20 +166,24 @@ Scoreboards are ordinary `DataTable`s whose cells take a `*-subtle` fill.
 
 ## Rules
 
-1. **Use Bootstrap as it is.** No overriding of Bootstrap classes; additions
-   go in `app.css` under an `oj-` name and use `--bs-*` variables.
-2. **Pages contain no class names and no inline styles.** Compose `ui/`
+1. **Use Bootstrap as it is.** Theme it through its `--bs-*` variables;
+   additions go in `app.css` under an `oj-` name. No light mode, no colour
+   switching.
+2. **Every colour pair is AA.** Adding a colour means adding its pairs to
+   `contrast.test.ts`.
+3. **Pages contain no class names and no inline styles.** Compose `ui/`
    components; if they cannot express something, extend the kit and
    `ui/classes.ts`.
-3. **One primary button per view.**
-4. **A colour means one thing** (table above); never decorate with a theme
+4. **One primary button per view.**
+5. **A colour means one thing** (table above); never decorate with a theme
    colour.
-5. **Tables are `DataTable`s; overlays are the wrappers.** No raw `<table>`,
+6. **Tables are `DataTable`s; overlays are the wrappers.** No raw `<table>`,
    Radix import, Bootstrap JavaScript or `window.confirm` in a page.
-6. **Forms use native controls** inside `Field`; Radix is for toolbars and
+7. **Forms use native controls** inside `Field`; Radix is for toolbars and
    one-click actions that need JavaScript anyway.
 
-`apps/web/app/styles/consistency.test.ts` runs with `pnpm test` and fails on
-violations of rules 2 and 5, on a second stylesheet or CSS library appearing,
-on Bootstrap's JavaScript being imported, and on an un-prefixed class in
-`app.css`. Rules 3, 4 and 6 need a reviewer.
+`pnpm test` fails on violations of rules 2, 3 and 6, and on: a light mode or
+colour switching appearing, a font loaded from a CDN, a corner radius above
+3 px, a second stylesheet or CSS library, Bootstrap's JavaScript being
+imported, or an un-prefixed class in `app.css`. Rules 4, 5 and 7 need a
+reviewer.

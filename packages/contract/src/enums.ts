@@ -85,6 +85,8 @@ export const Language = {
   C: 'c',
   CPP: 'cpp',
   CPP23: 'cpp23',
+  CLANG_CPP17: 'clang-cpp17',
+  CLANG_CPP23: 'clang-cpp23',
   PYTHON3: 'py3',
 } as const;
 export type Language = (typeof Language)[keyof typeof Language];
@@ -93,6 +95,8 @@ export const LANGUAGE_LABEL: Record<Language, string> = {
   c: 'C (gcc -std=c11 -O2)',
   cpp: 'C++17 (g++ -std=c++17 -O2)',
   cpp23: 'C++23 (g++ -std=c++23 -O2)',
+  'clang-cpp17': 'Clang C++17 (clang++ -std=c++17 -stdlib=libc++ -O2)',
+  'clang-cpp23': 'Clang C++23 (clang++ -std=c++23 -stdlib=libc++ -O2)',
   py3: 'Python 3',
 };
 

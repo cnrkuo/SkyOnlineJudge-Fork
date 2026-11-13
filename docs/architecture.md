@@ -245,7 +245,7 @@ admin UI (stored hashed in `judges`):
 
 | Procedure | Purpose |
 | --- | --- |
-| `POST /judge/fetch` | Claim the next queued submission. Returns the code, limits and the testcase list with content hashes, or `{ "task": null }`. |
+| `POST /judge/fetch` | Claim the next queued submission in one of `languages` (the judge's working toolchains). Returns the code, limits and the testcase list with content hashes, or `{ "task": null }`. |
 | `POST /judge/testdata` | Download one testcase file. Judges cache by hash, so each file is fetched once per machine. |
 | `POST /judge/report` | Send per-testcase results, or a compile/judge error. Returns once the report is durably queued. |
 
@@ -254,6 +254,19 @@ itself never speaks AMQP: `fetch` pulls a task on its behalf and claims the
 submission in the database, so any number of judges can poll concurrently and
 each submission goes to exactly one. A report is only accepted from the judge
 holding the claim, which makes rejudging during a run safe.
+
+**Mixed fleets.** Judges need not have the same compilers. At start-up each
+judge compiles and runs a hello-world program for every configured language
+inside the sandbox, disables the languages that fail (logging the
+compiler's first error line, e.g. `'iostream' file not found` when libc++
+is missing) and sends the rest as `languages` with every fetch. The claim
+then also requires `language IN (…)`; a task for another language goes back
+to the end of `skyoj.judge` for a judge that has the toolchain, and a fetch
+stops once it meets a task it already put back, so a queue with nothing for
+this judge costs one pass. The cost is ordering: a submission put back
+queues behind newer ones. The last list each judge sent is stored in
+`judges.languages` and shown under Admin → Judge machines; a language that
+no judge offers simply waits.
 
 The judge reports raw results; the **API** computes the final verdict (the
 worst testcase verdict) and the score (`scoring.ts`), so scoring rules live
@@ -294,7 +307,8 @@ The judge kills the jail itself at the exact wall-clock limit; nsjail's own
 **Requirements and start-up.** nsjail is not packaged for Debian or Ubuntu;
 `judge/scripts/install-nsjail.sh` builds a pinned release (3.6) and checks
 the commit. The kernel must allow user namespaces. At start-up the judge
-runs a self-test jail and refuses to start if it fails — most often because
+runs a self-test jail and refuses to start if it fails (then checks each
+language's toolchain, see *Mixed fleets*) — most often because
 a parent directory of `work_dir` or of the judge binary is not searchable by
 the jail's uid (nsjail mounts them from inside the user namespace; fix with
 `chmod o+x`). The error message quotes nsjail's own.

@@ -49,14 +49,26 @@ export class JudgeService {
    * Hands the next queued submission to a judge. Tasks come from RabbitMQ;
    * the claim in the database makes sure a duplicate or outdated task (for a
    * submission that is no longer waiting) is skipped rather than judged twice.
+   *
+   * A judge that lists its `languages` only gets submissions in those. A
+   * task in another language goes back to the end of the queue for a judge
+   * that has the toolchain, so a fleet can mix machines with different
+   * compilers.
    */
-  async fetch(judge: JudgeRow) {
-    await this.judges.touch(judge.id);
+  async fetch(judge: JudgeRow, languages?: readonly string[]) {
+    await this.judges.touch(judge.id, languages);
     let submission: SubmissionRow | undefined;
+    const deferred = new Set<number>();
     for (let skipped = 0; !submission && skipped < MAX_SKIPPED_TASKS; skipped++) {
       const task = await this.broker.pull<JudgeTaskMessage>(Queue.JUDGE);
-      if (!task) return { task: null };
-      submission = await this.submissions.claim(task.submissionId, judge.id);
+      if (!task) break;
+      submission = await this.submissions.claim(task.submissionId, judge.id, languages);
+      if (submission || !languages || !(await this.submissions.isWaiting(task.submissionId))) continue;
+      // Waiting, but in a language this judge cannot run.
+      await this.broker.publish(Queue.JUDGE, task);
+      // Seen it before: the queue has gone round once with nothing for us.
+      if (deferred.has(task.submissionId)) break;
+      deferred.add(task.submissionId);
     }
     if (!submission) return { task: null };
 

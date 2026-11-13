@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UserLevel } from '@skyoj/contract';
+import { Language, UserLevel } from '@skyoj/contract';
 import { requireAdmin, type Actor } from '../../common/actor.js';
 import { hashPassword, randomToken, sha256 } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
@@ -8,11 +8,15 @@ import { SessionRepository } from '../auth/session.repository.js';
 import { JudgeRepository, type JudgeRow } from '../judge/judge.repository.js';
 import { UserRepository } from '../user/user.repository.js';
 
+const LANGUAGES = new Set<string>(Object.values(Language));
+const isLanguage = (id: string): id is Language => LANGUAGES.has(id);
+
 function toJudge(row: JudgeRow) {
   return {
     id: row.id,
     name: row.name,
     enabled: row.enabled,
+    languages: row.languages.filter(isLanguage),
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };

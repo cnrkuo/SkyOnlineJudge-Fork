@@ -20,7 +20,9 @@
   "compile_memory_kb": 2097152,
   "max_processes": 64
 
-  // Optional: override or add languages. Keys are the API's language ids.
+  // Optional: override or add languages. Keys are the API's language ids
+  // (c, cpp, cpp23, clang-cpp17, clang-cpp23, py3). At start-up every
+  // language is compiled and run once; those that fail are not offered.
   // "languages": {
   //   "cpp": {
   //     "source": "main.cpp",

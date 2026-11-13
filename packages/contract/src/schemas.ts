@@ -439,6 +439,8 @@ export const JudgeMachineSchema = type({
   id: 'number.integer',
   name: 'string',
   enabled: 'boolean',
+  /** Languages the judge reported working toolchains for on its last fetch. */
+  languages: LanguageSchema.array(),
   lastSeenAt: TimestampSchema.or('null'),
   createdAt: TimestampSchema,
 });

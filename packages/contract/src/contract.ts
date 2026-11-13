@@ -135,8 +135,14 @@ const admin = {
  * token (`Authorization: Bearer <token>`), not a user session.
  */
 const judge = {
-  /** Claims the oldest waiting submission, or returns `{ task: null }`. */
-  fetch: base.output(type({ task: s.JudgeTaskSchema.or('null') })),
+  /**
+   * Claims the next waiting submission in one of `languages` (the languages
+   * this judge has a working toolchain for), or returns `{ task: null }`.
+   * Without `languages`, any submission may be handed out.
+   */
+  fetch: base
+    .input(type({ 'languages?': s.LanguageSchema.array().atMostLength(64) }))
+    .output(type({ task: s.JudgeTaskSchema.or('null') })),
   /** Raw bytes of one testcase file. */
   testdata: base
     .input(type({ testcaseId: 'number.integer', kind: "'input' | 'output'" }))

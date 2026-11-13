@@ -45,6 +45,8 @@ const ALIASES: Record<string, string> = {
   c: 'c',
   cpp: 'cpp',
   cpp23: 'cpp',
+  'clang-cpp17': 'cpp',
+  'clang-cpp23': 'cpp',
   'c++': 'cpp',
   cc: 'cpp',
   py: 'python',

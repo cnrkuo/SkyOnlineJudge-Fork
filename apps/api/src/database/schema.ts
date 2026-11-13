@@ -209,6 +209,8 @@ export const judges = pgTable(
     tokenHash: varchar({ length: 64 }).notNull(),
     enabled: boolean().notNull().default(true),
     lastSeenAt: timestamp({ withTimezone: true }),
+    /** Language ids the judge had working toolchains for on its last fetch. */
+    languages: varchar({ length: 16 }).array().notNull().default([]),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('judges_name_key').on(t.name), uniqueIndex('judges_token_key').on(t.tokenHash)],

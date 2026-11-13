@@ -123,13 +123,32 @@ export class SubmissionRepository {
    * is not waiting (already judged, or a duplicate task), so a submission is
    * never handed to two judges.
    */
-  async claim(id: number, judgeId: number): Promise<SubmissionRow | undefined> {
+  /**
+   * Marks a waiting submission as being judged by `judgeId`. With
+   * `languages`, only a submission in one of them is claimed.
+   */
+  async claim(id: number, judgeId: number, languages?: readonly string[]): Promise<SubmissionRow | undefined> {
     const [row] = await this.db
       .update(submissions)
       .set({ verdict: Verdict.JUDGING, judgeId, judgeStartedAt: new Date() })
-      .where(and(eq(submissions.id, id), eq(submissions.verdict, Verdict.WAIT)))
+      .where(
+        and(
+          eq(submissions.id, id),
+          eq(submissions.verdict, Verdict.WAIT),
+          languages ? inArray(submissions.language, [...languages]) : undefined,
+        ),
+      )
       .returning();
     return row;
+  }
+
+  /** Whether a submission is still waiting for a judge. */
+  async isWaiting(id: number): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: submissions.id })
+      .from(submissions)
+      .where(and(eq(submissions.id, id), eq(submissions.verdict, Verdict.WAIT)));
+    return row !== undefined;
   }
 
   /** Puts submissions whose judge went silent back to waiting; returns their ids. */

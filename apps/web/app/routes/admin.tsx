@@ -7,6 +7,7 @@ import { orpc } from '~/lib/orpc';
 import { paging } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
 import { Badge, Button, Card, CardBody, Cluster, Control, css, Empty, Field, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
+import { languageName } from '~/ui/code';
 import { DataTable, Pager, type Column } from '~/ui/data-table';
 import { Confirm, SelectBox } from '~/ui/overlays';
 import type { Route } from './+types/admin';
@@ -67,6 +68,12 @@ function Judges({ actionData }: { actionData: Route.ComponentProps['actionData']
         const online = j.lastSeenAt !== null && dataUpdatedAt - Date.parse(j.lastSeenAt) < 30_000;
         return online ? <Badge tone="success">Online</Badge> : <Badge tone="warning">Offline</Badge>;
       },
+    },
+    {
+      id: 'languages',
+      header: 'Languages',
+      cell: (j) =>
+        j.languages.length > 0 ? j.languages.map(languageName).join(', ') : <Muted>not reported</Muted>,
     },
     { id: 'seen', header: 'Last seen', cell: (j) => <Muted>{j.lastSeenAt ? <Time value={j.lastSeenAt} /> : 'never'}</Muted> },
     {

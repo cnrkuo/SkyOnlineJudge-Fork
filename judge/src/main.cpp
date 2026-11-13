@@ -14,6 +14,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <unistd.h>
 
@@ -79,6 +80,33 @@ void probe_sandbox(const judge::Config& config) {
   }
 }
 
+/**
+ * Compiles and runs a sample program for every configured language. Only
+ * the languages that pass are announced to the API, so a machine without,
+ * say, libc++ is never handed Clang submissions to fail as compile errors.
+ */
+std::vector<std::string> check_toolchains(const judge::Config& config, judge::Runner& runner) {
+  std::vector<std::string> working;
+  for (const auto& [id, spec] : config.languages) {
+    std::string problem = runner.check_toolchain(id);
+    if (problem.empty()) {
+      working.push_back(id);
+      continue;
+    }
+    // Keep the log readable: the first line of a compiler's complaint.
+    if (const auto newline = problem.find('\n'); newline != std::string::npos) problem.resize(newline);
+    judge::log("WARN", "language " + id + " disabled: " + problem);
+  }
+  if (working.empty()) {
+    judge::log("FATAL", "no language has a working toolchain");
+    std::exit(1);
+  }
+  std::string list;
+  for (const std::string& id : working) list += (list.empty() ? "" : ", ") + id;
+  judge::log("INFO", "languages: " + list);
+  return working;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -124,11 +152,12 @@ int main(int argc, char** argv) {
 
     judge::ApiClient api(config.api_url, config.token);
     judge::Runner runner(config, api);
+    const std::vector<std::string> languages = check_toolchains(config, runner);
     judge::log("INFO", "judging for " + config.api_url);
 
     while (!g_stop) {
       try {
-        const auto task = api.fetch();
+        const auto task = api.fetch(languages);
         if (!task) {
           if (once) break;
           idle(config.poll_interval_ms);

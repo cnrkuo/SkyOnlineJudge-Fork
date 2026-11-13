@@ -1,0 +1,1 @@
+ALTER TABLE "judges" ADD COLUMN "languages" varchar(16)[] DEFAULT '{}' NOT NULL;

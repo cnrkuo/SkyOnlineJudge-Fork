@@ -157,7 +157,8 @@ void test_sandbox(const fs::path& dir) {
 }
 
 /** Compiles and runs C++23 inside the sandbox, as the judge does. */
-void test_cpp23(const fs::path& dir) {
+/** Compiles a C++23 program with `compiler` in the jail; checks which standard library it used. */
+void test_cpp23(const fs::path& dir, std::vector<std::string> compiler, const std::string& library) {
   std::ofstream(dir / "main.cpp") << R"(#include <expected>
 #include <iostream>
 #include <ranges>
@@ -168,11 +169,17 @@ std::expected<int, const char*> half(int n) {
 int main() {
   auto squares = std::views::iota(1, 5) | std::views::transform([](int x) { return x * x; });
   for (int s : squares) std::cout << s << ' ';
-  std::cout << half(8).value_or(-1) << ' ' << half(7).error() << '\n';
+  std::cout << half(8).value_or(-1) << ' ' << half(7).error() << ' ';
+#ifdef _LIBCPP_VERSION
+  std::cout << "libc++\n";
+#else
+  std::cout << "libstdc++\n";
+#endif
 }
 )";
   judge::sandbox::RunSpec compile;
-  compile.argv = {"/usr/bin/g++", "-std=c++23", "-O2", "-o", "main", "main.cpp"};
+  compile.argv = std::move(compiler);
+  for (const char* arg : {"-O2", "-o", "main", "main.cpp"}) compile.argv.emplace_back(arg);
   compile.env = {"PATH=/usr/bin:/bin", "HOME=/tmp"};
   compile.cwd = dir.string();
   compile.stdout_path = compile.stderr_path = (dir.parent_path() / "out").string();
@@ -188,7 +195,7 @@ int main() {
   program.stdout_path = (dir.parent_path() / "out").string();
   program.readonly_cwd = true;
   auto ran = judge::sandbox::run(program);
-  CHECK(ran.status == Status::Exited && out(dir) == "1 4 9 16 4 odd\n");
+  CHECK(ran.status == Status::Exited && out(dir) == "1 4 9 16 4 odd " + library + "\n");
 }
 
 }  // namespace
@@ -218,7 +225,13 @@ int main(int argc, char** argv) {
       .init = fs::canonical("/proc/self/exe").string(),
   });
   test_sandbox(box);
-  test_cpp23(box);
+  test_cpp23(box, {"/usr/bin/g++", "-std=c++23"}, "libstdc++");
+  // Clang with libc++; skipped where they are not installed.
+  if (fs::exists("/usr/bin/clang++") && fs::exists("/usr/lib/x86_64-linux-gnu/libc++.so")) {
+    test_cpp23(box, {"/usr/bin/clang++", "-std=c++23", "-stdlib=libc++"}, "libc++");
+  } else {
+    std::puts("skipped clang++/libc++ test (not installed)");
+  }
   std::error_code ignored;
   fs::remove_all(root, ignored);
 

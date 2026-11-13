@@ -15,7 +15,7 @@ export class JudgeController {
   routes(@BearerToken() token: string | undefined) {
     const { judge } = this;
     return {
-      fetch: os.fetch.handler(async () => judge.fetch(await judge.authenticate(token))),
+      fetch: os.fetch.handler(async ({ input }) => judge.fetch(await judge.authenticate(token), input.languages)),
       testdata: os.testdata.handler(async ({ input }) => {
         await judge.authenticate(token);
         return judge.testdata(input.testcaseId, input.kind);

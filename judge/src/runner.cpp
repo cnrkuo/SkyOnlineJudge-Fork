@@ -104,17 +104,19 @@ std::string Runner::testdata(const Testcase& testcase, bool input) {
   return path;
 }
 
-Report Runner::judge(const Task& task) {
-  const auto language = config_.languages.find(task.language);
-  if (language == config_.languages.end()) {
-    return failure(task, Verdict::JudgeError, "This judge does not support language \"" + task.language + "\"");
-  }
-  const LanguageSpec& spec = language->second;
+sandbox::RunSpec Runner::base_spec(const fs::path& root) const {
+  // The jail sees only the box (as /box) and the system's /usr; the testdata
+  // cache, captured output in io/ and the judge's config are simply absent.
+  sandbox::RunSpec base;
+  base.env = kEnvironment;
+  base.cwd = (root / "box").string();
+  base.limits.max_processes = config_.max_processes;
+  return base;
+}
 
-  const fs::path root = fs::path(config_.work_dir) / format("%d-%d", task.submission_id, static_cast<int>(::getpid()));
+std::optional<Runner::Failure> Runner::build(const LanguageSpec& spec, const std::string& code, const fs::path& root) {
   const fs::path box = root / "box";
   const fs::path io = root / "io";
-  ScopedDirectory cleanup{root};
   try {
     fs::remove_all(root);
     fs::create_directories(box);
@@ -124,21 +126,16 @@ Report Runner::judge(const Task& task) {
     fs::permissions(io, fs::perms::owner_all);
     fs::permissions(box, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
                              fs::perms::others_read | fs::perms::others_exec);
-    std::ofstream(box / spec.source, std::ios::binary) << task.code;
+    std::ofstream(box / spec.source, std::ios::binary) << code;
     if (::geteuid() == 0) {
       // The compiler runs as the unprivileged uid and writes into the box.
       if (::chown(box.c_str(), config_.run_uid, config_.run_gid) != 0) throw fs::filesystem_error("chown", box, {});
     }
   } catch (const fs::filesystem_error& error) {
-    return failure(task, Verdict::JudgeError, std::string("Cannot prepare the work directory: ") + error.what());
+    return Failure{Verdict::JudgeError, std::string("Cannot prepare the work directory: ") + error.what()};
   }
 
-  // The jail sees only the box (as /box) and the system's /usr; the testdata
-  // cache, captured output in io/ and the judge's config are simply absent.
-  sandbox::RunSpec base;
-  base.env = kEnvironment;
-  base.cwd = box.string();
-  base.limits.max_processes = config_.max_processes;
+  const sandbox::RunSpec base = base_spec(root);
 
   // ------------------------------------------------------------------ compile
   if (!spec.compile.empty()) {
@@ -161,18 +158,34 @@ Report Runner::judge(const Task& task) {
     const std::string output = read_text(log_path);
     switch (built.status) {
       case sandbox::Status::InternalError:
-        return failure(task, Verdict::JudgeError, "Sandbox error: " + built.error);
+        return Failure{Verdict::JudgeError, "Sandbox error: " + built.error};
       case sandbox::Status::TimeLimit:
-        return failure(task, Verdict::CompileError, "Compilation timed out\n" + output);
+        return Failure{Verdict::CompileError, "Compilation timed out\n" + output};
       case sandbox::Status::MemoryLimit:
-        return failure(task, Verdict::CompileError, "Compilation ran out of memory\n" + output);
+        return Failure{Verdict::CompileError, "Compilation ran out of memory\n" + output};
       case sandbox::Status::Exited:
         if (built.exit_code == 0) break;
         [[fallthrough]];
       default:
-        return failure(task, Verdict::CompileError, output.empty() ? "Compilation failed" : output);
+        return Failure{Verdict::CompileError, output.empty() ? "Compilation failed" : output};
     }
   }
+
+  return std::nullopt;
+}
+
+Report Runner::judge(const Task& task) {
+  const auto language = config_.languages.find(task.language);
+  if (language == config_.languages.end()) {
+    return failure(task, Verdict::JudgeError, "This judge does not support language \"" + task.language + "\"");
+  }
+  const LanguageSpec& spec = language->second;
+
+  const fs::path root = fs::path(config_.work_dir) / format("%d-%d", task.submission_id, static_cast<int>(::getpid()));
+  ScopedDirectory cleanup{root};
+  if (auto failed = build(spec, task.code, root)) return failure(task, failed->verdict, std::move(failed->message));
+  const fs::path io = root / "io";
+  const sandbox::RunSpec base = base_spec(root);
 
   // ---------------------------------------------------------------------- run
   Report report;
@@ -193,6 +206,43 @@ Report Runner::judge(const Task& task) {
     report.results.push_back(to_result(testcase, sandbox::run(run), task.time_limit_ms, expected_path, output_path));
   }
   return report;
+}
+
+std::string Runner::check_toolchain(const std::string& language) {
+  const auto found = config_.languages.find(language);
+  if (found == config_.languages.end()) return "not configured";
+  const LanguageSpec& spec = found->second;
+
+  const std::string extension = fs::path(spec.source).extension().string();
+  std::string code;
+  if (extension == ".c") {
+    code = "#include <stdio.h>\nint main(void) { puts(\"ok\"); return 0; }\n";
+  } else if (extension == ".cpp" || extension == ".cc" || extension == ".cxx") {
+    // <iostream> and <vector> catch a missing standard library (libc++).
+    code = "#include <iostream>\n#include <vector>\n"
+           "int main() { std::vector<const char*> v{\"ok\"}; std::cout << v[0] << '\\n'; }\n";
+  } else if (extension == ".py") {
+    code = "print('ok')\n";
+  } else {
+    return {};
+  }
+
+  const fs::path root = fs::path(config_.work_dir) / format(".check-%s-%d", language.c_str(), static_cast<int>(::getpid()));
+  ScopedDirectory cleanup{root};
+  if (auto failed = build(spec, code, root)) return failed->message;
+
+  sandbox::RunSpec run = base_spec(root);
+  const std::string output_path = (root / "io" / "stdout").string();
+  run.argv = spec.run;
+  run.stdout_path = output_path;
+  run.readonly_cwd = true;
+  run.limits.cpu_ms = 5000;
+  run.limits.wall_ms = 10000;
+  const sandbox::RunResult result = sandbox::run(run);
+  if (result.status == sandbox::Status::InternalError) return "sandbox error: " + result.error;
+  if (result.status != sandbox::Status::Exited || result.exit_code != 0) return "the sample program did not run";
+  if (read_text(output_path) != "ok\n") return "the sample program printed the wrong output";
+  return {};
 }
 
 }  // namespace judge

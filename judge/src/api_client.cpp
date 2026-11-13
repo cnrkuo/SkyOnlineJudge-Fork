@@ -56,9 +56,9 @@ std::string ApiClient::post(const std::string& procedure, const std::string& bod
   return std::move(response->body);
 }
 
-std::optional<Task> ApiClient::fetch() {
+std::optional<Task> ApiClient::fetch(const std::vector<std::string>& languages) {
   try {
-    const json reply = json::parse(post("/judge/fetch", "{}"));
+    const json reply = json::parse(post("/judge/fetch", dump({{"languages", languages}})));
     const json& item = reply.at("task");
     if (item.is_null()) return std::nullopt;
 

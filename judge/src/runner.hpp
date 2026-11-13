@@ -1,7 +1,12 @@
 #pragma once
 
+#include <filesystem>
+#include <optional>
+#include <string>
+
 #include "api_client.hpp"
 #include "config.hpp"
+#include "sandbox.hpp"
 
 namespace judge {
 
@@ -20,7 +25,23 @@ class Runner {
   /** Never throws for problems with the submission; those become verdicts. */
   Report judge(const Task& task);
 
+  /**
+   * Compiles and runs a hello-world program in `language` inside the
+   * sandbox. Returns an empty string when the toolchain works, the reason
+   * otherwise. Languages whose source extension it has no sample for are
+   * assumed to work.
+   */
+  std::string check_toolchain(const std::string& language);
+
  private:
+  struct Failure {
+    Verdict verdict;
+    std::string message;
+  };
+  /** Creates `<root>/box` and `<root>/io`, saves the source and compiles it. */
+  std::optional<Failure> build(const LanguageSpec& spec, const std::string& code, const std::filesystem::path& root);
+  sandbox::RunSpec base_spec(const std::filesystem::path& root) const;
+
   /** Returns the cached path of a testdata blob, downloading it on a miss. */
   std::string testdata(const Testcase& testcase, bool input);
 

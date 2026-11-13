@@ -28,7 +28,9 @@ Requirements
 - For the judge: Linux with user namespaces enabled, CMake 3.20+, a C++20
   compiler, [nsjail](https://github.com/google/nsjail) (built by
   `judge/scripts/install-nsjail.sh`), plus the toolchains you want to offer
-  to contestants (`gcc`, `g++` 13+ for C++23, `python3` by default)
+  to contestants (`gcc`, `g++` 13+ for C++23, `clang++` 17+ with libc++
+  — Debian/Ubuntu: `clang libc++-dev libc++abi-dev` — and `python3` by
+  default; a judge disables any language whose toolchain is missing)
 
 Getting started
 ---------------
@@ -84,8 +86,10 @@ Day-to-day
 
 - **Problems** are written in Markdown with TeX math. Testdata is uploaded as
   a zip of `name.in` + `name.ans` pairs. New problems start hidden and closed.
-- **Languages:** C (C11), C++17, C++23 and Python 3. Each judge's config
-  can change the compiler commands or add languages.
+- **Languages:** C (C11), C++17 and C++23 with GCC/libstdc++, C++17 and
+  C++23 with Clang/libc++, and Python 3. Each judge's config can change the
+  compiler commands or add languages; each judge only receives submissions
+  in languages whose toolchain passed its start-up check.
 - **Scoring** is either the average of passed testcases or subtasks
   (`group_min`: a group of testcases scores only if all of them pass).
 - **Contests** follow ICPC or IOI rules, with open / password / approval /
@@ -108,7 +112,7 @@ Scripts
 | `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |
 | `pnpm build:judge` | Configure and build the C++ judge |
-| `ctest --test-dir judge/build` | Judge tests (checker, nsjail sandbox, C++23 compilation); need nsjail |
+| `ctest --test-dir judge/build` | Judge tests (checker, nsjail sandbox, C++23 with g++ and clang++/libc++); need nsjail |
 
 Coming from the PHP version
 ---------------------------

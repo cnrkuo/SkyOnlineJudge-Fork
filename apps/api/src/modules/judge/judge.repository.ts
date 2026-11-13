@@ -28,8 +28,12 @@ export class JudgeRepository {
     return row!;
   }
 
-  async touch(id: number): Promise<void> {
-    await this.db.update(judges).set({ lastSeenAt: new Date() }).where(eq(judges.id, id));
+  /** Records that the judge is alive and, when it said, which languages it handles. */
+  async touch(id: number, languages?: readonly string[]): Promise<void> {
+    await this.db
+      .update(judges)
+      .set({ lastSeenAt: new Date(), ...(languages ? { languages: [...languages] } : {}) })
+      .where(eq(judges.id, id));
   }
 
   async setEnabled(id: number, enabled: boolean): Promise<boolean> {

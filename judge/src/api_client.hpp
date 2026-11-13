@@ -65,8 +65,8 @@ class ApiClient {
   ApiClient(const std::string& base_url, const std::string& token);
   ~ApiClient();
 
-  /** Claims the next queued submission, if any. */
-  std::optional<Task> fetch();
+  /** Claims the next queued submission in one of `languages`, if any. */
+  std::optional<Task> fetch(const std::vector<std::string>& languages);
   /** Downloads one testcase file ("input" or "output") to `destination`. */
   void download_testdata(int testcase_id, const std::string& kind, const std::string& destination);
   void report(const Report& report);

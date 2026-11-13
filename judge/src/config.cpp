@@ -14,6 +14,11 @@ std::map<std::string, LanguageSpec> default_languages() {
       {"c", {"main.c", {"/usr/bin/gcc", "-std=c11", "-O2", "-o", "main", "main.c", "-lm"}, {"./main"}}},
       {"cpp", {"main.cpp", {"/usr/bin/g++", "-std=c++17", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
       {"cpp23", {"main.cpp", {"/usr/bin/g++", "-std=c++23", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
+      // Clang with LLVM's libc++ instead of libstdc++ (apt: clang libc++-dev libc++abi-dev).
+      {"clang-cpp17",
+       {"main.cpp", {"/usr/bin/clang++", "-std=c++17", "-stdlib=libc++", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
+      {"clang-cpp23",
+       {"main.cpp", {"/usr/bin/clang++", "-std=c++23", "-stdlib=libc++", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
       // Byte-compiling surfaces syntax errors as a compile error.
       {"py3", {"main.py", {"/usr/bin/python3", "-m", "py_compile", "main.py"}, {"/usr/bin/python3", "main.py"}}},
   };

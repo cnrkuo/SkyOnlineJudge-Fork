@@ -52,8 +52,26 @@ target_compile_options(judge_core PUBLIC -Wall -Wextra -Wpedantic)
 add_executable(skyoj-judge src/main.cpp)
 target_link_libraries(skyoj-judge PRIVATE judge_core)
 
+# Tests use doctest, a single header, fetched and pinned like cpp-httplib.
+set(DOCTEST_VERSION v2.4.11)
+set(DOCTEST_DIR ${CMAKE_BINARY_DIR}/_deps/doctest-${DOCTEST_VERSION})
+if(NOT EXISTS ${DOCTEST_DIR}/doctest.h)
+  file(DOWNLOAD
+    https://raw.githubusercontent.com/doctest/doctest/${DOCTEST_VERSION}/doctest/doctest.h
+    ${DOCTEST_DIR}/doctest.h
+    EXPECTED_HASH SHA256=44faa038e9c3f9728efbda143748d01124ea0a27f4bf78f35a15d8fab2e039fb
+    TLS_VERIFY ON)
+endif()
+
 enable_testing()
-add_executable(judge_tests tests/tests.cpp)
+add_executable(judge_tests
+  tests/main.cpp
+  tests/checker_test.cpp
+  tests/config_test.cpp
+  tests/runner_test.cpp
+  tests/sandbox_test.cpp
+  tests/toolchain_test.cpp)
+target_include_directories(judge_tests SYSTEM PRIVATE ${DOCTEST_DIR})
 target_link_libraries(judge_tests PRIVATE judge_core)
 add_test(NAME judge_tests COMMAND judge_tests)
 

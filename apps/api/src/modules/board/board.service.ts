@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Verdict } from '@skyoj/contract';
 import { type Actor, isAdmin, isUser, requireAdmin, requireUser } from '../../common/actor.js';
+import { hasDuplicates } from '../../common/collections.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { type PageInput, pageOf } from '../../common/pagination.js';
+import { resolveWindow, type TimeWindow } from '../../common/time-window.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { UserRepository } from '../user/user.repository.js';
 import { BoardRepository } from './board.repository.js';
@@ -15,6 +17,11 @@ export interface BoardInput {
   allowJoin: boolean;
   userIds: number[];
   problems: { problemId: number; note: string }[];
+}
+
+/** Unlike a contest, a scoreboard may start and end at the same moment. */
+function checkWindow({ startAt, endAt }: TimeWindow): void {
+  if (endAt < startAt) throw new BadRequestError('The end must not be before the start');
 }
 
 /**
@@ -88,8 +95,8 @@ export class BoardService {
   async create(actor: Actor, input: BoardInput): Promise<{ id: number }> {
     requireAdmin(actor);
     const { userIds, problems, startAt, endAt, ...fields } = input;
-    const window = { startAt: new Date(startAt), endAt: new Date(endAt) };
-    if (window.endAt < window.startAt) throw new BadRequestError('The end must not be before the start');
+    const { window } = resolveWindow({ startAt, endAt });
+    checkWindow(window);
     await this.checkMembers(userIds, problems);
     const id = await this.boards.create({ ...fields, ...window, ownerId: actor.id }, { userIds, problems });
     return { id };
@@ -100,28 +107,20 @@ export class BoardService {
     const found = await this.boards.findById(id);
     if (!found) throw new NotFoundError('Scoreboard');
     const { userIds, problems, startAt, endAt, ...fields } = input;
-    const window = {
-      ...(startAt === undefined ? {} : { startAt: new Date(startAt) }),
-      ...(endAt === undefined ? {} : { endAt: new Date(endAt) }),
-    };
-    if ((window.endAt ?? found.board.endAt) < (window.startAt ?? found.board.startAt)) {
-      throw new BadRequestError('The end must not be before the start');
-    }
+    const { patch, window } = resolveWindow({ startAt, endAt }, found.board);
+    checkWindow(window);
     await this.checkMembers(userIds ?? [], problems ?? []);
-    await this.boards.update(id, { ...fields, ...window }, { userIds, problems });
+    await this.boards.update(id, { ...fields, ...patch }, { userIds, problems });
   }
 
   private async checkMembers(userIds: number[], problems: { problemId: number }[]): Promise<void> {
-    if (new Set(userIds).size !== userIds.length) throw new BadRequestError('A user is listed twice');
-    if (new Set(problems.map((p) => p.problemId)).size !== problems.length) {
-      throw new BadRequestError('A problem is listed twice');
-    }
+    if (hasDuplicates(userIds)) throw new BadRequestError('A user is listed twice');
+    if (hasDuplicates(problems.map((p) => p.problemId))) throw new BadRequestError('A problem is listed twice');
     const known = new Set((await this.users.findByIds(userIds)).map((user) => user.id));
-    const missing = userIds.find((id) => !known.has(id));
-    if (missing !== undefined) throw new BadRequestError(`User ${missing} does not exist`);
-    for (const { problemId } of problems) {
-      if (!(await this.problems.findById(problemId))) throw new BadRequestError(`Problem ${problemId} does not exist`);
-    }
+    const missingUser = userIds.find((id) => !known.has(id));
+    if (missingUser !== undefined) throw new BadRequestError(`User ${missingUser} does not exist`);
+    const [missingProblem] = await this.problems.missingIds(problems.map((p) => p.problemId));
+    if (missingProblem !== undefined) throw new BadRequestError(`Problem ${missingProblem} does not exist`);
   }
 
   async join(actor: Actor, id: number): Promise<void> {

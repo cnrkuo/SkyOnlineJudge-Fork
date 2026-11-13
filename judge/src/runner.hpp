@@ -27,11 +27,11 @@ class Runner {
 
   /**
    * Compiles and runs a hello-world program in `language` inside the
-   * sandbox. Returns an empty string when the toolchain works, the reason
-   * otherwise. Languages whose source extension it has no sample for are
-   * assumed to work.
+   * sandbox. Returns why the toolchain does not work, or nothing when it
+   * does. Languages whose source extension it has no sample for are assumed
+   * to work.
    */
-  std::string check_toolchain(const std::string& language);
+  std::optional<std::string> check_toolchain(const std::string& language);
 
  private:
   struct Failure {

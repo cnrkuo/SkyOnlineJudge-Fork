@@ -115,7 +115,7 @@ Two checks keep it that way:
 | Columns / content + sidebar | `Grid`, `Split`, `Measure` | CSS grid helpers in `app.css` |
 | Buttons | `Button`, `ButtonLink` | `btn btn-primary`, `btn-outline-secondary`, `btn-outline-danger`, `btn-link` |
 | A form row | `Field`, `CheckField`, `Control` | `form-label`, `form-control` / `form-select`, `form-text`, `form-check` |
-| Result of an action / standing note | `Notice`, `Callout` | `alert alert-*` |
+| Result of an action / standing note | `Notice`, `Callout` | `alert alert-*` on an `<output>` (read out as a status); errors use `role="alert"` |
 | Short state | `Badge`, `VerdictBadge`, `PhaseBadge` | `badge` with the `*-subtle` colours |
 | Headline numbers | `Stats` | small `card`s |
 | Any table | `DataTable`, `Pager` | `table table-hover table-sm`, `table-responsive` |
@@ -187,3 +187,8 @@ colour switching appearing, a font loaded from a CDN, a corner radius above
 3 px, a second stylesheet or CSS library, Bootstrap's JavaScript being
 imported, or an un-prefixed class in `app.css`. Rules 4, 5 and 7 need a
 reviewer.
+
+`pnpm lint` adds Biome's accessibility rules: labelled controls, real links
+instead of `role="button"` on anchors, no autofocus, semantic elements over
+ARIA roles. A page that splits into several forms (the problem editor) gives
+each card its own component and its own notice.

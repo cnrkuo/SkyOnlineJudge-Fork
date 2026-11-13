@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, gt, ilike, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, ilike, inArray, or, type SQL, sql } from 'drizzle-orm';
 import type { Actor } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
 import { type Database, DB } from '../../database/database.module.js';
@@ -47,6 +47,17 @@ export class ProblemRepository {
       .innerJoin(users, eq(users.id, problems.ownerId))
       .where(eq(problems.id, id));
     return row;
+  }
+
+  /** The ids among `ids` that name no problem. */
+  async missingIds(ids: readonly number[]): Promise<number[]> {
+    if (ids.length === 0) return [];
+    const found = await this.db
+      .select({ id: problems.id })
+      .from(problems)
+      .where(inArray(problems.id, [...ids]));
+    const known = new Set(found.map((row) => row.id));
+    return ids.filter((id) => !known.has(id));
   }
 
   async update(id: number, patch: ProblemPatch): Promise<void> {

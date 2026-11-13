@@ -1,4 +1,4 @@
-import type { JudgeReport } from '../modules/judge/judge.service.js';
+import type { JudgeReport } from '../modules/submission/judging.js';
 
 /**
  * Messages on `Queue.WRITES`: database writes that arrive in bursts (a

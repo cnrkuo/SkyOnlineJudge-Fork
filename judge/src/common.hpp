@@ -3,6 +3,9 @@
 #include <cstdarg>
 #include <cstdio>
 #include <ctime>
+#include <fstream>
+#include <optional>
+#include <sstream>
 #include <string>
 
 namespace judge {
@@ -23,6 +26,15 @@ enum class Verdict : int {
   CompileError = 70,
   JudgeError = 80,
 };
+
+/** The whole file, or nothing when it cannot be opened. */
+inline std::optional<std::string> read_file(const std::string& path) {
+  const std::ifstream file(path, std::ios::binary);
+  if (!file) return std::nullopt;
+  std::ostringstream buffer;
+  buffer << file.rdbuf();
+  return std::move(buffer).str();
+}
 
 /** printf-style formatting into a std::string. */
 [[gnu::format(printf, 1, 2)]] inline std::string format(const char* fmt, ...) {

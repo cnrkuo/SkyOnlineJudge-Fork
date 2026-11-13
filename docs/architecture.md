@@ -56,15 +56,25 @@ before a controller runs.
 ```
 apps/api/src
 ├── main.ts, app.module.ts
-├── common/        actor & permission rules, auth guard, domain errors, crypto
+├── common/        actor & permission rules, auth guard, domain errors, crypto,
+│                  time windows
 ├── database/      Drizzle schema, connection + migrations, PersistenceModule
 ├── messaging/     RabbitMQ connection, queues, message types
 ├── storage/       blob storage on the local filesystem
+├── testing/       fixtures for unit tests (not built)
 └── modules/<feature>/
     ├── <feature>.controller.ts   transport
-    ├── <feature>.service.ts      business rules
-    └── <feature>.repository.ts   persistence
+    ├── <feature>.service.ts      business rules (a feature may have several)
+    ├── <feature>.repository.ts   persistence
+    ├── <rule>.ts                 pure domain functions
+    └── *.test.ts                 unit tests next to the code they test
 ```
+
+A feature splits into several services when it has separate jobs. The
+problem module has `ProblemService` (access rules, statements, settings),
+`TestdataService` (zip uploads, merging, blob clean-up) and
+`AttachmentService`. The submission module has `SubmissionService` (what users
+do) and `SubmissionResultService` (turns judges' reports into verdicts).
 
 | Layer | Responsibility | Must not |
 | --- | --- | --- |
@@ -91,12 +101,16 @@ Cross-cutting pieces:
   the contract's error codes and logs anything unexpected.
 - **Repositories are global** (`PersistenceModule`). Services of different
   features may share repositories — e.g. `ProblemService` asks
-  `ContestRepository` whether a contest grants access — without module import
-  cycles. Services depend on other services sparingly (`SubmissionService` →
-  `ProblemService`).
-- **Pure domain logic** lives in plain functions with unit tests:
-  `submission/scoring.ts`, `contest/scoreboard.ts`,
-  `problem/testdata-archive.ts`, `common/actor.ts`.
+  `ContestRepository` which contests list a problem — without module import
+  cycles. Services depend on other services sparingly (`SubmissionService`,
+  `TestdataService` and `AttachmentService` → `ProblemService`).
+- **Pure domain logic** lives in plain functions, so the rules can be tested
+  without a database: `common/actor.ts` (permissions),
+  `common/time-window.ts`, `contest/grants.ts` (what contests allow),
+  `contest/scoreboard.ts`, `problem/testdata.ts` (merging testcase sets),
+  `problem/testdata-archive.ts`, `submission/scoring.ts` and
+  `submission/judging.ts` (a judge's report → verdict, score and usage).
+  Repositories fetch, these decide, services connect the two.
 
 ### Permission model
 
@@ -108,7 +122,8 @@ to its owner and to higher-ranked administrators only.
 
 Contest participation extends this: an accepted participant can read a
 contest's problems once it has started and submit to them while it runs
-(`ContestRepository.grantsFor`).
+(`contestGrant()` in `contest/grants.ts`, fed by
+`ContestRepository.entriesFor`).
 
 ### Data
 
@@ -140,7 +155,8 @@ Submitting therefore looks like this:
    judge task.
 3. A judge's `fetch` pulls a task and claims the row
    (`UPDATE … WHERE verdict = WAIT`); its `report` publishes
-   `submission.result`, which the consumer scores and stores.
+   `submission.result`, which the consumer hands to
+   `SubmissionResultService` to score and store.
 
 Consequences worth knowing:
 
@@ -269,7 +285,8 @@ queues behind newer ones. The last list each judge sent is stored in
 no judge offers simply waits.
 
 The judge reports raw results; the **API** computes the final verdict (the
-worst testcase verdict) and the score (`scoring.ts`), so scoring rules live
+worst testcase verdict) and the score (`submission/judging.ts`,
+`scoring.ts`), so scoring rules live
 in one place and can change without redeploying judges.
 
 ### Sandbox
@@ -323,6 +340,35 @@ of MLE when one huge allocation fails outright. nsjail can enforce cgroup
 limits; that is not wired up yet. Only the built-in token/line checker
 exists; special judges are not implemented yet.
 
+## Testing
+
+| Layer | What is tested | Where | Command |
+| --- | --- | --- | --- |
+| Contract | Schemas (ids, paging, limits); the judge's verdict codes and built-in languages against the contract's, read from the C++ sources | `packages/contract/src/*.test.ts` | `pnpm test` |
+| API rules | Pure domain functions, and every service against in-memory fakes of its repositories, queue and storage: permissions, contest registration, freeze and grants, scoreboards, admin rank rules, accounts, submissions, testdata merging, judging, the sweeper and the write-queue consumer | `apps/api/src/**/*.test.ts` | `pnpm test` |
+| Web | Form parsing, time zones, URL parameters, the loader/action helpers (redirects, waiting for queued writes, error messages), Markdown rendering, interface consistency, colour contrast | `apps/web/app/**/*.test.ts` | `pnpm test` |
+| Judge | Checker, configuration, the nsjail sandbox (limits, signals, seccomp, isolation), compiling C++23 with g++ and clang++/libc++, the runner judging from a pre-filled testdata cache | `judge/tests/*_test.cpp` (doctest) | `ctest --test-dir judge/build`; in Docker `judge-selftest` |
+| Whole system | A browser session against a running site: problem setup, one submission per language and verdict, rejudging, attachments, the judge list | `apps/web/scripts/e2e.mjs` | `pnpm test:e2e` |
+
+Service tests build their dependencies with `fake()` from
+`apps/api/src/testing/fixtures.ts`: an object that has only the methods a
+test gives it, so an unexpected query fails the test instead of passing
+silently. Database queries themselves are covered by the end-to-end run.
+
+## Code style
+
+TypeScript, CSS and JSON are linted and formatted by
+[Biome](https://biomejs.dev) (`biome.json`, `pnpm lint`); the judge by
+clang-tidy and clang-format (`judge/.clang-tidy`, `judge/.clang-format`,
+`pnpm lint:judge`). Both run warnings-as-errors and are clean; the few
+suppressions carry a reason next to them. Two settings matter beyond taste:
+
+- `useImportType` is off for the API: Nest's dependency injection needs
+  constructor parameter types imported as values, and a type-only import
+  would compile but fail at start-up.
+- clang-tidy leaves out the checks that fight the sandbox's direct POSIX
+  code; `judge/.clang-tidy` lists them with the reason.
+
 ## Extending
 
 - **New API procedure** — add it to the contract, implement it in the
@@ -331,4 +377,5 @@ exists; special judges are not implemented yet.
 - **New language** — add its id to `Language` in the contract, and a
   `languages` entry (source file name, compile and run commands) to the
   judge's defaults in `judge/src/config.cpp` or to each judge's config file.
+  The contract test fails until both sides agree.
 - **New score mode** — add it to `ScoreMode` and to `computeScore`.

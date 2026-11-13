@@ -22,7 +22,8 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "lint:judge": "run-clang-tidy -p judge/build -quiet 'judge/(src|tests)/' && clang-format --dry-run --Werror judge/src/*.cpp judge/src/*.hpp judge/tests/*.cpp",
-    "format:judge": "clang-format -i judge/src/*.cpp judge/src/*.hpp judge/tests/*.cpp"
+    "format:judge": "clang-format -i judge/src/*.cpp judge/src/*.hpp judge/tests/*.cpp",
+    "test:e2e": "pnpm --filter @skyoj/web test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.13"

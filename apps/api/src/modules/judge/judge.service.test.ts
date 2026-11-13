@@ -1,5 +1,6 @@
 import { Verdict } from '@skyoj/contract';
 import { describe, expect, it } from 'vitest';
+import { UnauthorizedError } from '../../common/errors.js';
 import type { JudgeTaskMessage } from '../../messaging/commands.js';
 import type { MessageBroker } from '../../messaging/message-broker.js';
 import type { StorageService } from '../../storage/storage.service.js';
@@ -78,5 +79,23 @@ describe('JudgeService.fetch', () => {
     queue.push({ submissionId: 1 }); // duplicate task
     expect((await service.fetch(judge, ['cpp'])).task).toBeNull();
     expect(queue).toEqual([]);
+  });
+});
+
+describe('JudgeService.authenticate', () => {
+  const service = (judge?: { id: number; enabled: boolean }) =>
+    new JudgeService(
+      { findByTokenHash: async () => judge } as unknown as JudgeRepository,
+      {} as SubmissionRepository,
+      {} as ProblemRepository,
+      {} as StorageService,
+      {} as MessageBroker,
+    );
+
+  it('accepts an enabled judge and refuses unknown, disabled or missing tokens', async () => {
+    await expect(service({ id: 1, enabled: true }).authenticate('token')).resolves.toMatchObject({ id: 1 });
+    await expect(service({ id: 1, enabled: false }).authenticate('token')).rejects.toThrow(UnauthorizedError);
+    await expect(service(undefined).authenticate('token')).rejects.toThrow(UnauthorizedError);
+    await expect(service({ id: 1, enabled: true }).authenticate(undefined)).rejects.toThrow(UnauthorizedError);
   });
 });

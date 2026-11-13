@@ -1,11 +1,14 @@
 #include "sandbox.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <string_view>
+#include <utility>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -243,88 +246,70 @@ std::string summarize_log(const std::string& log) {
   return errors.empty() ? "nsjail failed without a message" : errors;
 }
 
-}  // namespace
+/** Owns a file descriptor and closes it when it goes out of scope. */
+class UniqueFd {
+ public:
+  explicit UniqueFd(int fd = -1) : fd_(fd) {}
+  UniqueFd(const UniqueFd&) = delete;
+  UniqueFd& operator=(const UniqueFd&) = delete;
+  UniqueFd(UniqueFd&& other) noexcept : fd_(std::exchange(other.fd_, -1)) {}
+  UniqueFd& operator=(UniqueFd&& other) noexcept {
+    if (this != &other) {
+      reset();
+      fd_ = std::exchange(other.fd_, -1);
+    }
+    return *this;
+  }
+  ~UniqueFd() { reset(); }
 
-void configure(const Settings& settings) {
-  g_settings = settings;
+  [[nodiscard]] int get() const { return fd_; }
+  void reset() {
+    if (fd_ >= 0) ::close(fd_);
+    fd_ = -1;
+  }
+
+ private:
+  int fd_;
+};
+
+struct Pipe {
+  UniqueFd read;
+  UniqueFd write;
+};
+
+/** A close-on-exec pipe, or nothing when the system is out of descriptors. */
+std::optional<Pipe> make_pipe() {
+  std::array<int, 2> fds{};
+  if (::pipe2(fds.data(), O_CLOEXEC) != 0) return std::nullopt;
+  return Pipe{UniqueFd(fds[0]), UniqueFd(fds[1])};
 }
 
-RunResult run(const RunSpec& spec) {
+RunResult internal_error(std::string error) {
   RunResult result;
-  if (spec.argv.empty()) {
-    result.error = "empty argv";
-    return result;
-  }
-  if (g_settings.init.empty()) {
-    result.error = "sandbox::configure() was not called";
-    return result;
-  }
+  result.error = std::move(error);
+  return result;
+}
 
-  int status_pipe[2];
-  int log_pipe[2];
-  if (::pipe2(status_pipe, O_CLOEXEC) != 0) {
-    result.error = std::string("pipe2: ") + std::strerror(errno);
-    return result;
-  }
-  if (::pipe2(log_pipe, O_CLOEXEC) != 0) {
-    result.error = std::string("pipe2: ") + std::strerror(errno);
-    ::close(status_pipe[0]);
-    ::close(status_pipe[1]);
-    return result;
-  }
-  // nsjail's log is a few dozen lines, far below the pipe's capacity, so it is
-  // read after the run instead of concurrently.
-  std::vector<std::string> args = nsjail_args(spec);
-
-  const auto started = Clock::now();
-  const pid_t pid = ::fork();
-  if (pid < 0) {
-    result.error = std::string("fork: ") + std::strerror(errno);
-    for (const int fd : {status_pipe[0], status_pipe[1], log_pipe[0], log_pipe[1]}) ::close(fd);
-    return result;
-  }
-  if (pid == 0) exec_nsjail(spec, args, status_pipe[1], log_pipe[1]);
-  ::close(status_pipe[1]);
-  ::close(log_pipe[1]);
-
+/** Kills nsjail, which takes the jail with it (its children die with the PID namespace). */
+int kill_and_reap(pid_t pid) {
+  ::kill(pid, SIGKILL);
   int status = 0;
-  const bool timed_out = !wait_for_exit(pid, spec.limits.wall_ms, status);
-  if (timed_out) {
-    // Killing nsjail takes the jail with it (its children die with the PID namespace).
-    ::kill(pid, SIGKILL);
-    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
-    }
+  while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
   }
-  result.wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+  return status;
+}
 
-  ExitReport report{};
-  const bool reported = ::read(status_pipe[0], &report, sizeof report) == static_cast<ssize_t>(sizeof report);
-  ::close(status_pipe[0]);
-  const std::string log = read_all(log_pipe[0]);
-  ::close(log_pipe[0]);
-
-  if (!reported) {
-    // The program never finished under the init: either the jail was killed
-    // at the wall-clock limit, or it could not be set up at all.
-    if (timed_out || (WIFEXITED(status) && WEXITSTATUS(status) == kKilledStatus) ||
-        log.find("time limit") != std::string::npos) {
-      result.status = Status::TimeLimit;
-      result.cpu_ms = spec.limits.cpu_ms;
-      return result;
-    }
-    result.status = Status::InternalError;
-    result.error = summarize_log(log);
-    return result;
-  }
-
+/** Judges a run the init reported on: usage against the limits, then how it ended. */
+RunResult classify(const ExitReport& report, const Limits& limits, bool timed_out) {
+  RunResult result;
   result.cpu_ms = to_ms(report.usage.ru_utime) + to_ms(report.usage.ru_stime);
   result.memory_kb = report.usage.ru_maxrss;
   if (WIFEXITED(report.status)) result.exit_code = WEXITSTATUS(report.status);
   if (WIFSIGNALED(report.status)) result.signal = WTERMSIG(report.status);
 
-  if (timed_out || result.cpu_ms > spec.limits.cpu_ms || result.signal == SIGXCPU) {
+  if (timed_out || result.cpu_ms > limits.cpu_ms || result.signal == SIGXCPU) {
     result.status = Status::TimeLimit;
-  } else if (result.memory_kb > spec.limits.memory_kb) {
+  } else if (result.memory_kb > limits.memory_kb) {
     result.status = Status::MemoryLimit;
   } else if (result.signal == SIGXFSZ) {
     result.status = Status::OutputLimit;
@@ -333,11 +318,63 @@ RunResult run(const RunSpec& spec) {
   } else if (WIFSIGNALED(report.status)) {
     // SIGKILL here is the hard RLIMIT_CPU limit when it came in just under the
     // measured limit; anything else is a crash.
-    result.status =
-        result.signal == SIGKILL && result.cpu_ms + 1000 >= spec.limits.cpu_ms ? Status::TimeLimit : Status::Signaled;
+    const bool cpu_limit = result.signal == SIGKILL && result.cpu_ms + 1000 >= limits.cpu_ms;
+    result.status = cpu_limit ? Status::TimeLimit : Status::Signaled;
   } else {
     result.status = Status::Exited;
   }
+  return result;
+}
+
+/**
+ * Judges a run without a report: the program never finished under the init,
+ * because the jail was killed at the wall-clock limit or could not be set up.
+ */
+RunResult classify_unreported(int nsjail_status, bool timed_out, const std::string& log, const Limits& limits) {
+  const bool killed = WIFEXITED(nsjail_status) && WEXITSTATUS(nsjail_status) == kKilledStatus;
+  if (timed_out || killed || log.find("time limit") != std::string::npos) {
+    RunResult result;
+    result.status = Status::TimeLimit;
+    result.cpu_ms = limits.cpu_ms;
+    return result;
+  }
+  return internal_error(summarize_log(log));
+}
+
+}  // namespace
+
+void configure(const Settings& settings) {
+  g_settings = settings;
+}
+
+RunResult run(const RunSpec& spec) {
+  if (spec.argv.empty()) return internal_error("empty argv");
+  if (g_settings.init.empty()) return internal_error("sandbox::configure() was not called");
+
+  // nsjail's log is a few dozen lines, far below a pipe's capacity, so it
+  // is read after the run instead of concurrently.
+  std::optional<Pipe> status_pipe = make_pipe();
+  std::optional<Pipe> log_pipe = make_pipe();
+  if (!status_pipe || !log_pipe) return internal_error(std::string("pipe2: ") + std::strerror(errno));
+  std::vector<std::string> args = nsjail_args(spec);
+
+  const auto started = Clock::now();
+  const pid_t pid = ::fork();
+  if (pid < 0) return internal_error(std::string("fork: ") + std::strerror(errno));
+  if (pid == 0) exec_nsjail(spec, args, status_pipe->write.get(), log_pipe->write.get());
+  status_pipe->write.reset();
+  log_pipe->write.reset();
+
+  int status = 0;
+  const bool timed_out = !wait_for_exit(pid, spec.limits.wall_ms, status);
+  if (timed_out) status = kill_and_reap(pid);
+  const auto wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
+
+  ExitReport report{};
+  const bool reported = ::read(status_pipe->read.get(), &report, sizeof report) == static_cast<ssize_t>(sizeof report);
+  RunResult result = reported ? classify(report, spec.limits, timed_out)
+                              : classify_unreported(status, timed_out, read_all(log_pipe->read.get()), spec.limits);
+  result.wall_ms = wall_ms;
   return result;
 }
 

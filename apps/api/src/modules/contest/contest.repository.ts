@@ -5,6 +5,7 @@ import { GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
 import { type Database, DB } from '../../database/database.module.js';
 import { contestProblems, contests, contestUsers, problems, users } from '../../database/schema.js';
+import type { ContestEntry } from './grants.js';
 
 export type ContestRow = typeof contests.$inferSelect;
 export type NewContest = Omit<ContestRow, 'id' | 'createdAt'>;
@@ -90,7 +91,7 @@ export class ContestRepository {
   // -------------------------------------------------------------- participants
 
   async stateOf(contestId: number, userId: number): Promise<number | undefined> {
-    if (userId === 0) return undefined;
+    if (userId === GUEST.id) return undefined;
     const [row] = await this.db
       .select({ state: contestUsers.state })
       .from(contestUsers)
@@ -126,14 +127,13 @@ export class ContestRepository {
   // ------------------------------------------------------ problem access grants
 
   /**
-   * How a user's contest participation extends their access to a problem:
-   * `read` once any contest containing it has started, `submit` while such a
-   * contest is running and the problem is open for submissions there.
+   * The started contests that list `problemId` visibly and have `userId` as
+   * a participant; `contestGrant()` turns them into access rights.
    */
-  async grantsFor(userId: number, problemId: number, now: Date): Promise<{ read: boolean; submit: boolean }> {
-    if (userId === GUEST.id) return { read: false, submit: false };
-    const rows = await this.db
-      .select({ endAt: contests.endAt, state: contestProblems.state })
+  async entriesFor(userId: number, problemId: number, now: Date): Promise<ContestEntry[]> {
+    if (userId === GUEST.id) return [];
+    return this.db
+      .select({ endAt: contests.endAt, problemState: contestProblems.state })
       .from(contestProblems)
       .innerJoin(contests, eq(contests.id, contestProblems.contestId))
       .innerJoin(contestUsers, and(eq(contestUsers.contestId, contests.id), eq(contestUsers.userId, userId)))
@@ -145,9 +145,5 @@ export class ContestRepository {
           lte(contests.startAt, now),
         ),
       );
-    return {
-      read: rows.length > 0,
-      submit: rows.some((row) => row.state === ContestProblemState.NORMAL && now < row.endAt),
-    };
   }
 }

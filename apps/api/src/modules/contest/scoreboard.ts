@@ -16,6 +16,11 @@ export interface ScoreboardSubmission {
   score: number;
   createdAt: Date;
 }
+export interface ScoreboardContest {
+  style: string;
+  startAt: Date;
+  penaltySec: number;
+}
 export interface ScoreboardCell {
   attempts: number;
   accepted: boolean;
@@ -58,68 +63,84 @@ function compare(style: string, a: ScoreboardRow, b: ScoreboardRow): number {
  *   the legacy scoreboard did.
  */
 export function buildScoreboard(
-  contest: { style: string; startAt: Date; penaltySec: number },
+  contest: ScoreboardContest,
   problems: ScoreboardProblem[],
   users: ScoreboardUser[],
   submissions: ScoreboardSubmission[],
 ): Scoreboard {
   const column = new Map(problems.map((p, index) => [p.problemId, index]));
   const totals = problems.map((p) => ({ ...p, attempts: 0, accepted: 0 }));
-  const rows = new Map<number, ScoreboardRow>(
-    users.map((user) => [
-      user.id,
-      {
-        rank: 0,
-        user: { id: user.id, nickname: user.nickname },
-        state: user.state,
-        solved: 0,
-        penalty: 0,
-        score: 0,
-        attemptsOnSolved: 0,
-        cells: problems.map(() => ({
-          attempts: 0,
-          accepted: false,
-          firstBlood: false,
-          acceptedMinute: null,
-          score: 0,
-        })),
-      },
-    ]),
-  );
+  const rows = new Map(users.map((user) => [user.id, emptyRow(user, problems.length)]));
   const solvedProblems = new Set<number>();
 
-  for (const sub of submissions) {
-    const row = rows.get(sub.userId);
-    const index = column.get(sub.problemId);
-    if (!row || index === undefined || IGNORED.has(sub.verdict)) continue;
-    const cell = row.cells[index];
-    const total = totals[index];
-    if (!cell || !total || cell.accepted) continue;
+  for (const submission of submissions) {
+    const row = rows.get(submission.userId);
+    const index = column.get(submission.problemId);
+    const cell = index === undefined ? undefined : row?.cells[index];
+    const total = index === undefined ? undefined : totals[index];
+    if (!row || !cell || !total || IGNORED.has(submission.verdict) || cell.accepted) continue;
 
-    cell.attempts++;
     total.attempts++;
-    if (sub.score > cell.score) {
-      row.score += sub.score - cell.score;
-      cell.score = sub.score;
-    }
-    if (sub.verdict === Verdict.AC) {
-      const seconds = Math.max(0, (sub.createdAt.getTime() - contest.startAt.getTime()) / 1000);
-      cell.accepted = true;
-      cell.acceptedMinute = Math.floor(seconds / 60);
-      cell.firstBlood = !solvedProblems.has(sub.problemId);
-      solvedProblems.add(sub.problemId);
-      row.solved++;
-      row.attemptsOnSolved += cell.attempts;
-      row.penalty += Math.floor((seconds + (cell.attempts - 1) * contest.penaltySec) / 60);
+    const firstBlood = !solvedProblems.has(submission.problemId);
+    if (countAttempt(contest, row, cell, submission, firstBlood)) {
+      solvedProblems.add(submission.problemId);
       total.accepted++;
     }
   }
 
-  const ordered = [...rows.values()].sort((a, b) => compare(contest.style, a, b) || a.user.id - b.user.id);
+  return { problems: totals, rows: ranked([...rows.values()], contest.style) };
+}
+
+function emptyRow(user: ScoreboardUser, problemCount: number): ScoreboardRow {
+  return {
+    rank: 0,
+    user: { id: user.id, nickname: user.nickname },
+    state: user.state,
+    solved: 0,
+    penalty: 0,
+    score: 0,
+    attemptsOnSolved: 0,
+    cells: Array.from({ length: problemCount }, () => ({
+      attempts: 0,
+      accepted: false,
+      firstBlood: false,
+      acceptedMinute: null,
+      score: 0,
+    })),
+  };
+}
+
+/** Counts one attempt on a not yet solved cell; returns whether it solved it. */
+function countAttempt(
+  contest: ScoreboardContest,
+  row: ScoreboardRow,
+  cell: ScoreboardCell,
+  submission: ScoreboardSubmission,
+  firstBlood: boolean,
+): boolean {
+  cell.attempts++;
+  if (submission.score > cell.score) {
+    row.score += submission.score - cell.score;
+    cell.score = submission.score;
+  }
+  if (submission.verdict !== Verdict.AC) return false;
+
+  const seconds = Math.max(0, (submission.createdAt.getTime() - contest.startAt.getTime()) / 1000);
+  cell.accepted = true;
+  cell.acceptedMinute = Math.floor(seconds / 60);
+  cell.firstBlood = firstBlood;
+  row.solved++;
+  row.attemptsOnSolved += cell.attempts;
+  row.penalty += Math.floor((seconds + (cell.attempts - 1) * contest.penaltySec) / 60);
+  return true;
+}
+
+/** Sorts rows by the contest's rules and numbers them; ties share a rank. */
+function ranked(rows: ScoreboardRow[], style: string): ScoreboardRow[] {
+  const ordered = rows.sort((a, b) => compare(style, a, b) || a.user.id - b.user.id);
   ordered.forEach((row, index) => {
     const previous = ordered[index - 1];
-    if (!previous) row.rank = 1;
-    else row.rank = compare(contest.style, previous, row) === 0 ? previous.rank : previous.rank + 1;
+    row.rank = !previous ? 1 : compare(style, previous, row) === 0 ? previous.rank : previous.rank + 1;
   });
-  return { problems: totals, rows: ordered };
+  return ordered;
 }

@@ -4,13 +4,19 @@ import { contract } from '@skyoj/contract';
 import type { Actor } from '../../common/actor.js';
 import { CurrentActor } from '../../common/auth.guard.js';
 import { OK } from '../../common/orpc.js';
+import { AttachmentService } from './attachment.service.js';
 import { ProblemService } from './problem.service.js';
+import { TestdataService } from './testdata.service.js';
 
 const os = implement(contract.problem);
 
 @Controller()
 export class ProblemController {
-  constructor(private readonly problems: ProblemService) {}
+  constructor(
+    private readonly problems: ProblemService,
+    private readonly testdata: TestdataService,
+    private readonly attachments: AttachmentService,
+  ) {}
 
   @Implement(contract.problem)
   routes(@CurrentActor() actor: Actor) {
@@ -24,26 +30,24 @@ export class ProblemController {
       }),
       stats: os.stats.handler(({ input }) => this.problems.stats(actor, input.id)),
 
-      listTestcases: os.listTestcases.handler(({ input }) => this.problems.listTestcases(actor, input.problemId)),
+      listTestcases: os.listTestcases.handler(({ input }) => this.testdata.list(actor, input.problemId)),
       uploadTestdata: os.uploadTestdata.handler(({ input }) =>
-        this.problems.uploadTestdata(actor, input.problemId, input.archive),
+        this.testdata.upload(actor, input.problemId, input.archive),
       ),
       clearTestdata: os.clearTestdata.handler(async ({ input }) => {
-        await this.problems.clearTestdata(actor, input.problemId);
+        await this.testdata.clear(actor, input.problemId);
         return OK;
       }),
 
-      listAttachments: os.listAttachments.handler(({ input }) => this.problems.listAttachments(actor, input.problemId)),
+      listAttachments: os.listAttachments.handler(({ input }) => this.attachments.list(actor, input.problemId)),
       uploadAttachment: os.uploadAttachment.handler(({ input }) =>
-        this.problems.uploadAttachment(actor, input.problemId, input.file),
+        this.attachments.upload(actor, input.problemId, input.file),
       ),
       deleteAttachment: os.deleteAttachment.handler(async ({ input }) => {
-        await this.problems.deleteAttachment(actor, input.problemId, input.name);
+        await this.attachments.delete(actor, input.problemId, input.name);
         return OK;
       }),
-      getAttachment: os.getAttachment.handler(({ input }) =>
-        this.problems.getAttachment(actor, input.problemId, input.name),
-      ),
+      getAttachment: os.getAttachment.handler(({ input }) => this.attachments.get(actor, input.problemId, input.name)),
     };
   }
 }

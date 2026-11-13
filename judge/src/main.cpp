@@ -12,6 +12,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -55,7 +56,7 @@ void usage(const char* program) {
  * binary (nsjail mounts them from inside a user namespace, so every parent
  * directory must be searchable by the submissions' uid: chmod o+x).
  */
-void probe_sandbox(const judge::Config& config) {
+std::optional<std::string> probe_sandbox(const judge::Config& config) {
   namespace fs = std::filesystem;
   const fs::path dir = fs::path(config.work_dir) / ".probe";
   std::error_code ignored;
@@ -73,42 +74,38 @@ void probe_sandbox(const judge::Config& config) {
   const judge::sandbox::RunResult result = judge::sandbox::run(probe);
   fs::remove_all(dir, ignored);
 
-  if (result.status != judge::sandbox::Status::Exited || result.exit_code != 0) {
-    judge::log("FATAL", "sandbox self-test failed: " +
-                            (result.error.empty() ? judge::format("probe ended with status %d", result.exit_code)
-                                                  : result.error));
-    std::exit(1);
-  }
+  if (result.status == judge::sandbox::Status::Exited && result.exit_code == 0) return std::nullopt;
+  return result.error.empty() ? judge::format("probe ended with status %d", result.exit_code) : result.error;
 }
 
 /**
- * Compiles and runs a sample program for every configured language. Only
- * the languages that pass are announced to the API, so a machine without,
- * say, libc++ is never handed Clang submissions to fail as compile errors.
+ * Compiles and runs a sample program for every configured language and
+ * returns those that work; the others are logged. Only working languages
+ * are announced to the API, so a machine without, say, libc++ is never
+ * handed Clang submissions to fail as compile errors.
  */
-std::vector<std::string> check_toolchains(const judge::Config& config, judge::Runner& runner) {
+std::vector<std::string> working_languages(const judge::Config& config, judge::Runner& runner) {
   std::vector<std::string> working;
   for (const auto& [id, spec] : config.languages) {
-    std::string problem = runner.check_toolchain(id);
-    if (problem.empty()) {
+    std::optional<std::string> problem = runner.check_toolchain(id);
+    if (!problem) {
       working.push_back(id);
       continue;
     }
     // Keep the log readable: the first line of a compiler's complaint.
-    if (const auto newline = problem.find('\n'); newline != std::string::npos) problem.resize(newline);
-    judge::log("WARN", judge::format("language %s disabled: %s", id.c_str(), problem.c_str()));
+    if (const auto newline = problem->find('\n'); newline != std::string::npos) problem->resize(newline);
+    judge::log("WARN", judge::format("language %s disabled: %s", id.c_str(), problem->c_str()));
   }
-  if (working.empty()) {
-    judge::log("FATAL", "no language has a working toolchain");
-    std::exit(1);
-  }
-  std::string list;
-  for (const std::string& id : working) {
-    if (!list.empty()) list += ", ";
-    list += id;
-  }
-  judge::log("INFO", "languages: " + list);
   return working;
+}
+
+std::string join(const std::vector<std::string>& items, const std::string& separator) {
+  std::string joined;
+  for (const std::string& item : items) {
+    if (!joined.empty()) joined += separator;
+    joined += item;
+  }
+  return joined;
 }
 
 }  // namespace
@@ -147,7 +144,10 @@ int main(int argc, char** argv) {
         .run_uid = config.run_uid,
         .run_gid = config.run_gid,
     });
-    probe_sandbox(config);
+    if (const auto problem = probe_sandbox(config)) {
+      judge::log("FATAL", "sandbox self-test failed: " + *problem);
+      return 1;
+    }
     judge::log("INFO", "sandbox: nsjail (" + config.nsjail_path + "), namespaces + seccomp + rlimits");
 
     std::signal(SIGINT, request_stop);
@@ -156,7 +156,12 @@ int main(int argc, char** argv) {
 
     judge::ApiClient api(config.api_url, config.token);
     judge::Runner runner(config, api);
-    const std::vector<std::string> languages = check_toolchains(config, runner);
+    const std::vector<std::string> languages = working_languages(config, runner);
+    if (languages.empty()) {
+      judge::log("FATAL", "no language has a working toolchain");
+      return 1;
+    }
+    judge::log("INFO", "languages: " + join(languages, ", "));
     judge::log("INFO", "judging for " + config.api_url);
 
     while (g_stop == 0) {

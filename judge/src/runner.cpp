@@ -22,11 +22,9 @@ const std::vector<std::string> kEnvironment = {
     "ONLINE_JUDGE=1",
 };
 
-std::string read_text(const fs::path& path) {
-  const std::ifstream file(path, std::ios::binary);
-  std::ostringstream buffer;
-  buffer << file.rdbuf();
-  return std::move(buffer).str();
+/** A captured output file; empty when the program never created it. */
+std::string read_output(const fs::path& path) {
+  return read_file(path.string()).value_or("");
 }
 
 /** Removes the task directory when judging ends, however it ends. */
@@ -155,7 +153,7 @@ std::optional<Runner::Failure> Runner::build(const LanguageSpec& spec, const std
     compile.limits.tmp_kb = 524288;
 
     const sandbox::RunResult built = sandbox::run(compile);
-    const std::string output = read_text(log_path);
+    const std::string output = read_output(log_path);
     switch (built.status) {
       case sandbox::Status::InternalError:
         return Failure{Verdict::JudgeError, "Sandbox error: " + built.error};
@@ -208,7 +206,7 @@ Report Runner::judge(const Task& task) {
   return report;
 }
 
-std::string Runner::check_toolchain(const std::string& language) {
+std::optional<std::string> Runner::check_toolchain(const std::string& language) {
   const auto found = config_.languages.find(language);
   if (found == config_.languages.end()) return "not configured";
   const LanguageSpec& spec = found->second;
@@ -225,7 +223,7 @@ std::string Runner::check_toolchain(const std::string& language) {
   } else if (extension == ".py") {
     code = "print('ok')\n";
   } else {
-    return {};
+    return std::nullopt;
   }
 
   const fs::path root =
@@ -243,8 +241,8 @@ std::string Runner::check_toolchain(const std::string& language) {
   const sandbox::RunResult result = sandbox::run(run);
   if (result.status == sandbox::Status::InternalError) return "sandbox error: " + result.error;
   if (result.status != sandbox::Status::Exited || result.exit_code != 0) return "the sample program did not run";
-  if (read_text(output_path) != "ok\n") return "the sample program printed the wrong output";
-  return {};
+  if (read_output(output_path) != "ok\n") return "the sample program printed the wrong output";
+  return std::nullopt;
 }
 
 }  // namespace judge

@@ -1,7 +1,5 @@
 #include "checker.hpp"
 
-#include <fstream>
-#include <sstream>
 #include <vector>
 
 namespace judge::checker {
@@ -46,15 +44,6 @@ bool same_tokens(std::string_view a, std::string_view b) {
   }
 }
 
-bool read_file(const std::string& path, std::string& out) {
-  const std::ifstream file(path, std::ios::binary);
-  if (!file) return false;
-  std::ostringstream buffer;
-  buffer << file.rdbuf();
-  out = std::move(buffer).str();
-  return true;
-}
-
 }  // namespace
 
 Outcome compare(std::string_view expected, std::string_view actual) {
@@ -78,11 +67,11 @@ Outcome compare(std::string_view expected, std::string_view actual) {
 }
 
 Outcome compare_files(const std::string& expected_path, const std::string& actual_path) {
-  std::string expected;
-  std::string actual;
-  if (!read_file(expected_path, expected)) return {Verdict::JudgeError, 0.0, "Cannot read the expected output"};
-  if (!read_file(actual_path, actual)) return {Verdict::JudgeError, 0.0, "Cannot read the program output"};
-  return compare(expected, actual);
+  const auto expected = read_file(expected_path);
+  if (!expected) return {Verdict::JudgeError, 0.0, "Cannot read the expected output"};
+  const auto actual = read_file(actual_path);
+  if (!actual) return {Verdict::JudgeError, 0.0, "Cannot read the program output"};
+  return compare(*expected, *actual);
 }
 
 }  // namespace judge::checker

@@ -78,14 +78,8 @@ export class SubmissionRepository {
       filter.verdict !== undefined ? eq(submissions.verdict, filter.verdict) : undefined,
       or(eq(submissions.userId, actor.id), this.problemVisibleTo(actor)),
     );
-    const base = () =>
-      this.db
-        .select(summaryColumns)
-        .from(submissions)
-        .innerJoin(problems, eq(problems.id, submissions.problemId))
-        .innerJoin(users, eq(users.id, submissions.userId));
     const [rows, [total]] = await Promise.all([
-      base().where(where).orderBy(desc(submissions.id)).limit(page.pageSize).offset(offsetOf(page)),
+      this.selectSummaries().where(where).orderBy(desc(submissions.id)).limit(page.pageSize).offset(offsetOf(page)),
       this.db
         .select({ n: count() })
         .from(submissions)
@@ -95,18 +89,22 @@ export class SubmissionRepository {
     return { rows, total: total?.n ?? 0 };
   }
 
+  /** Submissions with their problem's title and their author's nickname (`summaryColumns`). */
+  private selectSummaries() {
+    return this.db
+      .select(summaryColumns)
+      .from(submissions)
+      .innerJoin(problems, eq(problems.id, submissions.problemId))
+      .innerJoin(users, eq(users.id, submissions.userId));
+  }
+
   /** `visibleTo` needs the problem owner's level, which is not joined here. */
   private problemVisibleTo(actor: Actor): SQL {
     return sql`exists (select 1 from ${users} where ${users.id} = ${problems.ownerId} and ${visibleTo(actor)})`;
   }
 
   async findSummary(id: number) {
-    const [row] = await this.db
-      .select(summaryColumns)
-      .from(submissions)
-      .innerJoin(problems, eq(problems.id, submissions.problemId))
-      .innerJoin(users, eq(users.id, submissions.userId))
-      .where(eq(submissions.id, id));
+    const [row] = await this.selectSummaries().where(eq(submissions.id, id));
     return row;
   }
 
@@ -266,11 +264,7 @@ export class SubmissionRepository {
   }
 
   fastestAccepted(problemId: number, limit: number) {
-    return this.db
-      .select(summaryColumns)
-      .from(submissions)
-      .innerJoin(problems, eq(problems.id, submissions.problemId))
-      .innerJoin(users, eq(users.id, submissions.userId))
+    return this.selectSummaries()
       .where(and(eq(submissions.problemId, problemId), eq(submissions.verdict, Verdict.AC)))
       .orderBy(asc(submissions.timeMs), asc(submissions.memoryKb), asc(submissions.id))
       .limit(limit);

@@ -15,8 +15,8 @@ monorepo with a C++ judge machine.
 | Judge machine | `judge` | C++20 daemon; submissions run in [nsjail](https://github.com/google/nsjail) |
 
 Read [docs/architecture.md](docs/architecture.md) for how the pieces fit
-together, the layering rules of the backend, the judge protocol and the
-sandbox, and [docs/design.md](docs/design.md) for how the Bootstrap interface is put
+together, the layering rules of the backend, the judge protocol, the
+sandbox, testing and code style, and [docs/design.md](docs/design.md) for how the Bootstrap interface is put
 together and the rules that keep it consistent.
 
 Quick start with Docker
@@ -151,11 +151,12 @@ Scripts
 | `pnpm format` | Format TypeScript, CSS and JSON with Biome |
 | `pnpm lint:judge` | clang-tidy (`judge/.clang-tidy`) and a clang-format check of the judge; needs `pnpm build:judge` first |
 | `pnpm format:judge` | Format the judge with clang-format (`judge/.clang-format`) |
-| `pnpm test` | Unit tests (scoring, scoreboard, permissions, testdata archives, time zones, Markdown, interface rules, colour contrast) |
+| `pnpm test` | Unit tests of the contract, the API's rules and services, and the web app's helpers ([what is covered](docs/architecture.md#testing)) |
+| `pnpm test:e2e` | Browser end-to-end test of a running site (`BASE_URL`; on a site with accounts also `E2E_USER` / `E2E_PASSWORD` of an administrator) |
 | `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |
 | `pnpm build:judge` | Configure and build the C++ judge |
-| `ctest --test-dir judge/build` | Judge tests (checker, nsjail sandbox, C++23 with g++ and clang++/libc++); need nsjail |
+| `ctest --test-dir judge/build` | Judge tests (checker, config, nsjail sandbox, toolchains, runner); need nsjail |
 
 Coming from the PHP version
 ---------------------------

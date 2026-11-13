@@ -8,8 +8,10 @@ import {
   TeamState,
 } from '@skyoj/contract';
 import { type Actor, isAdmin, requireAdmin, requireUser } from '../../common/actor.js';
+import { hasDuplicates } from '../../common/collections.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { type PageInput, pageOf } from '../../common/pagination.js';
+import { resolveWindow, type TimeWindow } from '../../common/time-window.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
 import { UserRepository } from '../user/user.repository.js';
@@ -30,6 +32,10 @@ export interface ContestInput {
 }
 
 const isParticipating = (state: number) => PARTICIPATING_STATES.includes(state as TeamState);
+
+function checkWindow({ startAt, endAt }: TimeWindow): void {
+  if (endAt <= startAt) throw new BadRequestError('The contest must end after it starts');
+}
 
 export function phaseOf(contest: Pick<ContestRow, 'startAt' | 'endAt'>, now: Date): ContestPhase {
   if (now < contest.startAt) return ContestPhase.PREPARING;
@@ -126,8 +132,8 @@ export class ContestService {
   async create(actor: Actor, input: ContestInput): Promise<{ id: number }> {
     requireAdmin(actor);
     const { problems, startAt, endAt, ...fields } = input;
-    const window = { startAt: new Date(startAt), endAt: new Date(endAt) };
-    this.checkWindow(window.startAt, window.endAt);
+    const { window } = resolveWindow({ startAt, endAt });
+    checkWindow(window);
     await this.checkProblems(problems);
     const id = await this.contests.create({ ...fields, ...window, ownerId: actor.id }, problems);
     return { id };
@@ -137,29 +143,20 @@ export class ContestService {
     requireAdmin(actor);
     const { contest } = await this.load(id);
     const { problems, startAt, endAt, ...fields } = input;
-    const window = {
-      ...(startAt === undefined ? {} : { startAt: new Date(startAt) }),
-      ...(endAt === undefined ? {} : { endAt: new Date(endAt) }),
-    };
-    this.checkWindow(window.startAt ?? contest.startAt, window.endAt ?? contest.endAt);
+    const { patch, window } = resolveWindow({ startAt, endAt }, contest);
+    checkWindow(window);
     if (problems) await this.checkProblems(problems);
-    await this.contests.update(id, { ...fields, ...window }, problems);
-  }
-
-  private checkWindow(startAt: Date, endAt: Date): void {
-    if (endAt <= startAt) throw new BadRequestError('The contest must end after it starts');
+    await this.contests.update(id, { ...fields, ...patch }, problems);
   }
 
   private async checkProblems(problems: ContestProblemInput[]): Promise<void> {
-    if (new Set(problems.map((p) => p.problemId)).size !== problems.length) {
+    if (hasDuplicates(problems.map((p) => p.problemId))) {
       throw new BadRequestError('A problem can only appear once in a contest');
     }
-    if (new Set(problems.map((p) => p.tag)).size !== problems.length) {
+    if (hasDuplicates(problems.map((p) => p.tag)))
       throw new BadRequestError('Problem tags must be unique within a contest');
-    }
-    for (const { problemId } of problems) {
-      if (!(await this.problems.findById(problemId))) throw new BadRequestError(`Problem ${problemId} does not exist`);
-    }
+    const [missing] = await this.problems.missingIds(problems.map((p) => p.problemId));
+    if (missing !== undefined) throw new BadRequestError(`Problem ${missing} does not exist`);
   }
 
   async register(actor: Actor, id: number, password?: string): Promise<{ state: TeamState }> {

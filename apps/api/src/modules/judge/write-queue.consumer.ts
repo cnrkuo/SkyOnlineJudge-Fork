@@ -2,8 +2,8 @@ import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { config } from '../../config.js';
 import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
 import { MessageBroker, Queue } from '../../messaging/message-broker.js';
+import { SubmissionResultService } from '../submission/result.service.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
-import { JudgeService } from './judge.service.js';
 
 /**
  * Applies queued writes to PostgreSQL.
@@ -21,7 +21,7 @@ export class WriteQueueConsumer implements OnModuleInit {
   constructor(
     private readonly broker: MessageBroker,
     private readonly submissions: SubmissionRepository,
-    private readonly judge: JudgeService,
+    private readonly results: SubmissionResultService,
   ) {}
 
   onModuleInit(): void {
@@ -38,7 +38,7 @@ export class WriteQueueConsumer implements OnModuleInit {
         return;
       }
       case 'submission.result':
-        await this.judge.applyReport(command.judgeId, command.report);
+        await this.results.record(command.judgeId, command.report);
         return;
       default:
         throw new Error(`Unknown write command: ${JSON.stringify(command).slice(0, 200)}`);

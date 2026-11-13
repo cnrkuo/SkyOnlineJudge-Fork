@@ -24,6 +24,37 @@ std::map<std::string, LanguageSpec> default_languages() {
   };
 }
 
+namespace {
+
+/** Overrides the defaults in `config` with whatever the file sets. */
+void apply_file(const nlohmann::json& json, Config& config) {
+  const auto read = [&json](const char* key, auto& target) {
+    if (json.contains(key)) json.at(key).get_to(target);
+  };
+  read("api_url", config.api_url);
+  read("token", config.token);
+  read("work_dir", config.work_dir);
+  read("cache_dir", config.cache_dir);
+  read("poll_interval_ms", config.poll_interval_ms);
+  read("run_uid", config.run_uid);
+  read("run_gid", config.run_gid);
+  read("nsjail_path", config.nsjail_path);
+  read("output_limit_kb", config.output_limit_kb);
+  read("compile_time_ms", config.compile_time_ms);
+  read("compile_memory_kb", config.compile_memory_kb);
+  read("max_processes", config.max_processes);
+  if (!json.contains("languages")) return;
+  for (const auto& [id, spec] : json.at("languages").items()) {
+    LanguageSpec language;
+    spec.at("source").get_to(language.source);
+    if (spec.contains("compile")) spec.at("compile").get_to(language.compile);
+    spec.at("run").get_to(language.run);
+    config.languages[id] = std::move(language);
+  }
+}
+
+}  // namespace
+
 Config load_config(const std::string& path) {
   Config config;
   config.languages = default_languages();
@@ -31,38 +62,8 @@ Config load_config(const std::string& path) {
   if (!path.empty()) {
     std::ifstream file(path);
     if (!file) throw std::runtime_error("cannot open config file " + path);
-    nlohmann::json json;
     try {
-      json = nlohmann::json::parse(file, nullptr, true, /*ignore_comments=*/true);
-    } catch (const nlohmann::json::exception& error) {
-      throw std::runtime_error("invalid config file " + path + ": " + error.what());
-    }
-
-    try {
-      const auto read = [&json](const char* key, auto& target) {
-        if (json.contains(key)) json.at(key).get_to(target);
-      };
-      read("api_url", config.api_url);
-      read("token", config.token);
-      read("work_dir", config.work_dir);
-      read("cache_dir", config.cache_dir);
-      read("poll_interval_ms", config.poll_interval_ms);
-      read("run_uid", config.run_uid);
-      read("run_gid", config.run_gid);
-      read("nsjail_path", config.nsjail_path);
-      read("output_limit_kb", config.output_limit_kb);
-      read("compile_time_ms", config.compile_time_ms);
-      read("compile_memory_kb", config.compile_memory_kb);
-      read("max_processes", config.max_processes);
-      if (json.contains("languages")) {
-        for (const auto& [id, spec] : json.at("languages").items()) {
-          LanguageSpec language;
-          spec.at("source").get_to(language.source);
-          if (spec.contains("compile")) spec.at("compile").get_to(language.compile);
-          spec.at("run").get_to(language.run);
-          config.languages[id] = std::move(language);
-        }
-      }
+      apply_file(nlohmann::json::parse(file, nullptr, true, /*ignore_comments=*/true), config);
     } catch (const nlohmann::json::exception& error) {
       throw std::runtime_error("invalid config file " + path + ": " + error.what());
     }

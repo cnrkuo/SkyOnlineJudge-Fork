@@ -12,8 +12,8 @@
   // Identity submissions run as when the judge is started as root.
   "run_uid": 65534,
   "run_gid": 65534,
-  // Set to true in production: refuse to judge without Linux namespaces.
-  "require_isolation": false,
+  // nsjail binary (judge/scripts/install-nsjail.sh); a bare name is looked up in PATH.
+  "nsjail_path": "/usr/local/bin/nsjail",
 
   "output_limit_kb": 65536,
   "compile_time_ms": 15000,

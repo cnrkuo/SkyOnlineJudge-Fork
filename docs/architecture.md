@@ -261,33 +261,48 @@ in one place and can change without redeploying judges.
 
 ### Sandbox
 
-Each compile and each testcase run goes through `sandbox::run`
-(`judge/src/sandbox.cpp`):
+Each compilation and each testcase run is one [nsjail](https://github.com/google/nsjail)
+jail, started by `sandbox::run` (`judge/src/sandbox.cpp`):
 
 | Layer | Effect |
 | --- | --- |
-| Mount, PID, network, IPC and UTS namespaces (plus a user namespace when the judge is not root) | No network; cannot see or signal other processes; every stray child dies with the namespace |
-| Masked paths | The testdata cache (expected answers), captured output and the judge's config file (its token) are hidden behind empty mounts |
-| Read-only working directory | A run cannot leave files behind for later testcases |
-| Unprivileged uid (`run_uid`) when started as root | No access to the judge's own files |
-| rlimits | CPU time, address space, stack, output size, open files, process count |
-| seccomp-bpf deny-list | Kills the program on `ptrace`, `mount`, `unshare`, `bpf`, … → *Restricted Function* |
+| Mount, PID, network, IPC, UTS, cgroup and user namespaces | No network (only loopback); no other processes visible or signallable; every stray child dies with the jail |
+| A filesystem built from scratch | Only `/usr` (and the `/bin`, `/lib`… links), the linker cache, `/etc/alternatives`, `/dev/null`, `/dev/zero`, `/dev/urandom`, a private `/tmp` and the work directory as `/box` exist. The testdata cache, captured output, the judge's config and token, `/etc/passwd` and every home directory are simply absent. |
+| Read-only `/box` for testcase runs | A run cannot leave files behind for later testcases (compilation gets it read-write) |
+| Unprivileged uid | `run_uid` (65534) when the judge is root; uid 1000 mapped to the judge's own uid otherwise |
+| rlimits | CPU time, address space, stack, output file size, open files, process count |
+| seccomp policy (Kafel) | Kills on `ptrace`, `mount`, `unshare`, `setns`, `bpf`, namespace-creating `clone`, … → *Restricted Function*; `socket` fails with `EPERM` |
+| One CPU per run | `--max_cpus 1`, so timings do not depend on the machine's core count (compilers may use all) |
 
-Verdicts: CPU time over the limit or wall time over `2 × limit + 1 s` → TLE;
-peak RSS over the limit → MLE; `SIGXFSZ` → OLE; `SIGSYS` → RF; any other
+**The init.** nsjail would start the submission as PID 1 of its PID
+namespace, and the kernel ignores most signals sent to a PID 1: a program
+writing past the output limit would get an error instead of `SIGXFSZ` (RE
+instead of OLE), and `abort()` or a program signalling itself would not die
+properly. So PID 1 is the judge binary itself, mounted read-only at
+`/.skyoj-init` and started as `/.skyoj-init --sandbox-init 3 <program…>`.
+It runs the program as its child, waits for it, and writes the program's
+exact exit status and resource usage (`wait4`) to file descriptor 3, which
+nsjail passes through to the judge. CPU time and peak memory come from that
+report.
+
+**Verdicts.** CPU time over the limit or wall time over `2 × limit + 1 s` →
+TLE; peak RSS over the limit → MLE; `SIGXFSZ` → OLE; `SIGSYS` → RF; any other
 signal or a non-zero exit → RE; otherwise the checker decides AC / PE / WA.
+The judge kills the jail itself at the exact wall-clock limit; nsjail's own
+`--time_limit` is a backstop one second later.
 
-At startup the judge runs a self-test and logs which mode it got:
+**Requirements and start-up.** nsjail is not packaged for Debian or Ubuntu;
+`judge/scripts/install-nsjail.sh` builds a pinned release (3.6) and checks
+the commit. The kernel must allow user namespaces. At start-up the judge
+runs a self-test jail and refuses to start if it fails — most often because
+a parent directory of `work_dir` or of the judge binary is not searchable by
+the jail's uid (nsjail mounts them from inside the user namespace; fix with
+`chmod o+x`). The error message quotes nsjail's own.
 
-- `namespaces + dedicated uid + seccomp` — started as root (recommended);
-- `user namespaces + seccomp` — unprivileged, kernel allows user namespaces;
-- a warning when namespaces are unavailable (some containers). Only rlimits
-  and seccomp apply then and submissions can read whatever the judge user
-  can. Set `"require_isolation": true` to refuse to run in that state.
-
-Known limits: memory is enforced by address-space limit and judged by peak
-RSS, not by a cgroup, so a program can be reported as RE instead of MLE when
-one huge allocation fails outright. Only the built-in token/line checker
+Known limits: memory is enforced by an address-space limit and judged by
+peak RSS, not by a memory cgroup, so a program can be reported as RE instead
+of MLE when one huge allocation fails outright. nsjail can enforce cgroup
+limits; that is not wired up yet. Only the built-in token/line checker
 exists; special judges are not implemented yet.
 
 ## Extending

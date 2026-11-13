@@ -13,6 +13,7 @@ std::map<std::string, LanguageSpec> default_languages() {
   return {
       {"c", {"main.c", {"/usr/bin/gcc", "-std=c11", "-O2", "-o", "main", "main.c", "-lm"}, {"./main"}}},
       {"cpp", {"main.cpp", {"/usr/bin/g++", "-std=c++17", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
+      {"cpp23", {"main.cpp", {"/usr/bin/g++", "-std=c++23", "-O2", "-o", "main", "main.cpp"}, {"./main"}}},
       // Byte-compiling surfaces syntax errors as a compile error.
       {"py3", {"main.py", {"/usr/bin/python3", "-m", "py_compile", "main.py"}, {"/usr/bin/python3", "main.py"}}},
   };
@@ -31,7 +32,6 @@ Config load_config(const std::string& path) {
     } catch (const nlohmann::json::exception& error) {
       throw std::runtime_error("invalid config file " + path + ": " + error.what());
     }
-    config.source_path = std::filesystem::absolute(path).string();
 
     try {
       const auto read = [&json](const char* key, auto& target) {
@@ -44,7 +44,7 @@ Config load_config(const std::string& path) {
       read("poll_interval_ms", config.poll_interval_ms);
       read("run_uid", config.run_uid);
       read("run_gid", config.run_gid);
-      read("require_isolation", config.require_isolation);
+      read("nsjail_path", config.nsjail_path);
       read("output_limit_kb", config.output_limit_kb);
       read("compile_time_ms", config.compile_time_ms);
       read("compile_memory_kb", config.compile_memory_kb);

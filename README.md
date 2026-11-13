@@ -12,7 +12,7 @@ monorepo with a C++ judge machine.
 | API contract | `packages/contract` | [oRPC](https://orpc.dev) contract + [ArkType](https://arktype.io) schemas, shared by API and web |
 | Backend API | `apps/api` | NestJS 12 on Fastify, `@orpc/nest`, Drizzle ORM, PostgreSQL, RabbitMQ |
 | Web app | `apps/web` | React Router 8 (framework mode, SSR), Bootstrap 5, TanStack Query + Table, Radix UI, Shiki |
-| Judge machine | `judge` | C++20 daemon with a namespace/seccomp sandbox |
+| Judge machine | `judge` | C++20 daemon; submissions run in [nsjail](https://github.com/google/nsjail) |
 
 Read [docs/architecture.md](docs/architecture.md) for how the pieces fit
 together, the layering rules of the backend, the judge protocol and the
@@ -25,8 +25,10 @@ Requirements
 - Node.js 22.22+ and pnpm 10
 - PostgreSQL 14+
 - RabbitMQ 3.12+
-- For the judge: Linux, CMake 3.20+, a C++20 compiler, plus the toolchains
-  you want to offer to contestants (`gcc`, `g++`, `python3` by default)
+- For the judge: Linux with user namespaces enabled, CMake 3.20+, a C++20
+  compiler, [nsjail](https://github.com/google/nsjail) (built by
+  `judge/scripts/install-nsjail.sh`), plus the toolchains you want to offer
+  to contestants (`gcc`, `g++` 13+ for C++23, `python3` by default)
 
 Getting started
 ---------------
@@ -61,13 +63,16 @@ For development use `pnpm dev:contract`, `pnpm dev:api` and `pnpm dev:web`
 Submissions wait in RabbitMQ until a judge picks them up.
 
 ```sh
+sudo judge/scripts/install-nsjail.sh     # → /usr/local/bin/nsjail (pinned 3.6)
 pnpm build:judge                          # → judge/build/skyoj-judge
 cp judge/config.example.json judge/config.json
 ```
 
 1. In the web UI go to **Admin → Judge machines**, create a judge and copy
    its token (shown once) into `judge/config.json`.
-2. Set `work_dir` / `cache_dir` to directories the judge may write to.
+2. Set `work_dir` / `cache_dir` to directories the judge may write to. Every
+   parent directory of `work_dir` and of the judge binary must be
+   searchable by other users (`chmod o+x`); the judge checks this at start.
 3. Start it: `sudo judge/build/skyoj-judge --config judge/config.json`
 
 Run as many judges as you like, on any machines that can reach the API; each
@@ -79,6 +84,8 @@ Day-to-day
 
 - **Problems** are written in Markdown with TeX math. Testdata is uploaded as
   a zip of `name.in` + `name.ans` pairs. New problems start hidden and closed.
+- **Languages:** C (C11), C++17, C++23 and Python 3. Each judge's config
+  can change the compiler commands or add languages.
 - **Scoring** is either the average of passed testcases or subtasks
   (`group_min`: a group of testcases scores only if all of them pass).
 - **Contests** follow ICPC or IOI rules, with open / password / approval /
@@ -101,7 +108,7 @@ Scripts
 | `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |
 | `pnpm build:judge` | Configure and build the C++ judge |
-| `ctest --test-dir judge/build` | Judge tests (checker and sandbox) |
+| `ctest --test-dir judge/build` | Judge tests (checker, nsjail sandbox, C++23 compilation); need nsjail |
 
 Coming from the PHP version
 ---------------------------

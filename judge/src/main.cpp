@@ -48,45 +48,43 @@ void usage(const char* program) {
 }
 
 /**
- * Runs a trivial program through the sandbox before accepting work. This
- * tells us which isolation layers the host allows, and catches the classic
- * misconfiguration where the unprivileged uid cannot reach `work_dir`
- * (interpreters reopen their script by absolute path, so every parent
- * directory must be traversable).
+ * Runs a trivial program through nsjail before accepting work. Catches a
+ * missing or broken nsjail, a kernel without user namespaces, and the classic
+ * misconfiguration where the jail cannot reach `work_dir` or the judge
+ * binary (nsjail mounts them from inside a user namespace, so every parent
+ * directory must be searchable by the submissions' uid: chmod o+x).
  */
-bool probe_sandbox(const judge::Config& config) {
+void probe_sandbox(const judge::Config& config) {
   namespace fs = std::filesystem;
-  const fs::path probe_file = fs::path(config.work_dir) / ".probe";
-  std::ofstream(probe_file) << "ok\n";
-  fs::permissions(probe_file, fs::perms::owner_all | fs::perms::group_read | fs::perms::others_read);
+  const fs::path dir = fs::path(config.work_dir) / ".probe";
+  std::error_code ignored;
+  fs::remove_all(dir, ignored);
+  fs::create_directories(dir);
+  fs::permissions(dir, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
+                           fs::perms::others_exec);
+  std::ofstream(dir / "probe") << "ok\n";
+  fs::permissions(dir / "probe", fs::perms::owner_all | fs::perms::group_read | fs::perms::others_read);
 
   judge::sandbox::RunSpec probe;
-  probe.argv = {"/bin/cat", probe_file.string()};
-  probe.cwd = config.work_dir;
-  probe.run_uid = config.run_uid;
-  probe.run_gid = config.run_gid;
-  probe.require_isolation = config.require_isolation;
+  probe.argv = {"/bin/cat", "probe"};
+  probe.cwd = dir.string();
+  probe.readonly_cwd = true;
   const judge::sandbox::RunResult result = judge::sandbox::run(probe);
-  std::error_code ignored;
-  fs::remove(probe_file, ignored);
+  fs::remove_all(dir, ignored);
 
-  if (result.status == judge::sandbox::Status::InternalError) {
-    judge::log("FATAL", "sandbox self-test failed: " + result.error);
-    std::exit(1);
-  }
   if (result.status != judge::sandbox::Status::Exited || result.exit_code != 0) {
-    judge::log("FATAL", judge::format("submissions (uid %u) cannot read files in work_dir %s: make sure every parent "
-                                      "directory is world-searchable (chmod o+x)",
-                                      ::geteuid() == 0 ? config.run_uid : static_cast<unsigned>(::geteuid()),
-                                      config.work_dir.c_str()));
+    judge::log("FATAL", "sandbox self-test failed: " +
+                            (result.error.empty() ? judge::format("probe ended with status %d", result.exit_code) : result.error));
     std::exit(1);
   }
-  return result.isolated;
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Inside a jail this binary is the init process, not the daemon.
+  if (argc >= 2 && !std::strcmp(argv[1], judge::sandbox::kInitFlag)) return judge::sandbox::init_main(argc, argv);
+
   std::string config_path;
   bool once = false;
   for (int i = 1; i < argc; ++i) {
@@ -111,13 +109,14 @@ int main(int argc, char** argv) {
     fs::permissions(config.work_dir, fs::perms::owner_all | fs::perms::group_exec | fs::perms::others_exec);
     fs::permissions(config.cache_dir, fs::perms::owner_all);
 
-    if (probe_sandbox(config)) {
-      judge::log("INFO", ::geteuid() == 0 ? "sandbox: namespaces + dedicated uid + seccomp"
-                                           : "sandbox: user namespaces + seccomp");
-    } else {
-      judge::log("WARN", "Linux namespaces are unavailable: submissions run with rlimits and seccomp only and "
-                         "can read files this user can read. Do not judge untrusted code like this.");
-    }
+    judge::sandbox::configure({
+        .nsjail = config.nsjail_path,
+        .init = fs::canonical("/proc/self/exe").string(),
+        .run_uid = config.run_uid,
+        .run_gid = config.run_gid,
+    });
+    probe_sandbox(config);
+    judge::log("INFO", "sandbox: nsjail (" + config.nsjail_path + "), namespaces + seccomp + rlimits");
 
     std::signal(SIGINT, request_stop);
     std::signal(SIGTERM, request_stop);

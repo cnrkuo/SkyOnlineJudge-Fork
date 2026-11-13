@@ -29,19 +29,16 @@ struct Config {
   /** Identity submissions run as when the judge itself runs as root. */
   unsigned run_uid = 65534;
   unsigned run_gid = 65534;
-  /** Refuse to run anything when Linux namespaces are unavailable. */
-  bool require_isolation = false;
+  /** The nsjail binary that every compilation and run goes through. */
+  std::string nsjail_path = "nsjail";
 
   std::int64_t output_limit_kb = 65536;
   std::int64_t compile_time_ms = 15000;
   std::int64_t compile_memory_kb = 2097152;
   int max_processes = 64;
 
-  /** Keyed by the language ids of the API contract ("c", "cpp", "py3"). */
+  /** Keyed by the language ids of the API contract ("c", "cpp", "cpp23", "py3"). */
   std::map<std::string, LanguageSpec> languages;
-
-  /** Path of the loaded file, so it can be masked from submissions. */
-  std::string source_path;
 };
 
 /** Languages available out of the box; config files may override or extend them. */

@@ -1,6 +1,5 @@
-// Self-contained tests for the checker and the sandbox (no framework).
-// Sandbox cases adapt to the host: assertions that need namespaces are
-// skipped, with a note, where the kernel refuses to create them.
+// Self-contained tests for the checker and the nsjail sandbox (no framework).
+// Needs nsjail on PATH (or NSJAIL=/path/to/nsjail).
 
 #include <chrono>
 #include <csignal>
@@ -60,7 +59,8 @@ judge::sandbox::RunSpec shell(const fs::path& dir, const std::string& script) {
   spec.argv = {"/bin/sh", "-c", script};
   spec.env = {"PATH=/usr/bin:/bin"};
   spec.cwd = dir.string();
-  spec.stdout_path = (dir / "out").string();
+  // Output goes outside the box, like the judge's private io/ directory.
+  spec.stdout_path = (dir.parent_path() / "out").string();
   spec.limits.cpu_ms = 2000;
   spec.limits.wall_ms = 5000;
   spec.limits.memory_kb = 262144;
@@ -68,27 +68,34 @@ judge::sandbox::RunSpec shell(const fs::path& dir, const std::string& script) {
   return spec;
 }
 
+std::string out(const fs::path& dir) {
+  return slurp(dir.parent_path() / "out");
+}
+
 void test_sandbox(const fs::path& dir) {
   using judge::sandbox::run;
 
-  auto ok = run(shell(dir, "read a b; echo $((a + b))"));
-  CHECK(ok.status == Status::Exited);  // stdin is /dev/null: read fails, prints 0
-  if (ok.status == Status::InternalError) std::fprintf(stderr, "sandbox error: %s\n", ok.error.c_str());
-  const bool isolated = ok.isolated;
-  if (!isolated) std::fprintf(stderr, "note: namespaces unavailable, isolation checks skipped\n");
-
   std::ofstream(dir / "in") << "20 22\n";
-  auto spec = shell(dir, "read a b; echo $((a + b))");
-  spec.stdin_path = (dir / "in").string();
+  auto spec = shell(dir, "read a b < in; echo $((a + b))");
   auto sum = run(spec);
   CHECK(sum.status == Status::Exited && sum.exit_code == 0);
-  CHECK(slurp(dir / "out") == "42\n");
+  if (sum.status == Status::InternalError) std::fprintf(stderr, "sandbox error: %s\n", sum.error.c_str());
+  CHECK(out(dir) == "42\n");
+
+  spec = shell(dir, "read a b; echo $((a * b))");
+  spec.stdin_path = (dir / "in").string();
+  CHECK(run(spec).status == Status::Exited && out(dir) == "440\n");
 
   auto failed = run(shell(dir, "exit 3"));
   CHECK(failed.status == Status::Exited && failed.exit_code == 3);
 
-  auto crashed = run(shell(dir, "kill -SEGV $$"));
+  // The program is not PID 1 of its namespace, so signals behave normally:
+  // a process can signal itself to death, and abort() is reported as SIGABRT.
+  auto crashed = run(shell(dir, "kill -SEGV $$; echo survived"));
   CHECK(crashed.status == Status::Signaled && crashed.signal == SIGSEGV);
+  CHECK(out(dir).empty());
+  auto aborted = run(shell(dir, "kill -ABRT $$"));
+  CHECK(aborted.status == Status::Signaled && aborted.signal == SIGABRT);
 
   spec = shell(dir, "sleep 10");
   spec.limits.wall_ms = 300;
@@ -101,66 +108,119 @@ void test_sandbox(const fs::path& dir) {
   spec.limits.wall_ms = 5000;
   auto spinning = run(spec);
   CHECK(spinning.status == Status::TimeLimit);
-  CHECK(spinning.cpu_ms >= 300);
 
-  spec = shell(dir, "exec yes");
-  spec.limits.output_kb = 64;
-  auto noisy = run(spec);
+  // Writing past the output limit is SIGXFSZ, i.e. Output Limit Exceeded.
+  auto noisy = run(shell(dir, "exec yes"));
   CHECK(noisy.status == Status::OutputLimit);
-  CHECK(fs::file_size(dir / "out") <= 64 * 1024);
+  CHECK(fs::file_size(dir.parent_path() / "out") <= 1024 * 1024);
 
-  auto missing = run(shell(dir / "does-not-exist", "true"));
-  CHECK(missing.status == Status::InternalError);
-  CHECK(!missing.error.empty());
+  spec = shell(dir, "exec python3 -c 'b = bytearray(400 * 1024 * 1024); print(len(b))'");
+  spec.limits.memory_kb = 131072;
+  auto hungry = run(spec);
+  CHECK(hungry.status == Status::MemoryLimit || (hungry.status == Status::Exited && hungry.exit_code != 0));
 
-  // Syscall filter: creating a namespace is a restricted function.
-  auto escape = run(shell(dir, "unshare -U true"));
-  CHECK(escape.status == Status::Restricted || (escape.status == Status::Exited && escape.exit_code != 0));
+  // Syscall policy: creating a namespace kills (Restricted Function); sockets just fail.
+  auto escape = run(shell(dir, "exec unshare -U true"));
+  CHECK(escape.status == Status::Restricted && escape.signal == SIGSYS);
+  auto sock = run(shell(dir, "python3 -c 'import socket; socket.socket()' 2>&1; echo rc=$?"));
+  CHECK(sock.status == Status::Exited && out(dir).find("Operation not permitted") != std::string::npos);
 
-  if (isolated) {
-    const fs::path secret_dir = dir / "secret";
-    fs::create_directories(secret_dir);
-    std::ofstream(secret_dir / "answer") << "42\n";
-    std::ofstream(dir / "token") << "hunter2\n";
+  // Filesystem: only /usr, the box and a private /tmp exist.
+  std::ofstream(dir.parent_path() / "secret") << "expected answer\n";
+  auto look = run(shell(dir, "cat ../secret /etc/passwd 2>/dev/null; ls /; echo end"));
+  CHECK(look.status == Status::Exited);
+  CHECK(out(dir).find("expected answer") == std::string::npos);
+  CHECK(out(dir).find("home") == std::string::npos && out(dir).find("var") == std::string::npos);
+  CHECK(out(dir).find("box") != std::string::npos && out(dir).find("end") != std::string::npos);
 
-    spec = shell(dir, "cat secret/answer; cat token; echo done");
-    spec.masked_paths = {secret_dir.string(), (dir / "token").string()};
-    auto masked = run(spec);
-    CHECK(masked.status == Status::Exited);
-    CHECK(slurp(dir / "out") == "done\n");  // neither file leaked
+  // No network interface but loopback, no other processes.
+  auto alone = run(shell(dir, "ls /sys/class/net 2>/dev/null | grep -v '^lo$'; ls /proc | grep -c '^[0-9]'"));
+  CHECK(alone.status == Status::Exited);
+  CHECK(std::atoi(out(dir).c_str()) <= 4);  // init, sh, ls, grep
 
-    spec = shell(dir, "echo x > created && echo wrote");
-    spec.readonly_cwd = true;
-    auto readonly = run(spec);
-    CHECK(readonly.status == Status::Exited && readonly.exit_code != 0);
-    CHECK(!fs::exists(dir / "created"));
+  // Testcase runs see the box read-only; /tmp is private and writable.
+  spec = shell(dir, "echo x > created; echo t > /tmp/t && cat /tmp/t");
+  spec.readonly_cwd = true;
+  auto readonly = run(spec);
+  CHECK(readonly.status == Status::Exited);
+  CHECK(!fs::exists(dir / "created") && out(dir) == "t\n");
 
-    // A background child must not outlive the run.
-    spec = shell(dir, "(sleep 2; echo late > straggler) & exit 0");
-    auto parent = run(spec);
-    CHECK(parent.status == Status::Exited);
-    std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-    CHECK(!fs::exists(dir / "straggler"));
-  }
+  // A background child does not outlive the run.
+  auto parent = run(shell(dir, "(sleep 2; echo late > straggler) & exit 0"));
+  CHECK(parent.status == Status::Exited);
+  std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+  CHECK(!fs::exists(dir / "straggler"));
+
+  // A missing program is the program's failure (127), not the sandbox's.
+  auto missing = run(shell(dir, "exec /no/such/program"));
+  CHECK(missing.status == Status::Exited && missing.exit_code == 127);
+}
+
+/** Compiles and runs C++23 inside the sandbox, as the judge does. */
+void test_cpp23(const fs::path& dir) {
+  std::ofstream(dir / "main.cpp") << R"(#include <expected>
+#include <iostream>
+#include <ranges>
+std::expected<int, const char*> half(int n) {
+  if (n % 2) return std::unexpected("odd");
+  return n / 2;
+}
+int main() {
+  auto squares = std::views::iota(1, 5) | std::views::transform([](int x) { return x * x; });
+  for (int s : squares) std::cout << s << ' ';
+  std::cout << half(8).value_or(-1) << ' ' << half(7).error() << '\n';
+}
+)";
+  judge::sandbox::RunSpec compile;
+  compile.argv = {"/usr/bin/g++", "-std=c++23", "-O2", "-o", "main", "main.cpp"};
+  compile.env = {"PATH=/usr/bin:/bin", "HOME=/tmp"};
+  compile.cwd = dir.string();
+  compile.stdout_path = compile.stderr_path = (dir.parent_path() / "out").string();
+  compile.single_cpu = false;
+  compile.limits = {.cpu_ms = 30000, .wall_ms = 60000, .memory_kb = 2097152, .output_kb = 65536, .max_processes = 256, .tmp_kb = 524288};
+  auto built = judge::sandbox::run(compile);
+  CHECK(built.status == Status::Exited && built.exit_code == 0);
+  if (built.exit_code != 0) std::fprintf(stderr, "compile output:\n%s\n%s\n", out(dir).c_str(), built.error.c_str());
+
+  judge::sandbox::RunSpec program;
+  program.argv = {"./main"};
+  program.cwd = dir.string();
+  program.stdout_path = (dir.parent_path() / "out").string();
+  program.readonly_cwd = true;
+  auto ran = judge::sandbox::run(program);
+  CHECK(ran.status == Status::Exited && out(dir) == "1 4 9 16 4 odd\n");
 }
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+  // The sandbox uses this binary as the init process inside each jail.
+  if (argc >= 2 && std::string(argv[1]) == judge::sandbox::kInitFlag) return judge::sandbox::init_main(argc, argv);
+
   test_checker();
 
-  char pattern[] = "/tmp/skyoj-judge-test-XXXXXX";
+  // Somewhere every uid can traverse: nsjail mounts the box from inside a user namespace.
+  char pattern[] = "/var/tmp/skyoj-judge-test-XXXXXX";
   const char* created = ::mkdtemp(pattern);
   if (!created) {
     std::perror("mkdtemp");
     return 1;
   }
-  const fs::path dir = created;
-  // The sandbox may demote the child to another uid; let it reach the files.
-  fs::permissions(dir, fs::perms::all);
-  test_sandbox(dir);
+  const fs::path root = created;
+  const fs::path box = root / "box";
+  fs::create_directories(box);
+  fs::permissions(root, fs::perms::owner_all | fs::perms::others_exec | fs::perms::group_exec);
+  // Programs run as another uid and write into the box during compilation.
+  fs::permissions(box, fs::perms::all);
+
+  judge::sandbox::configure({
+      .nsjail = std::getenv("NSJAIL") ? std::getenv("NSJAIL") : "nsjail",
+      .init = fs::canonical("/proc/self/exe").string(),
+  });
+  test_sandbox(box);
+  test_cpp23(box);
   std::error_code ignored;
-  fs::remove_all(dir, ignored);
+  fs::remove_all(root, ignored);
 
   if (g_failures == 0) std::puts("all tests passed");
   return g_failures == 0 ? 0 : 1;

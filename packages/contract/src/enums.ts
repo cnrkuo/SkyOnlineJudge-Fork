@@ -84,13 +84,15 @@ export const VERDICT_SHORT: Record<Verdict, string> = {
 export const Language = {
   C: 'c',
   CPP: 'cpp',
+  CPP23: 'cpp23',
   PYTHON3: 'py3',
 } as const;
 export type Language = (typeof Language)[keyof typeof Language];
 
 export const LANGUAGE_LABEL: Record<Language, string> = {
   c: 'C (gcc -std=c11 -O2)',
-  cpp: 'C++ (g++ -std=c++17 -O2)',
+  cpp: 'C++17 (g++ -std=c++17 -O2)',
+  cpp23: 'C++23 (g++ -std=c++23 -O2)',
   py3: 'Python 3',
 };
 

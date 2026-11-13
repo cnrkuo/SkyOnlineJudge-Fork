@@ -133,16 +133,12 @@ Report Runner::judge(const Task& task) {
     return failure(task, Verdict::JudgeError, std::string("Cannot prepare the work directory: ") + error.what());
   }
 
+  // The jail sees only the box (as /box) and the system's /usr; the testdata
+  // cache, captured output in io/ and the judge's config are simply absent.
   sandbox::RunSpec base;
   base.env = kEnvironment;
   base.cwd = box.string();
-  base.run_uid = config_.run_uid;
-  base.run_gid = config_.run_gid;
-  base.require_isolation = config_.require_isolation;
   base.limits.max_processes = config_.max_processes;
-  // Expected answers, captured output and the judge token stay out of reach.
-  base.masked_paths = {config_.cache_dir, io.string()};
-  if (!config_.source_path.empty()) base.masked_paths.push_back(config_.source_path);
 
   // ------------------------------------------------------------------ compile
   if (!spec.compile.empty()) {
@@ -151,12 +147,15 @@ Report Runner::judge(const Task& task) {
     compile.argv = spec.compile;
     compile.stdout_path = log_path;
     compile.stderr_path = log_path;
-    compile.syscall_filter = false;  // compilers fork, exec and use pipes freely
+    // Compilers fork and exec freely (the policy allows it) and may use every CPU.
+    compile.single_cpu = false;
     compile.limits.cpu_ms = config_.compile_time_ms;
     compile.limits.wall_ms = config_.compile_time_ms * 2;
     compile.limits.memory_kb = config_.compile_memory_kb;
     compile.limits.output_kb = 262144;
     compile.limits.max_processes = std::max(config_.max_processes, 256);
+    // g++ keeps its intermediate files in /tmp.
+    compile.limits.tmp_kb = 524288;
 
     const sandbox::RunResult built = sandbox::run(compile);
     const std::string output = read_text(log_path);

@@ -6,6 +6,24 @@
 
 namespace judge::sandbox {
 
+/**
+ * Process-wide sandbox settings, fixed at start-up with `configure()`.
+ */
+struct Settings {
+  /** The nsjail binary; a bare name is looked up in PATH. */
+  std::string nsjail = "nsjail";
+  /**
+   * The executable that runs as PID 1 inside every jail (see `init_main`).
+   * Normally the judge binary itself.
+   */
+  std::string init;
+  /** When the judge runs as root, programs run as this uid/gid. */
+  unsigned run_uid = 65534;
+  unsigned run_gid = 65534;
+};
+
+void configure(const Settings& settings);
+
 struct Limits {
   /** CPU time (user + system). */
   std::int64_t cpu_ms = 1000;
@@ -13,35 +31,32 @@ struct Limits {
   std::int64_t wall_ms = 4000;
   /** Peak resident memory. */
   std::int64_t memory_kb = 262144;
-  /** Largest file (including stdout) the program may write. */
+  /** Largest file (including stdout) the program may write. Rounded up to whole MiB. */
   std::int64_t output_kb = 65536;
-  /** RLIMIT_NPROC; only enforced when the program runs under a dedicated uid. */
+  /** Processes and threads the program may have at once (RLIMIT_NPROC). */
   int max_processes = 64;
+  /** Size of the private /tmp. */
+  std::int64_t tmp_kb = 16384;
 };
 
 struct RunSpec {
-  /** argv[0] must be an absolute path or relative to `cwd`. */
+  /** argv[0] is resolved inside the jail: absolute, or relative to the work directory. */
   std::vector<std::string> argv;
   std::vector<std::string> env;
+  /** Host directory that becomes the program's working directory, `/box`. */
   std::string cwd;
-  /** Empty paths are redirected to /dev/null. */
+  /** Host files for the standard streams; empty means /dev/null. */
   std::string stdin_path;
   std::string stdout_path;
   std::string stderr_path;
   Limits limits;
 
-  /** Remount `cwd` read-only for the program (needs namespaces). */
+  /** Mount the work directory read-only (testcase runs) instead of read-write (compilation). */
   bool readonly_cwd = false;
-  /** Files/directories hidden from the program (needs namespaces). */
-  std::vector<std::string> masked_paths;
-  /** Install the syscall filter. Disabled for compilers, which fork and exec. */
+  /** Install the syscall filter. */
   bool syscall_filter = true;
-
-  /** When the judge runs as root, the program is demoted to this uid/gid. */
-  unsigned run_uid = 65534;
-  unsigned run_gid = 65534;
-  /** Fail instead of falling back to an un-namespaced child. */
-  bool require_isolation = false;
+  /** Pin the program to one CPU so timings are comparable across machines. */
+  bool single_cpu = true;
 };
 
 enum class Status {
@@ -63,25 +78,37 @@ struct RunResult {
   std::int64_t cpu_ms = 0;
   std::int64_t wall_ms = 0;
   std::int64_t memory_kb = 0;
-  /** Whether namespaces were actually in effect for this run. */
-  bool isolated = false;
   std::string error;
 };
 
 /**
- * Runs one program to completion under resource limits.
+ * Runs one program to completion inside an nsjail jail.
  *
- * Isolation layers, strongest available first:
- *  - Linux namespaces (mount, pid, net, ipc, uts; plus user when not root):
- *    no network, no view of other processes, masked paths, read-only cwd,
- *    and every stray child dies with the namespace.
- *  - A dedicated unprivileged uid when started as root.
- *  - rlimits for CPU, address space, file size, process count.
- *  - A seccomp-bpf filter that kills on dangerous syscalls.
+ * The jail has its own mount, PID, network, IPC, UTS, cgroup and user
+ * namespaces. Its filesystem is built from scratch: /usr (and the /bin,
+ * /lib, /lib64 links), the dynamic-linker cache, /etc/alternatives, three
+ * device nodes, a private /tmp and the work directory as /box. Nothing else
+ * of the host — testdata cache, captured output, the judge's config and
+ * token — exists inside it. No network, no other processes. rlimits bound
+ * CPU, memory, output, processes and open files, and a seccomp policy kills
+ * the program on dangerous system calls.
  *
- * Must be called from a single-threaded process.
+ * The program does not run as PID 1 of its namespace: `init_main` does, and
+ * reports the program's exact exit status and resource usage back. (The
+ * kernel ignores most signals sent to a PID 1, which would otherwise turn an
+ * output-limit kill into a plain exit, for instance.)
  */
 RunResult run(const RunSpec& spec);
+
+/** Argument that switches the executable into its in-jail init role. */
+inline constexpr const char* kInitFlag = "--sandbox-init";
+
+/**
+ * Entry point of the in-jail init: `<exe> --sandbox-init <fd> <program> [args…]`.
+ * Runs the program as its child, waits for it, writes the exit status and
+ * resource usage to `fd`, and exits.
+ */
+int init_main(int argc, char** argv);
 
 /** Human-readable name of a signal, e.g. "Segmentation fault". */
 std::string signal_name(int signal);

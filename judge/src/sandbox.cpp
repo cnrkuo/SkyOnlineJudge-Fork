@@ -3,304 +3,189 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
-#include <cstddef>
 #include <cstring>
+#include <filesystem>
 
 #include <fcntl.h>
-#include <grp.h>
-#include <linux/audit.h>
-#include <linux/filter.h>
-#include <linux/seccomp.h>
 #include <poll.h>
-#include <sched.h>
 #include <signal.h>
-#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if defined(__x86_64__)
-#define JUDGE_AUDIT_ARCH AUDIT_ARCH_X86_64
-#elif defined(__aarch64__)
-#define JUDGE_AUDIT_ARCH AUDIT_ARCH_AARCH64
-#else
-#error "Unsupported architecture: add its AUDIT_ARCH_* constant here"
-#endif
+#include "common.hpp"
 
 namespace judge::sandbox {
 namespace {
 
+namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-/** uid/gid the program sees inside a user namespace. Non-zero so that
- *  execve() drops every capability the namespace granted us. */
-constexpr unsigned kInnerId = 1000;
+Settings g_settings;
 
-// ------------------------------------------------------------------ child side
-// Everything below runs between clone() and execve(). The judge is
-// single-threaded, so using the allocator here is safe.
+/** Where things appear inside the jail. */
+constexpr const char* kBox = "/box";
+constexpr const char* kInitPath = "/.skyoj-init";
+/** File descriptor number the init's report arrives on, inside and outside the jail. */
+constexpr int kStatusFd = 3;
+/** nsjail logs to this descriptor; the judge reads it only when something failed. */
+constexpr int kLogFd = 4;
+/** Inside uid/gid when the judge is not root (any id works; only one can be mapped). */
+constexpr unsigned kUnprivilegedId = 1000;
 
-/** Reports a setup failure to the parent through the CLOEXEC pipe and dies. */
-[[noreturn]] void die(int report_fd, const std::string& what) {
-  std::string message = what + ": " + std::strerror(errno);
-  (void)!::write(report_fd, message.data(), message.size());
-  ::_exit(127);
-}
-
-bool write_file(const char* path, const std::string& content) {
-  int fd = ::open(path, O_WRONLY | O_CLOEXEC);
-  if (fd < 0) return false;
-  bool ok = ::write(fd, content.data(), content.size()) == static_cast<ssize_t>(content.size());
-  ::close(fd);
-  return ok;
-}
-
-void redirect(int report_fd, const std::string& path, int target, int flags) {
-  const char* file = path.empty() ? "/dev/null" : path.c_str();
-  int fd = ::open(file, flags, 0600);
-  if (fd < 0) die(report_fd, std::string("open ") + file);
-  if (fd != target) {
-    if (::dup2(fd, target) < 0) die(report_fd, "dup2");
-    ::close(fd);
-  }
-}
-
-void set_limit(int report_fd, int resource, rlim_t value) {
-  struct rlimit limit {value, value};
-  if (::setrlimit(resource, &limit) != 0) die(report_fd, "setrlimit");
-}
-
-/** Maps our outer uid/gid to `kInnerId` inside the new user namespace. */
-void map_ids(int report_fd, uid_t outer_uid, gid_t outer_gid) {
-  if (!write_file("/proc/self/setgroups", "deny") && errno != ENOENT) die(report_fd, "write setgroups");
-  if (!write_file("/proc/self/uid_map", std::to_string(kInnerId) + " " + std::to_string(outer_uid) + " 1"))
-    die(report_fd, "write uid_map");
-  if (!write_file("/proc/self/gid_map", std::to_string(kInnerId) + " " + std::to_string(outer_gid) + " 1"))
-    die(report_fd, "write gid_map");
-}
-
-/** Hides a path: tmpfs over directories, /dev/null over files. */
-void mask_path(int report_fd, const std::string& path) {
-  struct stat st {};
-  if (::stat(path.c_str(), &st) != 0) {
-    if (errno == ENOENT) return;
-    die(report_fd, "stat " + path);
-  }
-  int rc = S_ISDIR(st.st_mode)
-               ? ::mount("tmpfs", path.c_str(), "tmpfs", MS_NOSUID | MS_NODEV | MS_NOEXEC, "size=4k,mode=000")
-               : ::mount("/dev/null", path.c_str(), nullptr, MS_BIND, nullptr);
-  if (rc != 0) die(report_fd, "mask " + path);
-}
-
-void make_readonly(int report_fd, const std::string& dir) {
-  if (::mount(dir.c_str(), dir.c_str(), nullptr, MS_BIND | MS_REC, nullptr) != 0) die(report_fd, "bind " + dir);
-  // Inside a user namespace a remount must keep the flags the original
-  // mount was locked with, so carry them over.
-  unsigned long flags = MS_BIND | MS_REMOUNT | MS_RDONLY | MS_NOSUID | MS_NODEV;
-  struct statvfs vfs {};
-  if (::statvfs(dir.c_str(), &vfs) == 0) {
-    if (vfs.f_flag & ST_NOEXEC) flags |= MS_NOEXEC;
-    if (vfs.f_flag & ST_NOATIME) flags |= MS_NOATIME;
-    if (vfs.f_flag & ST_NODIRATIME) flags |= MS_NODIRATIME;
-    if (vfs.f_flag & ST_RELATIME) flags |= MS_RELATIME;
-  }
-  if (::mount(nullptr, dir.c_str(), nullptr, flags, nullptr) != 0) die(report_fd, "remount read-only " + dir);
-}
-
-void setup_mounts(int report_fd, const RunSpec& spec) {
-  // Keep our mounts from propagating back to the host.
-  if (::mount(nullptr, "/", nullptr, MS_REC | MS_PRIVATE, nullptr) != 0) die(report_fd, "make / private");
-  if (spec.readonly_cwd) make_readonly(report_fd, spec.cwd);
-  for (const auto& path : spec.masked_paths) mask_path(report_fd, path);
-  // Best effort: a fresh /proc so the program only sees its own pid
-  // namespace. Hardened hosts may refuse this; the pid namespace still holds.
-  (void)::mount("proc", "/proc", "proc", MS_NOSUID | MS_NODEV | MS_NOEXEC, nullptr);
-}
-
-#define JUDGE_KILL_ON(nr) \
-  BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, static_cast<__u32>(nr), 0, 1), BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS)
-#define JUDGE_ERRNO_ON(nr, err)                                     \
-  BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, static_cast<__u32>(nr), 0, 1), \
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | ((err) & SECCOMP_RET_DATA))
-
-/**
- * Deny-list syscall filter. Namespaces and the unprivileged uid already make
- * most of these fail; the filter is a second line of defence and is what
- * produces the "Restricted Function" verdict (the process dies with SIGSYS).
- */
-void install_syscall_filter(int report_fd) {
-  constexpr __u32 kNamespaceFlags =
-      CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWCGROUP;
-  struct sock_filter filter[] = {
-      BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
-      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, JUDGE_AUDIT_ARCH, 1, 0),
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
-      BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
-#if defined(__x86_64__)
-      // Reject the x32 ABI, whose syscall numbers would dodge the list below.
-      BPF_JUMP(BPF_JMP | BPF_JGE | BPF_K, 0x40000000u, 0, 1),
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
-#endif
-      JUDGE_KILL_ON(SYS_ptrace),
-      JUDGE_KILL_ON(SYS_process_vm_readv),
-      JUDGE_KILL_ON(SYS_process_vm_writev),
-      JUDGE_KILL_ON(SYS_mount),
-      JUDGE_KILL_ON(SYS_umount2),
-      JUDGE_KILL_ON(SYS_pivot_root),
-      JUDGE_KILL_ON(SYS_chroot),
-      JUDGE_KILL_ON(SYS_unshare),
-      JUDGE_KILL_ON(SYS_setns),
-      JUDGE_KILL_ON(SYS_bpf),
-      JUDGE_KILL_ON(SYS_perf_event_open),
-      JUDGE_KILL_ON(SYS_userfaultfd),
-      JUDGE_KILL_ON(SYS_io_uring_setup),
-      JUDGE_KILL_ON(SYS_kexec_load),
-      JUDGE_KILL_ON(SYS_init_module),
-      JUDGE_KILL_ON(SYS_finit_module),
-      JUDGE_KILL_ON(SYS_delete_module),
-      JUDGE_KILL_ON(SYS_reboot),
-      JUDGE_KILL_ON(SYS_swapon),
-      JUDGE_KILL_ON(SYS_swapoff),
-      JUDGE_KILL_ON(SYS_acct),
-      JUDGE_KILL_ON(SYS_keyctl),
-      JUDGE_KILL_ON(SYS_add_key),
-      JUDGE_KILL_ON(SYS_request_key),
-      JUDGE_KILL_ON(SYS_open_by_handle_at),
-      JUDGE_KILL_ON(SYS_settimeofday),
-      JUDGE_KILL_ON(SYS_clock_settime),
-      JUDGE_KILL_ON(SYS_sethostname),
-      JUDGE_KILL_ON(SYS_setdomainname),
-      // Runtimes probe these and cope with failure, so fail softly.
-      JUDGE_ERRNO_ON(SYS_socket, EPERM),
-      JUDGE_ERRNO_ON(SYS_socketpair, EPERM),
-      // glibc falls back to clone() when clone3() is unavailable; clone()'s
-      // flags are inspectable, clone3()'s are behind a pointer.
-      JUDGE_ERRNO_ON(SYS_clone3, ENOSYS),
-      // clone(): allow threads and plain forks, refuse new namespaces.
-      BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, static_cast<__u32>(SYS_clone), 0, 3),
-      BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0])),
-      BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K, kNamespaceFlags, 0, 1),
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
-  };
-  struct sock_fprog program {
-    static_cast<unsigned short>(sizeof filter / sizeof filter[0]), filter
-  };
-  if (::prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &program) != 0) die(report_fd, "install seccomp filter");
-}
-
-/** What the init shim tells the judge about the program it supervised. */
+/** What the init writes to `kStatusFd` once the program has ended. */
 struct ExitReport {
   int status;
   struct rusage usage;
 };
 
 /**
- * PID 1 of a pid namespace ignores signals it has no handler for — including
- * the SIGXFSZ / SIGABRT a submission is supposed to die from. So the program
- * never runs as PID 1: this shim does, and merely waits for it. When the shim
- * exits (or is killed on timeout) the kernel tears down the whole namespace.
+ * Seccomp policy in nsjail's Kafel language. A deny-list: namespaces, the
+ * user ids and file systems are what keep the program in; this kills on the
+ * system calls that have no business in a solution, which is also what the
+ * "Restricted Function" verdict reports. (Kafel names syscall 166 `umount`.)
  */
-[[noreturn]] void init_shim(pid_t program, int status_fd) {
-  ExitReport report{};
-  while (::wait4(program, &report.status, 0, &report.usage) < 0 && errno == EINTR) {
-  }
-  (void)!::write(status_fd, &report, sizeof report);
-  ::_exit(0);
-}
+constexpr const char* kSeccompPolicy =
+    "POLICY judge {"
+    "  KILL_PROCESS {"
+    "    ptrace, process_vm_readv, process_vm_writev, mount, umount, pivot_root, chroot, unshare, setns,"
+    "    bpf, perf_event_open, userfaultfd, io_uring_setup, kexec_load, init_module, finit_module,"
+    "    delete_module, reboot, swapon, swapoff, acct, keyctl, add_key, request_key, open_by_handle_at,"
+    "    settimeofday, clock_settime, sethostname, setdomainname,"
+    // clone() creating any namespace (CLONE_NEWNS|NEWCGROUP|NEWUTS|NEWIPC|NEWUSER|NEWPID|NEWNET).
+    "    clone { (clone_flags & 0x7e020000) != 0 }"
+    "  },"
+    // Runtimes probe these and cope with failure, so fail softly.
+    "  ERRNO(1) { socket, socketpair },"
+    // glibc falls back to clone(), whose flags the rule above can inspect.
+    "  ERRNO(38) { clone3 }"
+    "} USE judge DEFAULT ALLOW";
 
-[[noreturn]] void child_main(const RunSpec& spec, int report_fd, int status_fd, bool isolated, bool user_namespace,
-                             uid_t outer_uid, gid_t outer_gid) {
-  ::prctl(PR_SET_PDEATHSIG, SIGKILL);
-  // Without a pid namespace the process group is how the parent reaps strays.
-  if (!isolated) ::setpgid(0, 0);
-
-  // Open the I/O files first: afterwards they may be masked or unreadable.
-  redirect(report_fd, spec.stdin_path, STDIN_FILENO, O_RDONLY);
-  redirect(report_fd, spec.stdout_path, STDOUT_FILENO, O_WRONLY | O_CREAT | O_TRUNC);
-  if (!spec.stderr_path.empty() && spec.stderr_path == spec.stdout_path) {
-    // Share one file description so the two streams interleave correctly.
-    if (::dup2(STDOUT_FILENO, STDERR_FILENO) < 0) die(report_fd, "dup2");
-  } else {
-    redirect(report_fd, spec.stderr_path, STDERR_FILENO, O_WRONLY | O_CREAT | O_TRUNC);
-  }
-
-  if (user_namespace) map_ids(report_fd, outer_uid, outer_gid);
-  if (isolated) setup_mounts(report_fd, spec);
-  if (::chdir(spec.cwd.c_str()) != 0) die(report_fd, "chdir " + spec.cwd);
-
-  if (isolated) {
-    pid_t program = ::fork();
-    if (program < 0) die(report_fd, "fork");
-    if (program > 0) {
-      ::close(report_fd);
-      init_shim(program, status_fd);
-    }
-    ::prctl(PR_SET_PDEATHSIG, SIGKILL);
-  }
-  ::close(status_fd);
-
-  const Limits& limits = spec.limits;
-  const rlim_t memory_bytes = static_cast<rlim_t>(limits.memory_kb) * 1024;
-  // RLIMIT_CPU has one-second granularity; the parent applies the exact limit.
-  set_limit(report_fd, RLIMIT_CPU, static_cast<rlim_t>((limits.cpu_ms + 999) / 1000 + 1));
-  // Address space is a loose backstop (runtimes reserve far more than they
-  // touch); the real memory verdict comes from peak RSS.
-  set_limit(report_fd, RLIMIT_AS, memory_bytes * 2 + (static_cast<rlim_t>(64) << 20));
-  set_limit(report_fd, RLIMIT_STACK, memory_bytes);
-  set_limit(report_fd, RLIMIT_FSIZE, static_cast<rlim_t>(limits.output_kb) * 1024);
-  set_limit(report_fd, RLIMIT_CORE, 0);
-  set_limit(report_fd, RLIMIT_NOFILE, 256);
-
-  if (outer_uid == 0 && !user_namespace && spec.run_uid != 0) {
-    if (::setgroups(0, nullptr) != 0) die(report_fd, "setgroups");
-    if (::setgid(spec.run_gid) != 0) die(report_fd, "setgid");
-    if (::setuid(spec.run_uid) != 0) die(report_fd, "setuid");
-    // Counted per real uid, so it only means something for a dedicated one.
-    set_limit(report_fd, RLIMIT_NPROC, static_cast<rlim_t>(limits.max_processes));
-  }
-
-  if (::prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) die(report_fd, "no_new_privs");
-  if (spec.syscall_filter) install_syscall_filter(report_fd);
-
-  std::vector<char*> argv;
-  for (const auto& arg : spec.argv) argv.push_back(const_cast<char*>(arg.c_str()));
-  argv.push_back(nullptr);
-  std::vector<char*> envp;
-  for (const auto& var : spec.env) envp.push_back(const_cast<char*>(var.c_str()));
-  envp.push_back(nullptr);
-  ::execve(argv[0], argv.data(), envp.data());
-  die(report_fd, "execve " + spec.argv[0]);
-}
-
-// ----------------------------------------------------------------- parent side
-
-/** fork()-like clone that also creates the given namespaces. */
-pid_t clone_process(unsigned long namespace_flags) {
-  return static_cast<pid_t>(::syscall(SYS_clone, namespace_flags | SIGCHLD, nullptr, nullptr, nullptr, nullptr));
+std::string mib(std::int64_t kb) {
+  return std::to_string(std::max<std::int64_t>(1, (kb + 1023) / 1024));
 }
 
 std::int64_t to_ms(const timeval& tv) {
   return static_cast<std::int64_t>(tv.tv_sec) * 1000 + tv.tv_usec / 1000;
 }
 
-std::int64_t elapsed_ms(Clock::time_point since) {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - since).count();
+/** The parts of the host filesystem a program may see, all read-only. */
+void add_system_mounts(std::vector<std::string>& args) {
+  args.insert(args.end(), {"--bindmount_ro", "/usr"});
+  // Merged-/usr systems link /bin, /lib… into /usr; older ones have real directories.
+  for (const char* top : {"/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32"}) {
+    std::error_code error;
+    const auto status = fs::symlink_status(top, error);
+    if (error) continue;
+    if (fs::is_symlink(status)) {
+      args.insert(args.end(), {"--symlink", fs::read_symlink(top).string() + ":" + top});
+    } else if (fs::is_directory(status)) {
+      args.insert(args.end(), {"--bindmount_ro", top});
+    }
+  }
+  // The linker cache, and /etc/alternatives which python3, gcc and g++ resolve through.
+  for (const char* path : {"/etc/ld.so.cache", "/etc/alternatives"}) {
+    if (fs::exists(path)) args.insert(args.end(), {"--bindmount_ro", path});
+  }
+  args.insert(args.end(), {"--bindmount", "/dev/null", "--bindmount_ro", "/dev/zero", "--bindmount_ro", "/dev/urandom"});
 }
 
-/** Blocks until the child exits or `timeout_ms` passes; true when it exited. */
-bool wait_for_exit(pid_t pid, int pidfd, std::int64_t timeout_ms, int& status, struct rusage& usage) {
+std::vector<std::string> nsjail_args(const RunSpec& spec) {
+  const Limits& limits = spec.limits;
+  const bool root = ::geteuid() == 0;
+  const std::string uid = root ? std::to_string(g_settings.run_uid) : std::to_string(kUnprivilegedId);
+  const std::string gid = root ? std::to_string(g_settings.run_gid) : std::to_string(kUnprivilegedId);
+  const std::string outer_uid = root ? uid : std::to_string(::geteuid());
+  const std::string outer_gid = root ? gid : std::to_string(::getegid());
+
+  std::vector<std::string> args = {
+      g_settings.nsjail, "--mode", "o",
+      "--log_fd", std::to_string(kLogFd),
+      // nsjail lowers priority by default; judged timings must not depend on it.
+      "--nice_level", "0",
+      "--hostname", "judge",
+      "--user", uid + ":" + outer_uid + ":1",
+      "--group", gid + ":" + outer_gid + ":1",
+      // nsjail's own defaults (4 GiB, 600 s, 1 MiB files, 32 files) are all replaced.
+      // The address-space limit is a loose backstop: runtimes reserve far more than
+      // they touch, so the memory verdict comes from peak RSS.
+      "--rlimit_as", mib(limits.memory_kb * 2 + 65536),
+      "--rlimit_stack", mib(limits.memory_kb),
+      // One-second granularity; the exact CPU limit is judged from the usage report.
+      "--rlimit_cpu", std::to_string((limits.cpu_ms + 999) / 1000 + 1),
+      "--rlimit_fsize", mib(limits.output_kb),
+      "--rlimit_nofile", "256",
+      "--rlimit_nproc", std::to_string(limits.max_processes),
+      "--rlimit_core", "0",
+      // Backstop only: the judge kills the jail itself at the exact wall-clock limit.
+      "--time_limit", std::to_string((limits.wall_ms + 999) / 1000 + 1),
+      "--pass_fd", std::to_string(kStatusFd),
+  };
+  if (spec.single_cpu) args.insert(args.end(), {"--max_cpus", "1"});
+  if (spec.syscall_filter) args.insert(args.end(), {"--seccomp_string", kSeccompPolicy});
+
+  add_system_mounts(args);
+  args.insert(args.end(), {"--mount", "none:/tmp:tmpfs:size=" + std::to_string(limits.tmp_kb * 1024)});
+  args.insert(args.end(), {spec.readonly_cwd ? "--bindmount_ro" : "--bindmount", spec.cwd + ":" + kBox, "--cwd", kBox});
+  args.insert(args.end(), {"--bindmount_ro", g_settings.init + ":" + kInitPath});
+  for (const auto& variable : spec.env) args.insert(args.end(), {"--env", variable});
+
+  args.insert(args.end(), {"--", kInitPath, kInitFlag, std::to_string(kStatusFd)});
+  args.insert(args.end(), spec.argv.begin(), spec.argv.end());
+  return args;
+}
+
+/** Child side of fork(): wire up descriptors and exec nsjail. Never returns. */
+[[noreturn]] void exec_nsjail(const RunSpec& spec, std::vector<std::string>& args, int status_fd, int log_fd) {
+  // If the judge dies, nsjail dies, and with it the whole jail.
+  ::prctl(PR_SET_PDEATHSIG, SIGKILL);
+  const auto open_or_null = [](const std::string& path, int flags) {
+    return ::open(path.empty() ? "/dev/null" : path.c_str(), flags | O_CLOEXEC, 0600);
+  };
+  const int in = open_or_null(spec.stdin_path, O_RDONLY);
+  const int out = open_or_null(spec.stdout_path, O_WRONLY | O_CREAT | O_TRUNC);
+  // stdout and stderr to one file share a file description, so they interleave.
+  const int err = !spec.stderr_path.empty() && spec.stderr_path == spec.stdout_path
+                      ? ::dup(out)
+                      : open_or_null(spec.stderr_path, O_WRONLY | O_CREAT | O_TRUNC);
+  if (in < 0 || out < 0 || err < 0) {
+    (void)!::write(log_fd, "cannot open the standard streams\n", 33);
+    ::_exit(126);
+  }
+  // Lift the pipes clear of 0–4 first, so no dup2 below overwrites a source.
+  status_fd = ::fcntl(status_fd, F_DUPFD_CLOEXEC, 10);
+  log_fd = ::fcntl(log_fd, F_DUPFD_CLOEXEC, 10);
+  if (status_fd < 0 || log_fd < 0 || ::dup2(in, 0) < 0 || ::dup2(out, 1) < 0 || ::dup2(err, 2) < 0 ||
+      ::dup2(status_fd, kStatusFd) < 0 || ::dup2(log_fd, kLogFd) < 0) {
+    ::_exit(126);
+  }
+  std::vector<char*> argv;
+  for (auto& arg : args) argv.push_back(arg.data());
+  argv.push_back(nullptr);
+  // nsjail clears the environment for the jail; only PATH matters here, to find nsjail.
+  ::execvp(argv[0], argv.data());
+  const std::string message = "cannot execute " + args[0] + ": " + std::strerror(errno) + "\n";
+  (void)!::write(kLogFd, message.data(), message.size());
+  ::_exit(127);
+}
+
+/** Waits up to `timeout_ms` for `pid`; true when it exited. */
+bool wait_for_exit(pid_t pid, std::int64_t timeout_ms, int& status) {
   const auto deadline = Clock::now() + std::chrono::milliseconds(timeout_ms);
+  const int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, pid, 0));
+  bool exited = false;
   for (;;) {
-    pid_t done = ::wait4(pid, &status, WNOHANG, &usage);
-    if (done == pid) return true;
-    if (done < 0 && errno != EINTR) return false;
+    const pid_t done = ::waitpid(pid, &status, WNOHANG);
+    if (done == pid) {
+      exited = true;
+      break;
+    }
+    if (done < 0 && errno != EINTR) break;
     const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
-    if (left <= 0) return false;
+    if (left <= 0) break;
     if (pidfd >= 0) {
       struct pollfd pfd {pidfd, POLLIN, 0};
       ::poll(&pfd, 1, static_cast<int>(std::min<long long>(left, 1000)));
@@ -308,9 +193,39 @@ bool wait_for_exit(pid_t pid, int pidfd, std::int64_t timeout_ms, int& status, s
       ::usleep(1000);
     }
   }
+  if (pidfd >= 0) ::close(pidfd);
+  return exited;
+}
+
+std::string read_all(int fd) {
+  std::string data;
+  char buffer[4096];
+  for (ssize_t n; (n = ::read(fd, buffer, sizeof buffer)) > 0;) data.append(buffer, static_cast<std::size_t>(n));
+  return data;
+}
+
+/** The error lines of nsjail's log ("[E]" / "[F]"), or its tail. */
+std::string summarize_log(const std::string& log) {
+  std::string errors;
+  std::size_t start = 0;
+  while (start < log.size()) {
+    const std::size_t end = std::min(log.find('\n', start), log.size());
+    const std::string line = log.substr(start, end - start);
+    if (line.starts_with("[E]") || line.starts_with("[F]") || line.find("cannot") != std::string::npos) {
+      errors += line + "\n";
+    }
+    start = end + 1;
+  }
+  if (errors.empty()) errors = log.size() > 600 ? log.substr(log.size() - 600) : log;
+  while (!errors.empty() && errors.back() == '\n') errors.pop_back();
+  return errors.empty() ? "nsjail failed without a message" : errors;
 }
 
 }  // namespace
+
+void configure(const Settings& settings) {
+  g_settings = settings;
+}
 
 RunResult run(const RunSpec& spec) {
   RunResult result;
@@ -318,96 +233,71 @@ RunResult run(const RunSpec& spec) {
     result.error = "empty argv";
     return result;
   }
-
-  // report: setup errors before execve(); status: the init shim's ExitReport.
-  int report[2];
-  int status_pipe[2];
-  if (::pipe2(report, O_CLOEXEC) != 0) {
-    result.error = std::string("pipe2: ") + std::strerror(errno);
+  if (g_settings.init.empty()) {
+    result.error = "sandbox::configure() was not called";
     return result;
   }
+
+  int status_pipe[2];
+  int log_pipe[2];
   if (::pipe2(status_pipe, O_CLOEXEC) != 0) {
     result.error = std::string("pipe2: ") + std::strerror(errno);
-    ::close(report[0]);
-    ::close(report[1]);
     return result;
   }
-
-  const uid_t uid = ::geteuid();
-  const gid_t gid = ::getegid();
-  const bool user_namespace = uid != 0;
-  unsigned long flags = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS;
-  if (user_namespace) flags |= CLONE_NEWUSER;
+  if (::pipe2(log_pipe, O_CLOEXEC) != 0) {
+    result.error = std::string("pipe2: ") + std::strerror(errno);
+    ::close(status_pipe[0]);
+    ::close(status_pipe[1]);
+    return result;
+  }
+  // nsjail's log is a few dozen lines, far below the pipe's capacity, so it is
+  // read after the run instead of concurrently.
+  std::vector<std::string> args = nsjail_args(spec);
 
   const auto started = Clock::now();
-  bool isolated = true;
-  pid_t pid = clone_process(flags);
-  if (pid < 0 && !spec.require_isolation) {
-    // Namespaces are unavailable (restricted container, old kernel).
-    isolated = false;
-    pid = clone_process(0);
-  }
+  const pid_t pid = ::fork();
   if (pid < 0) {
-    result.error = std::string("clone: ") + std::strerror(errno);
-    for (int fd : {report[0], report[1], status_pipe[0], status_pipe[1]}) ::close(fd);
+    result.error = std::string("fork: ") + std::strerror(errno);
+    for (int fd : {status_pipe[0], status_pipe[1], log_pipe[0], log_pipe[1]}) ::close(fd);
     return result;
   }
-  if (pid == 0) {
-    ::close(report[0]);
-    ::close(status_pipe[0]);
-    child_main(spec, report[1], status_pipe[1], isolated, isolated && user_namespace, uid, gid);
-  }
-  ::close(report[1]);
+  if (pid == 0) exec_nsjail(spec, args, status_pipe[1], log_pipe[1]);
   ::close(status_pipe[1]);
-  result.isolated = isolated;
+  ::close(log_pipe[1]);
 
-  int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, pid, 0));
   int status = 0;
-  struct rusage usage {};
-  bool timed_out = false;
-  if (!wait_for_exit(pid, pidfd, spec.limits.wall_ms, status, usage)) {
-    timed_out = true;
+  const bool timed_out = !wait_for_exit(pid, spec.limits.wall_ms, status);
+  if (timed_out) {
+    // Killing nsjail takes the jail with it (its children die with the PID namespace).
     ::kill(pid, SIGKILL);
-    while (::wait4(pid, &status, 0, &usage) < 0 && errno == EINTR) {
+    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
     }
   }
-  if (pidfd >= 0) ::close(pidfd);
-  // Sweep anything the program left behind. With a pid namespace the kernel
-  // already killed it all when the namespace's init (our child) died.
-  if (!isolated) ::kill(-pid, SIGKILL);
+  result.wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
 
-  // With namespaces, `pid` was the init shim; the program's own exit status
-  // and resource usage arrive through the status pipe.
-  ExitReport inner{};
-  const bool have_inner = ::read(status_pipe[0], &inner, sizeof inner) == static_cast<ssize_t>(sizeof inner);
+  ExitReport report{};
+  const bool reported = ::read(status_pipe[0], &report, sizeof report) == static_cast<ssize_t>(sizeof report);
   ::close(status_pipe[0]);
-  if (have_inner) {
-    status = inner.status;
-    usage = inner.usage;
-  }
+  const std::string log = read_all(log_pipe[0]);
+  ::close(log_pipe[0]);
 
-  result.wall_ms = elapsed_ms(started);
-  result.cpu_ms = to_ms(usage.ru_utime) + to_ms(usage.ru_stime);
-  result.memory_kb = usage.ru_maxrss;
-
-  // Anything on the pipe means setup failed before execve().
-  char buffer[512];
-  ssize_t length = ::read(report[0], buffer, sizeof buffer);
-  ::close(report[0]);
-  if (length > 0) {
+  if (!reported) {
+    // The program never finished under the init: either the jail was killed
+    // at the wall-clock limit, or it could not be set up at all.
+    if (timed_out || (WIFEXITED(status) && WEXITSTATUS(status) == 137) || log.find("time limit") != std::string::npos) {
+      result.status = Status::TimeLimit;
+      result.cpu_ms = spec.limits.cpu_ms;
+      return result;
+    }
     result.status = Status::InternalError;
-    result.error.assign(buffer, static_cast<std::size_t>(length));
+    result.error = summarize_log(log);
     return result;
   }
 
-  if (isolated && !have_inner && !timed_out) {
-    result.status = Status::InternalError;
-    result.error = "the sandbox supervisor died unexpectedly";
-    return result;
-  }
-
-  if (WIFEXITED(status)) result.exit_code = WEXITSTATUS(status);
-  if (WIFSIGNALED(status)) result.signal = WTERMSIG(status);
+  result.cpu_ms = to_ms(report.usage.ru_utime) + to_ms(report.usage.ru_stime);
+  result.memory_kb = report.usage.ru_maxrss;
+  if (WIFEXITED(report.status)) result.exit_code = WEXITSTATUS(report.status);
+  if (WIFSIGNALED(report.status)) result.signal = WTERMSIG(report.status);
 
   if (timed_out || result.cpu_ms > spec.limits.cpu_ms || result.signal == SIGXCPU) {
     result.status = Status::TimeLimit;
@@ -417,12 +307,38 @@ RunResult run(const RunSpec& spec) {
     result.status = Status::OutputLimit;
   } else if (result.signal == SIGSYS) {
     result.status = Status::Restricted;
-  } else if (WIFSIGNALED(status)) {
-    result.status = Status::Signaled;
+  } else if (WIFSIGNALED(report.status)) {
+    // SIGKILL here is the hard RLIMIT_CPU limit when it came in just under the
+    // measured limit; anything else is a crash.
+    result.status = result.signal == SIGKILL && result.cpu_ms + 1000 >= spec.limits.cpu_ms ? Status::TimeLimit : Status::Signaled;
   } else {
     result.status = Status::Exited;
   }
   return result;
+}
+
+int init_main(int argc, char** argv) {
+  // <exe> --sandbox-init <fd> <program> [args…]
+  if (argc < 4) return 125;
+  const int report_fd = std::atoi(argv[2]);
+  ::fcntl(report_fd, F_SETFD, FD_CLOEXEC);
+
+  const pid_t child = ::fork();
+  if (child < 0) return 125;
+  if (child == 0) {
+    ::execvp(argv[3], argv + 3);
+    const std::string message = std::string("cannot execute ") + argv[3] + ": " + std::strerror(errno) + "\n";
+    (void)!::write(STDERR_FILENO, message.data(), message.size());
+    ::_exit(127);
+  }
+  // As PID 1 this process also inherits every orphan; only the program's own
+  // status matters, and the namespace takes the rest down when it exits.
+  ExitReport report{};
+  while (::wait4(child, &report.status, 0, &report.usage) < 0) {
+    if (errno != EINTR) return 125;
+  }
+  (void)!::write(report_fd, &report, sizeof report);
+  return 0;
 }
 
 std::string signal_name(int signal) {

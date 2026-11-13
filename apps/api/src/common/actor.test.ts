@@ -1,6 +1,6 @@
 import { AccessLevel, UserLevel } from '@skyoj/contract';
 import { describe, expect, it } from 'vitest';
-import { GUEST, requireAdmin, requireUser, satisfies, type Actor } from './actor.js';
+import { type Actor, GUEST, requireAdmin, requireUser, satisfies } from './actor.js';
 import { ForbiddenError, UnauthorizedError } from './errors.js';
 
 const actor = (id: number, level: UserLevel): Actor => ({ id, level, nickname: `u${id}`, email: '' });

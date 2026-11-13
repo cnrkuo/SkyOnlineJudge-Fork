@@ -1,12 +1,12 @@
 import { UserLevel } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
-import { prefetch, type api } from '~/lib/api.server';
+import { type api, prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { paging } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
 import { ButtonLink, Card, Empty, PageHeader, Time, useRoot } from '~/ui';
-import { DataTable, Pager, type Column } from '~/ui/data-table';
+import { type Column, DataTable, Pager } from '~/ui/data-table';
 import type { Route } from './+types/boards';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -20,16 +20,32 @@ export const meta: Route.MetaFunction = () => [{ title: 'Scoreboards' }];
 type Board = Awaited<ReturnType<typeof api.board.list>>['items'][number];
 
 const columns: Column<Board>[] = [
-  { id: 'title', header: 'Scoreboard', fixed: true, sortValue: (b) => b.title.toLowerCase(), cell: (b) => <Link to={`/scoreboards/${b.id}`}>{b.title}</Link> },
+  {
+    id: 'title',
+    header: 'Scoreboard',
+    fixed: true,
+    sortValue: (b) => b.title.toLowerCase(),
+    cell: (b) => <Link to={`/scoreboards/${b.id}`}>{b.title}</Link>,
+  },
   { id: 'from', header: 'From', sortValue: (b) => b.startAt, cell: (b) => <Time value={b.startAt} /> },
   { id: 'until', header: 'Until', sortValue: (b) => b.endAt, cell: (b) => <Time value={b.endAt} /> },
   { id: 'users', header: 'Users', align: 'right', descFirst: true, sortValue: (b) => b.users, cell: (b) => b.users },
-  { id: 'problems', header: 'Problems', align: 'right', descFirst: true, sortValue: (b) => b.problems, cell: (b) => b.problems },
+  {
+    id: 'problems',
+    header: 'Problems',
+    align: 'right',
+    descFirst: true,
+    sortValue: (b) => b.problems,
+    cell: (b) => b.problems,
+  },
 ];
 
 export default function Boards() {
   const [params] = useSearchParams();
-  const query = useQuery({ ...orpc.board.list.queryOptions({ input: paging(params) }), placeholderData: keepPreviousData });
+  const query = useQuery({
+    ...orpc.board.list.queryOptions({ input: paging(params) }),
+    placeholderData: keepPreviousData,
+  });
   const list = query.data;
   const { user } = useRoot();
   return (

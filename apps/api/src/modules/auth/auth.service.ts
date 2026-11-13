@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { UserLevel } from '@skyoj/contract';
-import { GUEST, type Actor } from '../../common/actor.js';
+import { type Actor, GUEST, toActor } from '../../common/actor.js';
 import { hashPassword, isLegacyHash, randomToken, sha256, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, UnauthorizedError } from '../../common/errors.js';
 import { config } from '../../config.js';
 import { UserRepository, type UserRow } from '../user/user.repository.js';
 import { SessionRepository } from './session.repository.js';
 
-export function toActor(user: UserRow): Actor {
-  return { id: user.id, nickname: user.nickname, email: user.email, level: user.level as UserLevel };
-}
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
@@ -19,7 +17,7 @@ export class AuthService {
   ) {}
 
   async register(input: { email: string; nickname: string; password: string }) {
-    const taken = await this.users.emailOrNicknameTaken(input.email, input.nickname);
+    const taken = await this.users.registrationClash(input.email, input.nickname);
     if (taken) throw new ConflictError(`This ${taken} is already registered`);
 
     // The very first account becomes the site owner.
@@ -59,7 +57,7 @@ export class AuthService {
 
   private async openSession(user: UserRow) {
     const token = randomToken();
-    const expiresAt = new Date(Date.now() + config.sessionTtlDays * 86_400_000);
+    const expiresAt = new Date(Date.now() + config.sessionTtlDays * MS_PER_DAY);
     await this.sessions.create(sha256(token), user.id, expiresAt);
     void this.sessions.deleteExpired().catch(() => undefined);
     return { token, user: toActor(user) };

@@ -1,7 +1,7 @@
 import { Form, Link, redirect, useNavigation } from 'react-router';
-import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import { api, submit } from '~/lib/api.server';
 import { getToken, startSession } from '~/lib/session.server';
+import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import type { Route } from './+types/login';
 
 /** Only same-site paths are accepted as a post-login destination. */
@@ -21,7 +21,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const result = await submit(request, (o) =>
-    api.auth.login({ identifier: String(form.get('identifier') ?? ''), password: String(form.get('password') ?? '') }, o),
+    api.auth.login(
+      { identifier: String(form.get('identifier') ?? ''), password: String(form.get('password') ?? '') },
+      o,
+    ),
   );
   if (!result.ok) return result;
   return redirect(safeNext(form.get('next')), { headers: { 'Set-Cookie': await startSession(result.data.token) } });
@@ -41,7 +44,7 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
               <input type="hidden" name="next" value={loaderData.next} />
               <Notice result={actionData} />
               <Field label="E-mail or nickname">
-                <input name="identifier" autoComplete="username" required autoFocus />
+                <input name="identifier" autoComplete="username" required />
               </Field>
               <Field label="Password">
                 <input name="password" type="password" autoComplete="current-password" required />

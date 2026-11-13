@@ -43,15 +43,25 @@ export const css = {
     gap = 'sm',
     align = 'center',
     justify = 'start',
-  }: { gap?: Gap; align?: 'start' | 'center' | 'end'; justify?: 'start' | 'between' | 'end' } = {}) =>
-    `d-flex flex-wrap oj-min0 ${gapClass[gap]} align-items-${align} justify-content-${justify}`,
+  }: {
+    gap?: Gap;
+    align?: 'start' | 'center' | 'end';
+    justify?: 'start' | 'between' | 'end';
+  } = {}) => `d-flex flex-wrap oj-min0 ${gapClass[gap]} align-items-${align} justify-content-${justify}`,
   grid: ({ columns = 2 }: { columns?: 2 | 3 | 'tiles' } = {}) => `oj-grid oj-grid-${columns}`,
   split: ({ aside = 'narrow' }: { aside?: 'narrow' | 'wide' | 'half' } = {}) => `oj-split oj-split-${aside}`,
   measure: { form: 'oj-measure-form', page: 'oj-measure-page' },
 
   // ---- buttons
-  button: ({ variant = 'primary', size = 'md', block = false }: { variant?: ButtonVariant; size?: 'md' | 'sm'; block?: boolean } = {}) =>
-    `${buttonVariant[variant]}${size === 'sm' && variant !== 'link' ? ' btn-sm' : ''}${block ? ' w-100' : ''}`,
+  button: ({
+    variant = 'primary',
+    size = 'md',
+    block = false,
+  }: {
+    variant?: ButtonVariant;
+    size?: 'md' | 'sm';
+    block?: boolean;
+  } = {}) => `${buttonVariant[variant]}${size === 'sm' && variant !== 'link' ? ' btn-sm' : ''}${block ? ' w-100' : ''}`,
   spinner: 'spinner-border spinner-border-sm',
 
   // ---- card
@@ -89,11 +99,15 @@ export const css = {
    * are Bootstrap's dark-mode text colours; the plain `text-success` and
    * `text-danger` fall below 4.5 : 1 on the dark background.
    */
-  toneText: byTone((name, tone) => (tone === 'neutral' ? 'fw-semibold text-body-secondary' : `fw-semibold text-${name}-emphasis`)),
+  toneText: byTone((name, tone) =>
+    tone === 'neutral' ? 'fw-semibold text-body-secondary' : `fw-semibold text-${name}-emphasis`,
+  ),
   /** Tinted block or table cell with matching text. */
   toneFill: byTone((name) => `bg-${name}-subtle text-${name}-emphasis`),
   alert: byTone((name) => `alert alert-${name} py-2 mb-0`),
-  badge: byTone((name) => `badge rounded-1 fw-medium bg-${name}-subtle text-${name}-emphasis border border-${name}-subtle`),
+  badge: byTone(
+    (name) => `badge rounded-1 fw-medium bg-${name}-subtle text-${name}-emphasis border border-${name}-subtle`,
+  ),
   notice: 'rounded p-3',
 
   // ---- data display
@@ -130,7 +144,8 @@ export const table = {
   scoreCell: 'oj-score-cell',
   scoreCellSub: 'oj-score-sub',
   toolbar: 'd-flex flex-wrap justify-content-between align-items-end gap-3 p-3 border-bottom',
-  footer: 'd-flex flex-wrap justify-content-between align-items-center gap-3 px-3 py-2 border-top small text-body-secondary',
+  footer:
+    'd-flex flex-wrap justify-content-between align-items-center gap-3 px-3 py-2 border-top small text-body-secondary',
   /** Dims the body while newer data is on its way. */
   stale: 'opacity-50',
 };

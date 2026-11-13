@@ -3,10 +3,10 @@ import { Implement, implement } from '@orpc/nest';
 import { contract } from '@skyoj/contract';
 import type { Actor } from '../../common/actor.js';
 import { CurrentActor } from '../../common/auth.guard.js';
+import { OK } from '../../common/orpc.js';
 import { ProblemService } from './problem.service.js';
 
 const os = implement(contract.problem);
-const ok = { ok: true as const };
 
 @Controller()
 export class ProblemController {
@@ -14,36 +14,35 @@ export class ProblemController {
 
   @Implement(contract.problem)
   routes(@CurrentActor() actor: Actor) {
-    const { problems } = this;
     return {
-      list: os.list.handler(({ input }) => problems.list(actor, input)),
-      get: os.get.handler(({ input }) => problems.get(actor, input.id)),
-      create: os.create.handler(({ input }) => problems.create(actor, input.title)),
+      list: os.list.handler(({ input }) => this.problems.list(actor, input)),
+      get: os.get.handler(({ input }) => this.problems.get(actor, input.id)),
+      create: os.create.handler(({ input }) => this.problems.create(actor, input.title)),
       update: os.update.handler(async ({ input: { id, ...patch } }) => {
-        await problems.update(actor, id, patch);
-        return ok;
+        await this.problems.update(actor, id, patch);
+        return OK;
       }),
-      stats: os.stats.handler(({ input }) => problems.stats(actor, input.id)),
+      stats: os.stats.handler(({ input }) => this.problems.stats(actor, input.id)),
 
-      listTestcases: os.listTestcases.handler(({ input }) => problems.listTestcases(actor, input.problemId)),
+      listTestcases: os.listTestcases.handler(({ input }) => this.problems.listTestcases(actor, input.problemId)),
       uploadTestdata: os.uploadTestdata.handler(({ input }) =>
-        problems.uploadTestdata(actor, input.problemId, input.archive),
+        this.problems.uploadTestdata(actor, input.problemId, input.archive),
       ),
       clearTestdata: os.clearTestdata.handler(async ({ input }) => {
-        await problems.clearTestdata(actor, input.problemId);
-        return ok;
+        await this.problems.clearTestdata(actor, input.problemId);
+        return OK;
       }),
 
-      listAttachments: os.listAttachments.handler(({ input }) => problems.listAttachments(actor, input.problemId)),
+      listAttachments: os.listAttachments.handler(({ input }) => this.problems.listAttachments(actor, input.problemId)),
       uploadAttachment: os.uploadAttachment.handler(({ input }) =>
-        problems.uploadAttachment(actor, input.problemId, input.file),
+        this.problems.uploadAttachment(actor, input.problemId, input.file),
       ),
       deleteAttachment: os.deleteAttachment.handler(async ({ input }) => {
-        await problems.deleteAttachment(actor, input.problemId, input.name);
-        return ok;
+        await this.problems.deleteAttachment(actor, input.problemId, input.name);
+        return OK;
       }),
       getAttachment: os.getAttachment.handler(({ input }) =>
-        problems.getAttachment(actor, input.problemId, input.name),
+        this.problems.getAttachment(actor, input.problemId, input.name),
       ),
     };
   }

@@ -1,7 +1,7 @@
-import { createParamDecorator, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import { type CanActivate, createParamDecorator, type ExecutionContext, Injectable } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { AuthService } from '../modules/auth/auth.service.js';
-import { GUEST, type Actor } from './actor.js';
+import { type Actor, GUEST } from './actor.js';
 
 type AuthedRequest = FastifyRequest & { actor?: Actor; bearerToken?: string };
 

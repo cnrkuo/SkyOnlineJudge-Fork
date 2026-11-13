@@ -4,9 +4,24 @@ import { Markdown } from '~/components/markdown';
 import { api, load, submit } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
 import { idParam } from '~/lib/params';
-import { Badge, Button, ButtonLink, Card, CardBody, Cluster, Muted, Notice, PageHeader, Split, Stack, UserLink, useRoot, VerdictBadge } from '~/ui';
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  Cluster,
+  Muted,
+  Notice,
+  PageHeader,
+  Split,
+  Stack,
+  UserLink,
+  useRoot,
+  VerdictBadge,
+} from '~/ui';
 import { CodeInput, LanguageSelect, languageName, parseLanguage } from '~/ui/code';
-import { DataTable, type Column } from '~/ui/data-table';
+import { type Column, DataTable } from '~/ui/data-table';
 import type { Route } from './+types/problem';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -25,7 +40,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   const form = await request.formData();
   const result = await submit(request, (o) =>
     api.submission.create(
-      { problemId: idParam(params.id), language: parseLanguage(form.get('language')), code: String(form.get('code') ?? '') },
+      {
+        problemId: idParam(params.id),
+        language: parseLanguage(form.get('language')),
+        code: String(form.get('code') ?? ''),
+      },
       o,
     ),
   );
@@ -47,7 +66,12 @@ const subtaskColumns: Column<{ index: number; points: number; count: number }>[]
 const fastestColumns: Column<Stats['fastest'][number]>[] = [
   { id: 'user', header: 'User', cell: (r) => <UserLink user={r.user} /> },
   { id: 'language', header: 'Language', cell: (r) => <Muted>{languageName(r.language)}</Muted> },
-  { id: 'time', header: 'Time', align: 'right', cell: (r) => <Link to={`/submissions/${r.submissionId}`}>{r.timeMs} ms</Link> },
+  {
+    id: 'time',
+    header: 'Time',
+    align: 'right',
+    cell: (r) => <Link to={`/submissions/${r.submissionId}`}>{r.timeMs} ms</Link>,
+  },
 ];
 
 export default function Problem({ loaderData, actionData }: Route.ComponentProps) {
@@ -58,7 +82,12 @@ export default function Problem({ loaderData, actionData }: Route.ComponentProps
   const verdictColumns: Column<Stats['verdicts'][number]>[] = [
     { id: 'verdict', header: 'Verdict', cell: (r) => <VerdictBadge verdict={r.verdict} long /> },
     { id: 'count', header: 'Count', align: 'right', cell: (r) => r.count },
-    { id: 'share', header: 'Share', align: 'right', cell: (r) => <Muted>{Math.round((100 * r.count) / total)}%</Muted> },
+    {
+      id: 'share',
+      header: 'Share',
+      align: 'right',
+      cell: (r) => <Muted>{Math.round((100 * r.count) / total)}%</Muted>,
+    },
   ];
 
   return (

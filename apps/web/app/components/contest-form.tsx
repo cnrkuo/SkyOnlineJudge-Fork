@@ -43,10 +43,20 @@ export function ContestForm({
 
           <Grid columns={2}>
             <Field label="Starts" hint={`Times are in ${timeZone}.`}>
-              <input type="datetime-local" name="startAt" defaultValue={isoToLocalInput(values.startAt, timeZone)} required />
+              <input
+                type="datetime-local"
+                name="startAt"
+                defaultValue={isoToLocalInput(values.startAt, timeZone)}
+                required
+              />
             </Field>
             <Field label="Ends">
-              <input type="datetime-local" name="endAt" defaultValue={isoToLocalInput(values.endAt, timeZone)} required />
+              <input
+                type="datetime-local"
+                name="endAt"
+                defaultValue={isoToLocalInput(values.endAt, timeZone)}
+                required
+              />
             </Field>
             <Field label="Rules">
               <select name="style" defaultValue={values.style}>
@@ -55,7 +65,13 @@ export function ContestForm({
               </select>
             </Field>
             <Field label="Penalty per rejected attempt (minutes)" hint="ICPC only.">
-              <input type="number" name="penaltyMin" min={0} max={1440} defaultValue={Math.round(values.penaltySec / 60)} />
+              <input
+                type="number"
+                name="penaltyMin"
+                min={0}
+                max={1440}
+                defaultValue={Math.round(values.penaltySec / 60)}
+              />
             </Field>
             <Field label="Registration">
               <select name="registerType" defaultValue={values.registerType}>
@@ -66,12 +82,16 @@ export function ContestForm({
               </select>
             </Field>
             <Field label="Contest password" hint="Only used with password registration.">
-              <input name="registerPassword" defaultValue={values.registerPassword} maxLength={100} autoComplete="off" />
+              <input
+                name="registerPassword"
+                defaultValue={values.registerPassword}
+                maxLength={100}
+                autoComplete="off"
+              />
             </Field>
             <Field
               label="Scoreboard freeze (minutes before the end)"
-              hint="0 disables freezing. A frozen board stays frozen after the contest; set this to 0 to publish the final standings."
-            >
+              hint="0 disables freezing. A frozen board stays frozen after the contest; set this to 0 to publish the final standings.">
               <input type="number" name="freezeMin" min={0} defaultValue={Math.round(values.freezeSec / 60)} />
             </Field>
           </Grid>
@@ -80,12 +100,18 @@ export function ContestForm({
             label="Problems"
             hint={
               <>
-                One per line, in scoreboard order: <code>&lt;tag&gt; &lt;problem id&gt; [hidden|readonly]</code>. Participants can
-                read and submit these problems during the contest even while they are hidden from the public list.
+                One per line, in scoreboard order: <code>&lt;tag&gt; &lt;problem id&gt; [hidden|readonly]</code>.
+                Participants can read and submit these problems during the contest even while they are hidden from the
+                public list.
               </>
-            }
-          >
-            <textarea className={css.monoInput} name="problems" rows={6} placeholder={'A 12\nB 15\nC 9 readonly'} defaultValue={values.problems} />
+            }>
+            <textarea
+              className={css.monoInput}
+              name="problems"
+              rows={6}
+              placeholder={'A 12\nB 15\nC 9 readonly'}
+              defaultValue={values.problems}
+            />
           </Field>
           <div>
             <Button busy={busy}>{submitLabel}</Button>

@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { count, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, count, eq, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { users } from '../../database/schema.js';
 
 export type UserRow = typeof users.$inferSelect;
 export type NewUser = Pick<UserRow, 'email' | 'nickname' | 'passwordHash' | 'level'>;
-export type UserPatch = Partial<Pick<UserRow, 'nickname' | 'realname' | 'quote' | 'quoteRef' | 'avatarUrl' | 'passwordHash' | 'level'>>;
+export type UserPatch = Partial<
+  Pick<UserRow, 'nickname' | 'realname' | 'quote' | 'quoteRef' | 'avatarUrl' | 'passwordHash' | 'level'>
+>;
 
 @Injectable()
 export class UserRepository {
@@ -32,16 +34,30 @@ export class UserRepository {
     return row;
   }
 
-  async emailOrNicknameTaken(email: string, nickname: string, exceptId = 0): Promise<'email' | 'nickname' | null> {
-    const rows = await this.db
-      .select({ id: users.id, email: users.email })
+  /** Which of a new account's identifiers is already in use, if any (case-insensitive). */
+  async registrationClash(email: string, nickname: string): Promise<'email' | 'nickname' | null> {
+    const [clash] = await this.db
+      .select({ email: users.email })
       .from(users)
       .where(
-        or(eq(sql`lower(${users.email})`, email.toLowerCase()), eq(sql`lower(${users.nickname})`, nickname.toLowerCase())),
-      );
-    const clash = rows.find((row) => row.id !== exceptId);
+        or(
+          eq(sql`lower(${users.email})`, email.toLowerCase()),
+          eq(sql`lower(${users.nickname})`, nickname.toLowerCase()),
+        ),
+      )
+      .limit(1);
     if (!clash) return null;
     return clash.email.toLowerCase() === email.toLowerCase() ? 'email' : 'nickname';
+  }
+
+  /** Whether another account than `exceptUserId` already uses `nickname` (case-insensitive). */
+  async nicknameTaken(nickname: string, exceptUserId: number): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(sql`lower(${users.nickname})`, nickname.toLowerCase()), ne(users.id, exceptUserId)))
+      .limit(1);
+    return row !== undefined;
   }
 
   async count(): Promise<number> {
@@ -60,9 +76,7 @@ export class UserRepository {
   }
 
   async list(page: PageInput, search?: string): Promise<{ rows: UserRow[]; total: number }> {
-    const where = search
-      ? or(ilike(users.nickname, `%${search}%`), ilike(users.email, `%${search}%`))
-      : undefined;
+    const where = search ? or(ilike(users.nickname, `%${search}%`), ilike(users.email, `%${search}%`)) : undefined;
     const [rows, [total]] = await Promise.all([
       this.db.select().from(users).where(where).orderBy(users.id).limit(page.pageSize).offset(offsetOf(page)),
       this.db.select({ n: count() }).from(users).where(where),

@@ -4,6 +4,9 @@
  * keeps server-rendered and hydrated markup identical.
  */
 
+export const HOUR_MS = 60 * 60 * 1000;
+export const DAY_MS = 24 * HOUR_MS;
+
 /** Offset of `timeZone` from UTC at `instant`, in milliseconds. */
 function offsetAt(instant: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat('en-US', {

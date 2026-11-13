@@ -14,7 +14,10 @@ export const stateWord = (state: ContestProblemState) =>
 /** One problem per line: `<tag> <problem id> [hidden|readonly]`. */
 function parseProblems(text: string) {
   const problems: { tag: string; problemId: number; state: ContestProblemState }[] = [];
-  for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+  for (const line of text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)) {
     const [tag, id, word = 'normal', ...rest] = line.split(/\s+/);
     const problemId = Number(id);
     const state = STATE_WORDS[word.toLowerCase()];
@@ -33,7 +36,10 @@ export function parseContestForm(form: FormData) {
 
   const problems = parseProblems(text('problems'));
   if (!problems) {
-    return { ok: false as const, error: 'Problems must be written one per line as "<tag> <problem id> [hidden|readonly]"' };
+    return {
+      ok: false as const,
+      error: 'Problems must be written one per line as "<tag> <problem id> [hidden|readonly]"',
+    };
   }
   const registerType = Object.values(RegisterType).find((type) => String(type) === text('registerType'));
   return {

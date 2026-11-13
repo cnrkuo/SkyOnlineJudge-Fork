@@ -1,5 +1,5 @@
-import { unzipSync } from 'fflate';
 import { basename } from 'node:path';
+import { unzipSync } from 'fflate';
 import { BadRequestError } from '../../common/errors.js';
 
 export interface TestcaseFiles {
@@ -49,8 +49,10 @@ export function readTestdataArchive(archive: Uint8Array, maxTotalBytes: number):
     else if (OUTPUT_EXTS.includes(ext) && (ext === 'ans' || !outputs.has(name))) outputs.set(name, data);
   }
 
-  return [...inputs.keys()]
-    .filter((name) => outputs.has(name))
-    .sort(naturalOrder.compare)
-    .map((name) => ({ name: name.slice(0, 64), input: inputs.get(name)!, output: outputs.get(name)! }));
+  return [...inputs]
+    .sort(([a], [b]) => naturalOrder.compare(a, b))
+    .flatMap(([name, input]) => {
+      const output = outputs.get(name);
+      return output ? [{ name: name.slice(0, 64), input, output }] : [];
+    });
 }

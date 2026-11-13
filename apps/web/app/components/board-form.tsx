@@ -38,19 +38,45 @@ export function BoardForm({
           </Field>
           <Grid columns={2}>
             <Field label="Count submissions from" hint={`Times are in ${timeZone}.`}>
-              <input type="datetime-local" name="startAt" defaultValue={isoToLocalInput(values.startAt, timeZone)} required />
+              <input
+                type="datetime-local"
+                name="startAt"
+                defaultValue={isoToLocalInput(values.startAt, timeZone)}
+                required
+              />
             </Field>
             <Field label="Until">
-              <input type="datetime-local" name="endAt" defaultValue={isoToLocalInput(values.endAt, timeZone)} required />
+              <input
+                type="datetime-local"
+                name="endAt"
+                defaultValue={isoToLocalInput(values.endAt, timeZone)}
+                required
+              />
             </Field>
           </Grid>
           <Field label="Problems" hint='One per line: "<problem id> [note]". Columns appear in this order.'>
-            <textarea className={css.monoInput} name="problems" rows={6} placeholder={'12\n15 warm-up\n9'} defaultValue={values.problems} />
+            <textarea
+              className={css.monoInput}
+              name="problems"
+              rows={6}
+              placeholder={'12\n15 warm-up\n9'}
+              defaultValue={values.problems}
+            />
           </Field>
           <Field label="Users" hint="Numeric user ids, separated by spaces, commas or new lines.">
-            <textarea className={css.monoInput} name="users" rows={4} placeholder="3, 8, 21" defaultValue={values.users} />
+            <textarea
+              className={css.monoInput}
+              name="users"
+              rows={4}
+              placeholder="3, 8, 21"
+              defaultValue={values.users}
+            />
           </Field>
-          <CheckField name="allowJoin" defaultChecked={values.allowJoin} label="Let users add themselves to this scoreboard" />
+          <CheckField
+            name="allowJoin"
+            defaultChecked={values.allowJoin}
+            label="Let users add themselves to this scoreboard"
+          />
           <div>
             <Button busy={busy}>{submitLabel}</Button>
           </div>

@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/client';
-import { dehydrate, QueryClient, type DehydratedState, type FetchQueryOptions } from '@tanstack/react-query';
+import { type DehydratedState, dehydrate, type FetchQueryOptions, QueryClient } from '@tanstack/react-query';
 import { data, redirect } from 'react-router';
 import { api, type ClientContext } from './orpc';
 import { getToken } from './session.server';
@@ -7,6 +7,10 @@ import { getToken } from './session.server';
 export { api };
 
 type CallOptions = { context: ClientContext };
+
+/** How long `awaitCreation` waits for a queued write to land: 25 × 200 ms = 5 s. */
+const CREATION_WAIT_ATTEMPTS = 25;
+const CREATION_WAIT_STEP_MS = 200;
 
 /** Call options that make `api` act as the user who sent `request`. */
 export async function as(request: Request): Promise<CallOptions> {
@@ -30,9 +34,10 @@ export async function load<T>(
     try {
       return await call(options);
     } catch (error) {
-      const pending = awaitCreation && error instanceof ORPCError && error.code === 'NOT_FOUND' && attempt < 25;
+      const pending =
+        awaitCreation && error instanceof ORPCError && error.code === 'NOT_FOUND' && attempt < CREATION_WAIT_ATTEMPTS;
       if (!pending) return fail(request, error);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, CREATION_WAIT_STEP_MS));
     }
   }
 }
@@ -48,6 +53,13 @@ function fail(request: Request, error: unknown): never {
 }
 
 /**
+ * Options of any query: `prefetch` takes a mixed list (one entry per
+ * procedure), which TypeScript can only express with `any` parameters.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: a heterogeneous list of generic query options.
+type AnyQueryOptions = FetchQueryOptions<any, any, any, any>;
+
+/**
  * Runs queries on the server and returns their results in TanStack Query's
  * dehydrated form. A loader returns this as `dehydrated`; the root layout
  * hydrates it, and the page's `useQuery` calls with the same options find
@@ -61,8 +73,7 @@ function fail(request: Request, error: unknown): never {
  */
 export async function prefetch(
   request: Request,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  build: (context: ClientContext) => FetchQueryOptions<any, any, any, any>[],
+  build: (context: ClientContext) => AnyQueryOptions[],
   options: { awaitCreation?: boolean } = {},
 ): Promise<DehydratedState> {
   const { context } = await as(request);
@@ -87,7 +98,10 @@ export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string
  * Runs an API call for an action. Contract errors are returned so the form
  * can show them next to the fields instead of leaving the page.
  */
-export async function submit<T>(request: Request, call: (options: CallOptions) => Promise<T>): Promise<ActionResult<T>> {
+export async function submit<T>(
+  request: Request,
+  call: (options: CallOptions) => Promise<T>,
+): Promise<ActionResult<T>> {
   try {
     return { ok: true, data: await call(await as(request)) };
   } catch (error) {

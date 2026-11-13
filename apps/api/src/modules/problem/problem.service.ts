@@ -1,17 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { AccessLevel, ScoreMode, type Language, type Verdict } from '@skyoj/contract';
-import { isAdmin, isUser, requireAdmin, satisfies, type Actor } from '../../common/actor.js';
+import { AccessLevel, type Language, ScoreMode, type Verdict } from '@skyoj/contract';
+import { type Actor, isAdmin, isUser, requireAdmin, satisfies } from '../../common/actor.js';
 import { sha256 } from '../../common/crypto.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors.js';
-import { pageOf, type PageInput } from '../../common/pagination.js';
+import { type PageInput, pageOf } from '../../common/pagination.js';
 import { config } from '../../config.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { ContestRepository } from '../contest/contest.repository.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
-import { ProblemRepository, type ProblemPatch, type ProblemWithOwner } from './problem.repository.js';
+import { type ProblemPatch, ProblemRepository, type ProblemWithOwner } from './problem.repository.js';
 import { naturalOrder, readTestdataArchive } from './testdata-archive.js';
 
 const MAX_ATTACHMENT_BYTES = 32 * 1024 * 1024;
+/**
+ * Testdata compresses well (repetitive numbers), so an archive may unpack to
+ * this many times the upload limit before it is rejected as a zip bomb.
+ */
+const MAX_TESTDATA_EXPANSION = 4;
 
 export interface ProblemAccess extends ProblemWithOwner {
   canEdit: boolean;
@@ -40,9 +45,7 @@ export class ProblemService {
     const canEdit = isAdmin(actor) && direct;
     // Only consult contests when the direct rules do not already settle it.
     const needGrant = !direct || (!problem.submitOpen && !canEdit);
-    const grant = needGrant
-      ? await this.contests.grantsFor(actor.id, id, new Date())
-      : { read: false, submit: false };
+    const grant = needGrant ? await this.contests.grantsFor(actor.id, id, new Date()) : { read: false, submit: false };
     if (!direct && !grant.read) throw new ForbiddenError('You may not view this problem');
 
     const canSubmit = isUser(actor) && (canEdit || (direct && problem.submitOpen) || grant.submit);
@@ -150,7 +153,10 @@ export class ProblemService {
   /** Returns the total number of testcases after the upload. */
   async uploadTestdata(actor: Actor, problemId: number, archive: File): Promise<{ testcases: number }> {
     await this.editable(actor, problemId);
-    const cases = readTestdataArchive(new Uint8Array(await archive.arrayBuffer()), config.maxUploadBytes * 4);
+    const cases = readTestdataArchive(
+      new Uint8Array(await archive.arrayBuffer()),
+      config.maxUploadBytes * MAX_TESTDATA_EXPANSION,
+    );
     if (cases.length === 0) {
       throw new BadRequestError('No testcases found: the archive must contain <name>.in / <name>.ans pairs');
     }
@@ -214,7 +220,10 @@ export class ProblemService {
       throw new BadRequestError('File names may only contain letters, digits, ".", "_" and "-" (max 64 characters)');
     }
     if (file.size > MAX_ATTACHMENT_BYTES) throw new BadRequestError('Attachment is too large');
-    await this.storage.put(StorageService.attachmentKey(problemId, file.name), new Uint8Array(await file.arrayBuffer()));
+    await this.storage.put(
+      StorageService.attachmentKey(problemId, file.name),
+      new Uint8Array(await file.arrayBuffer()),
+    );
     await this.problems.upsertAttachment(problemId, file.name, file.size);
     return { name: file.name, size: file.size };
   }

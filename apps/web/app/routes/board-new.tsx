@@ -1,18 +1,19 @@
 import { UserLevel } from '@skyoj/contract';
 import { redirect } from 'react-router';
 import { BoardForm } from '~/components/board-form';
-import { Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseBoardForm } from '~/lib/board-form.server';
+import { DAY_MS, HOUR_MS } from '~/lib/time';
+import { Measure, PageHeader } from '~/ui';
 import type { Route } from './+types/board-new';
 
 export async function loader({ request }: Route.LoaderArgs) {
   const me = await load(request, (o) => api.auth.me(undefined, o));
   if (!me) throw redirect('/login?next=/scoreboards/new');
   if (me.level < UserLevel.ADMIN) throw new Response('Administrator permission required', { status: 403 });
-  // Default window: from now, for one year.
-  const start = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
-  return { startAt: start.toISOString(), endAt: new Date(start.getTime() + 365 * 86_400_000).toISOString() };
+  // Default window: from the current hour, for one year.
+  const start = new Date(Math.floor(Date.now() / HOUR_MS) * HOUR_MS);
+  return { startAt: start.toISOString(), endAt: new Date(start.getTime() + 365 * DAY_MS).toISOString() };
 }
 
 export async function action({ request }: Route.ActionArgs) {

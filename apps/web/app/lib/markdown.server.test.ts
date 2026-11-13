@@ -64,9 +64,12 @@ describe('renderMarkdown', () => {
   });
 
   it('resolves relative images and links against the asset base', async () => {
-    const html = await renderMarkdown('![fig](figure.png) [data](./data.zip) [site](https://example.com) [top](#top) [abs](/x)', {
-      assetBase: '/problems/7/attachments',
-    });
+    const html = await renderMarkdown(
+      '![fig](figure.png) [data](./data.zip) [site](https://example.com) [top](#top) [abs](/x)',
+      {
+        assetBase: '/problems/7/attachments',
+      },
+    );
     expect(html).toContain('src="/problems/7/attachments/figure.png"');
     expect(html).toContain('href="/problems/7/attachments/data.zip"');
     expect(html).toContain('href="https://example.com"');

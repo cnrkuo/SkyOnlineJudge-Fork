@@ -7,7 +7,12 @@ import type { ShouldRevalidateFunctionArgs } from 'react-router';
  * keeping the previous rows on screen meanwhile. Loaders still run for the
  * first render, for navigation between pages and after form submissions.
  */
-export function unlessOnlySearchChanged({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
+export function unlessOnlySearchChanged({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
   if (formMethod !== undefined && formMethod !== 'GET') return true;
   if (currentUrl.pathname === nextUrl.pathname) return false;
   return defaultShouldRevalidate;

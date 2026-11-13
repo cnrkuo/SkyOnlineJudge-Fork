@@ -7,9 +7,9 @@
  * Rule of thumb: controls inside a <form> that must work without JavaScript
  * stay native; these are for toolbars and one-click actions.
  */
-import { AlertDialog, DropdownMenu, Select, Tabs as RadixTabs, Tooltip } from 'radix-ui';
+import { AlertDialog, DropdownMenu, Tabs as RadixTabs, Select, Tooltip } from 'radix-ui';
 import type { ReactNode } from 'react';
-import { css as kit, overlay as css } from './classes';
+import { overlay as css, css as kit } from './classes';
 
 // ---------------------------------------------------------------- tooltip
 
@@ -31,7 +31,15 @@ export function Tip({ label, children }: { label: ReactNode; children: ReactNode
 
 // ------------------------------------------------------------------- menu
 
-export function Menu({ label, children, align = 'end' }: { label: ReactNode; children: ReactNode; align?: 'start' | 'end' }) {
+export function Menu({
+  label,
+  children,
+  align = 'end',
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  align?: 'start' | 'end';
+}) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger className={kit.button({ variant: 'secondary', size: 'sm' })}>
@@ -50,7 +58,15 @@ export function MenuLabel({ children }: { children: ReactNode }) {
   return <DropdownMenu.Label className={css.menuLabel}>{children}</DropdownMenu.Label>;
 }
 
-export function MenuItem({ children, onSelect, danger = false }: { children: ReactNode; onSelect: () => void; danger?: boolean }) {
+export function MenuItem({
+  children,
+  onSelect,
+  danger = false,
+}: {
+  children: ReactNode;
+  onSelect: () => void;
+  danger?: boolean;
+}) {
   return (
     <DropdownMenu.Item className={`${css.menuItem} ${danger ? css.menuItemDanger : ''}`} onSelect={onSelect}>
       {children}
@@ -59,14 +75,21 @@ export function MenuItem({ children, onSelect, danger = false }: { children: Rea
 }
 
 /** A menu entry that toggles; the menu stays open so several can be flipped. */
-export function MenuCheck({ checked, onChange, children }: { checked: boolean; onChange: (checked: boolean) => void; children: ReactNode }) {
+export function MenuCheck({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
   return (
     <DropdownMenu.CheckboxItem
       className={css.menuItem}
       checked={checked}
       onCheckedChange={onChange}
-      onSelect={(event) => event.preventDefault()}
-    >
+      onSelect={(event) => event.preventDefault()}>
       <span className={css.menuIndicator}>
         <DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator>
       </span>

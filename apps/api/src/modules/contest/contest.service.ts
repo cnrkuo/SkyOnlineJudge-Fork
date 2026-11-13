@@ -2,18 +2,18 @@ import { Injectable } from '@nestjs/common';
 import {
   ContestPhase,
   ContestProblemState,
+  type ContestStyle,
   PARTICIPATING_STATES,
   RegisterType,
   TeamState,
-  type ContestStyle,
 } from '@skyoj/contract';
-import { isAdmin, requireAdmin, requireUser, type Actor } from '../../common/actor.js';
+import { type Actor, isAdmin, requireAdmin, requireUser } from '../../common/actor.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
-import { pageOf, type PageInput } from '../../common/pagination.js';
+import { type PageInput, pageOf } from '../../common/pagination.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
 import { UserRepository } from '../user/user.repository.js';
-import { ContestRepository, type ContestProblemInput, type ContestRow } from './contest.repository.js';
+import { type ContestProblemInput, ContestRepository, type ContestRow } from './contest.repository.js';
 import { buildScoreboard } from './scoreboard.js';
 
 export interface ContestInput {
@@ -251,7 +251,12 @@ export class ContestService {
     return {
       style: contest.style as ContestStyle,
       frozen,
-      problems: board.problems.map(({ problemId, tag, attempts, accepted }) => ({ problemId, tag, attempts, accepted })),
+      problems: board.problems.map(({ problemId, tag, attempts, accepted }) => ({
+        problemId,
+        tag,
+        attempts,
+        accepted,
+      })),
       rows: board.rows.map(({ attemptsOnSolved: _, state, ...row }) => ({ ...row, state: state as TeamState })),
     };
   }

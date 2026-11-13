@@ -9,14 +9,20 @@ export function parseBoardForm(form: FormData) {
   if (!startAt || !endAt) return { ok: false as const, error: 'Enter both a start and an end time' };
 
   // Users: ids separated by commas, spaces or new lines.
-  const userIds = text('users').split(/[\s,]+/).filter(Boolean).map(Number);
+  const userIds = text('users')
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map(Number);
   if (userIds.some((id) => !Number.isInteger(id) || id <= 0)) {
     return { ok: false as const, error: 'Users must be listed by their numeric id' };
   }
 
   // Problems: one per line, `<problem id> [note]`.
   const problems: { problemId: number; note: string }[] = [];
-  for (const line of text('problems').split('\n').map((l) => l.trim()).filter(Boolean)) {
+  for (const line of text('problems')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)) {
     const [id = '', ...note] = line.split(/\s+/);
     const problemId = Number(id);
     if (!Number.isInteger(problemId) || problemId <= 0) {

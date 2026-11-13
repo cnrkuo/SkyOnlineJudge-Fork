@@ -1,7 +1,7 @@
 import { oc, populateContractRouterPaths } from '@orpc/contract';
-import * as s from './schemas.js';
 // `schemas.js` loads the ArkType configuration before `arktype` itself.
 import { type } from 'arktype';
+import * as s from './schemas.js';
 
 /** Errors every procedure may raise; services map domain errors onto these. */
 const base = oc.errors({
@@ -33,9 +33,7 @@ const user = {
 };
 
 const problem = {
-  list: base
-    .input(s.PageInputSchema.merge({ 'search?': 'string <= 100' }))
-    .output(s.paged(s.ProblemSummarySchema)),
+  list: base.input(s.PageInputSchema.merge({ 'search?': 'string <= 100' })).output(s.paged(s.ProblemSummarySchema)),
   get: base.input(byId).output(s.ProblemSchema),
   create: base.input(type({ title: s.ProblemTitleSchema })).output(created),
   update: base.input(s.ProblemUpdateInputSchema).output(s.OkSchema),
@@ -49,15 +47,9 @@ const problem = {
   clearTestdata: base.input(byProblem).output(s.OkSchema),
 
   listAttachments: base.input(byProblem).output(s.AttachmentSchema.array()),
-  uploadAttachment: base
-    .input(type({ problemId: s.IdSchema, file: s.FileSchema }))
-    .output(s.AttachmentSchema),
-  deleteAttachment: base
-    .input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
-    .output(s.OkSchema),
-  getAttachment: base
-    .input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema }))
-    .output(s.FileSchema),
+  uploadAttachment: base.input(type({ problemId: s.IdSchema, file: s.FileSchema })).output(s.AttachmentSchema),
+  deleteAttachment: base.input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema })).output(s.OkSchema),
+  getAttachment: base.input(type({ problemId: s.IdSchema, name: s.AttachmentNameSchema })).output(s.FileSchema),
 };
 
 const submission = {
@@ -112,21 +104,15 @@ const codepad = {
 };
 
 const admin = {
-  listUsers: base
-    .input(s.PageInputSchema.merge({ 'search?': 'string <= 100' }))
-    .output(s.paged(s.AdminUserSchema)),
-  setUserLevel: base
-    .input(type({ userId: s.IdSchema, level: s.UserLevelSchema }))
-    .output(s.OkSchema),
+  listUsers: base.input(s.PageInputSchema.merge({ 'search?': 'string <= 100' })).output(s.paged(s.AdminUserSchema)),
+  setUserLevel: base.input(type({ userId: s.IdSchema, level: s.UserLevelSchema })).output(s.OkSchema),
   updateUser: base.input(s.AdminUpdateUserInputSchema).output(s.OkSchema),
   listJudges: base.output(s.JudgeMachineSchema.array()),
   /** The plaintext token is returned exactly once. */
   createJudge: base
     .input(type({ name: type('string.trim').to('1 <= string <= 64') }))
     .output(type({ judge: s.JudgeMachineSchema, token: 'string' })),
-  setJudgeEnabled: base
-    .input(type({ id: s.IdSchema, enabled: 'boolean' }))
-    .output(s.OkSchema),
+  setJudgeEnabled: base.input(type({ id: s.IdSchema, enabled: 'boolean' })).output(s.OkSchema),
   deleteJudge: base.input(byId).output(s.OkSchema),
 };
 
@@ -144,9 +130,7 @@ const judge = {
     .input(type({ 'languages?': s.LanguageSchema.array().atMostLength(64) }))
     .output(type({ task: s.JudgeTaskSchema.or('null') })),
   /** Raw bytes of one testcase file. */
-  testdata: base
-    .input(type({ testcaseId: 'number.integer', kind: "'input' | 'output'" }))
-    .output(s.FileSchema),
+  testdata: base.input(type({ testcaseId: 'number.integer', kind: "'input' | 'output'" })).output(s.FileSchema),
   report: base.input(s.JudgeReportInputSchema).output(s.OkSchema),
 };
 

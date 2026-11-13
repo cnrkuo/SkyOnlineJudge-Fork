@@ -139,11 +139,7 @@ export const TeamState = {
 export type TeamState = (typeof TeamState)[keyof typeof TeamState];
 
 /** Team states that are allowed to take part in a contest. */
-export const PARTICIPATING_STATES: readonly TeamState[] = [
-  TeamState.ACCEPTED,
-  TeamState.HIDDEN,
-  TeamState.UNOFFICIAL,
-];
+export const PARTICIPATING_STATES: readonly TeamState[] = [TeamState.ACCEPTED, TeamState.HIDDEN, TeamState.UNOFFICIAL];
 
 export const ContestProblemState = {
   HIDDEN: 0,

@@ -1,48 +1,48 @@
 import { ContestStyle, Verdict } from '@skyoj/contract';
 
-export interface BoardProblem {
+export interface ScoreboardProblem {
   problemId: number;
   tag: string;
 }
-export interface BoardUser {
+export interface ScoreboardUser {
   id: number;
   nickname: string;
   state: number;
 }
-export interface BoardSubmission {
+export interface ScoreboardSubmission {
   userId: number;
   problemId: number;
   verdict: number;
   score: number;
   createdAt: Date;
 }
-export interface BoardCell {
+export interface ScoreboardCell {
   attempts: number;
   accepted: boolean;
   firstBlood: boolean;
   acceptedMinute: number | null;
   score: number;
 }
-export interface BoardRow {
+export interface ScoreboardRow {
   rank: number;
   user: { id: number; nickname: string };
   state: number;
   solved: number;
   penalty: number;
   score: number;
-  cells: BoardCell[];
+  cells: ScoreboardCell[];
   /** Attempts spent on solved problems; last ICPC tie-breaker. */
   attemptsOnSolved: number;
 }
-export interface Board {
-  problems: (BoardProblem & { attempts: number; accepted: number })[];
-  rows: BoardRow[];
+export interface Scoreboard {
+  problems: (ScoreboardProblem & { attempts: number; accepted: number })[];
+  rows: ScoreboardRow[];
 }
 
 /** Verdicts that do not count as an attempt. */
 const IGNORED = new Set<number>([Verdict.WAIT, Verdict.JUDGING, Verdict.CE, Verdict.JE, Verdict.SE]);
 
-function compare(style: string, a: BoardRow, b: BoardRow): number {
+function compare(style: string, a: ScoreboardRow, b: ScoreboardRow): number {
   if (style === ContestStyle.IOI) return b.score - a.score;
   return b.solved - a.solved || a.penalty - b.penalty || a.attemptsOnSolved - b.attemptsOnSolved;
 }
@@ -59,13 +59,13 @@ function compare(style: string, a: BoardRow, b: BoardRow): number {
  */
 export function buildScoreboard(
   contest: { style: string; startAt: Date; penaltySec: number },
-  problems: BoardProblem[],
-  users: BoardUser[],
-  submissions: BoardSubmission[],
-): Board {
+  problems: ScoreboardProblem[],
+  users: ScoreboardUser[],
+  submissions: ScoreboardSubmission[],
+): Scoreboard {
   const column = new Map(problems.map((p, index) => [p.problemId, index]));
   const totals = problems.map((p) => ({ ...p, attempts: 0, accepted: 0 }));
-  const rows = new Map<number, BoardRow>(
+  const rows = new Map<number, ScoreboardRow>(
     users.map((user) => [
       user.id,
       {
@@ -76,7 +76,13 @@ export function buildScoreboard(
         penalty: 0,
         score: 0,
         attemptsOnSolved: 0,
-        cells: problems.map(() => ({ attempts: 0, accepted: false, firstBlood: false, acceptedMinute: null, score: 0 })),
+        cells: problems.map(() => ({
+          attempts: 0,
+          accepted: false,
+          firstBlood: false,
+          acceptedMinute: null,
+          score: 0,
+        })),
       },
     ]),
   );
@@ -86,9 +92,9 @@ export function buildScoreboard(
     const row = rows.get(sub.userId);
     const index = column.get(sub.problemId);
     if (!row || index === undefined || IGNORED.has(sub.verdict)) continue;
-    const cell = row.cells[index]!;
-    const total = totals[index]!;
-    if (cell.accepted) continue;
+    const cell = row.cells[index];
+    const total = totals[index];
+    if (!cell || !total || cell.accepted) continue;
 
     cell.attempts++;
     total.attempts++;

@@ -22,14 +22,16 @@ function declarations(css: string, selector: RegExp): Record<string, string> {
   const match = selector.exec(css);
   if (!match) throw new Error(`No block for ${selector}`);
   const body = css.slice(match.index + match[0].length, css.indexOf('}', match.index));
-  return Object.fromEntries([...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
+  return Object.fromEntries(
+    [...body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(([, name = '', value = '']) => [name, value.trim()]),
+  );
 }
 
 // Same cascade as the browser: Bootstrap's root block, its dark block, ours.
 const vars: Record<string, string> = {
   ...declarations(bootstrapCss, /:root,\s*\[data-bs-theme=light\]\s*\{/),
   ...declarations(bootstrapCss, /\[data-bs-theme=dark\]\s*\{/),
-  ...declarations(appCss, /:root\[data-bs-theme='dark'\]\s*\{/),
+  ...declarations(appCss, /:root\[data-bs-theme=['"]dark['"]\]\s*\{/),
 };
 const scoped = (selector: RegExp) => ({ ...vars, ...declarations(appCss, selector) });
 
@@ -53,18 +55,26 @@ function parse(value: string, scope: Record<string, string> = vars): Rgba {
   }
   const rgba = /^rgba?\(([^)]+)\)$/.exec(text)?.[1];
   if (rgba) {
-    const [r, g, b, a = 1] = rgba.split(',').map(Number);
-    return [r!, g!, b!, a];
+    const [r = 0, g = 0, b = 0, a = 1] = rgba.split(',').map(Number);
+    return [r, g, b, a];
   }
   if (text === 'white') return [255, 255, 255, 1];
   throw new Error(`Cannot parse colour ${value} → ${text}`);
 }
 
 /** Composites a translucent colour over an opaque one. */
-const over = ([r, g, b, a]: Rgba, [br, bg, bb]: Rgba): Rgba => [r * a + br * (1 - a), g * a + bg * (1 - a), b * a + bb * (1 - a), 1];
+const over = ([r, g, b, a]: Rgba, [br, bg, bb]: Rgba): Rgba => [
+  r * a + br * (1 - a),
+  g * a + bg * (1 - a),
+  b * a + bb * (1 - a),
+  1,
+];
 
 function luminance([r, g, b]: Rgba): number {
-  const channel = (c: number) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
@@ -72,8 +82,8 @@ function ratio(foreground: string, background: string, scope = vars): number {
   const page = parse('var(--bs-body-bg)');
   const bg = over(parse(background, scope), page);
   const fg = over(parse(foreground, scope), bg);
-  const [light, dark] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
-  return Math.round(((light! + 0.05) / (dark! + 0.05)) * 100) / 100;
+  const [light = 0, dark = 0] = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+  return Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100;
 }
 
 /** Surfaces text appears on: page and cards, card headers / table headers / navbar, hover. */

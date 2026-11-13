@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { asc, eq } from 'drizzle-orm';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { judges } from '../../database/schema.js';
 
 export type JudgeRow = typeof judges.$inferSelect;

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Language } from '@skyoj/contract';
-import { requireLogin, requireUser, type Actor } from '../../common/actor.js';
+import { type Actor, requireLogin, requireUser } from '../../common/actor.js';
 import { randomToken } from '../../common/crypto.js';
 import { NotFoundError } from '../../common/errors.js';
 import { CodepadRepository } from './codepad.repository.js';

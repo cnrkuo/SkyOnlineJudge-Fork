@@ -2,13 +2,13 @@ import { ContestPhase, ContestStyle, TeamState } from '@skyoj/contract';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { prefetch, type api } from '~/lib/api.server';
+import { type api, prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { idParam } from '~/lib/params';
 import { Badge, Callout, Card, Cluster, css, Empty, Muted, PageHeader, Stack, UserLink, useRoot } from '~/ui';
-import { DataTable, type Column } from '~/ui/data-table';
-import { Tip } from '~/ui/overlays';
 import { table } from '~/ui/classes';
+import { type Column, DataTable } from '~/ui/data-table';
+import { Tip } from '~/ui/overlays';
 import type { Route } from './+types/contest-scoreboard';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -37,7 +37,12 @@ function cellTone(cell: Cell | undefined): string | undefined {
 
 function IcpcCell({ cell }: { cell: Cell }) {
   if (cell.attempts === 0) return <Muted>·</Muted>;
-  if (!cell.accepted) return <Tip label={`${cell.attempts} rejected`}><span>−{cell.attempts}</span></Tip>;
+  if (!cell.accepted)
+    return (
+      <Tip label={`${cell.attempts} rejected`}>
+        <span>−{cell.attempts}</span>
+      </Tip>
+    );
   return (
     <Tip label={cell.firstBlood ? 'First to solve' : `Solved at minute ${cell.acceptedMinute}`}>
       <span>
@@ -65,7 +70,10 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
   const contest = useQuery(orpc.contest.get.queryOptions({ input: { id } })).data;
   const live = contest?.phase === ContestPhase.RUNNING;
   // A running contest's board refreshes itself.
-  const board = useQuery({ ...orpc.contest.scoreboard.queryOptions({ input: { id } }), refetchInterval: live ? 20_000 : false }).data;
+  const board = useQuery({
+    ...orpc.contest.scoreboard.queryOptions({ input: { id } }),
+    refetchInterval: live ? 20_000 : false,
+  }).data;
   const ioi = board?.style === ContestStyle.IOI;
 
   const columns = useMemo<Column<Row>[]>(() => {
@@ -86,9 +94,33 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
         ),
       },
       ioi
-        ? { id: 'score', header: 'Score', align: 'right', descFirst: true, sortValue: (r) => r.score, cell: (r) => <strong>{round(r.score)}</strong> }
-        : { id: 'solved', header: 'Solved', align: 'right', descFirst: true, sortValue: (r) => r.solved, cell: (r) => <strong>{r.solved}</strong> },
-      ...(ioi ? [] : [{ id: 'penalty', header: 'Penalty', align: 'right', sortValue: (r) => r.penalty, cell: (r) => r.penalty } satisfies Column<Row>]),
+        ? {
+            id: 'score',
+            header: 'Score',
+            align: 'right',
+            descFirst: true,
+            sortValue: (r) => r.score,
+            cell: (r) => <strong>{round(r.score)}</strong>,
+          }
+        : {
+            id: 'solved',
+            header: 'Solved',
+            align: 'right',
+            descFirst: true,
+            sortValue: (r) => r.solved,
+            cell: (r) => <strong>{r.solved}</strong>,
+          },
+      ...(ioi
+        ? []
+        : [
+            {
+              id: 'penalty',
+              header: 'Penalty',
+              align: 'right',
+              sortValue: (r) => r.penalty,
+              cell: (r) => r.penalty,
+            } satisfies Column<Row>,
+          ]),
       ...board.problems.map(
         (problem, index): Column<Row> => ({
           id: `p${problem.problemId}`,
@@ -123,7 +155,7 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
           </>
         }
         actions={
-          <a role="button" className={css.button({ variant: 'secondary' })} href="scoreboard.csv" download>
+          <a className={css.button({ variant: 'secondary' })} href="scoreboard.csv" download>
             Download CSV
           </a>
         }
@@ -131,8 +163,8 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
       <Stack>
         {board.frozen && (
           <Callout>
-            The scoreboard is frozen: submissions from the final stretch of the contest are not shown until the organisers publish
-            the final standings.
+            The scoreboard is frozen: submissions from the final stretch of the contest are not shown until the
+            organisers publish the final standings.
           </Callout>
         )}
         <Card flush>

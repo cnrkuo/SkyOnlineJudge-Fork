@@ -1,6 +1,6 @@
 import type { Element, ElementContent, Root } from 'hast';
-import type { Root as MdastRoot } from 'mdast';
 import { fromHtml } from 'hast-util-from-html';
+import type { Root as MdastRoot } from 'mdast';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import remarkGfm from 'remark-gfm';
@@ -10,9 +10,9 @@ import remarkRehype from 'remark-rehype';
 import temml from 'temml';
 import { unified } from 'unified';
 import { SKIP, visit } from 'unist-util-visit';
+import type { VFile } from 'vfile';
 import { code as codeClasses } from '~/ui/classes';
 import { highlightToHast } from './highlight.server';
-import type { VFile } from 'vfile';
 
 /**
  * Server-side Markdown rendering. Statements, contest descriptions and
@@ -34,7 +34,9 @@ const hasClass = (node: Element, name: string) =>
   Array.isArray(node.properties.className) && node.properties.className.includes(name);
 
 const textOf = (node: Element): string =>
-  node.children.map((child) => (child.type === 'text' ? child.value : child.type === 'element' ? textOf(child) : '')).join('');
+  node.children
+    .map((child) => (child.type === 'text' ? child.value : child.type === 'element' ? textOf(child) : ''))
+    .join('');
 
 /**
  * Markdown only treats `$$` as display math when the dollars sit on lines

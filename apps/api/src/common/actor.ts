@@ -9,6 +9,11 @@ export interface Actor {
   level: UserLevel;
 }
 
+/** The actor for a stored account. */
+export function toActor(user: { id: number; nickname: string; email: string; level: number }): Actor {
+  return { id: user.id, nickname: user.nickname, email: user.email, level: user.level as UserLevel };
+}
+
 export const GUEST: Actor = { id: 0, nickname: 'Guest', email: '', level: UserLevel.GUEST };
 
 export const isLoggedIn = (actor: Actor) => actor.id !== 0;

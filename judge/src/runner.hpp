@@ -40,7 +40,7 @@ class Runner {
   };
   /** Creates `<root>/box` and `<root>/io`, saves the source and compiles it. */
   std::optional<Failure> build(const LanguageSpec& spec, const std::string& code, const std::filesystem::path& root);
-  sandbox::RunSpec base_spec(const std::filesystem::path& root) const;
+  [[nodiscard]] sandbox::RunSpec base_spec(const std::filesystem::path& root) const;
 
   /** Returns the cached path of a testdata blob, downloading it on a miss. */
   std::string testdata(const Testcase& testcase, bool input);

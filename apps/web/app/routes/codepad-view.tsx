@@ -18,7 +18,8 @@ export default function CodepadView({ loaderData: { pad, html } }: Route.Compone
         title="Codepad"
         meta={
           <>
-            {languageName(pad.language)} · {pad.owner ? <UserLink user={pad.owner} /> : 'deleted user'} · <Time value={pad.createdAt} />
+            {languageName(pad.language)} · {pad.owner ? <UserLink user={pad.owner} /> : 'deleted user'} ·{' '}
+            <Time value={pad.createdAt} />
           </>
         }
         actions={<ButtonLink to="/codepad">New pad</ButtonLink>}

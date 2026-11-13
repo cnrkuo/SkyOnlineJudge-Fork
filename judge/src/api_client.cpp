@@ -28,10 +28,10 @@ std::string dump(const json& value) {
 
 ApiClient::ApiClient(const std::string& base_url, const std::string& token) {
   // Split "scheme://host[:port]/optional/prefix" into origin and path prefix.
-  std::size_t scheme_end = base_url.find("://");
+  const std::size_t scheme_end = base_url.find("://");
   if (scheme_end == std::string::npos) throw ApiError("api_url must start with http:// or https://");
-  std::size_t path_start = base_url.find('/', scheme_end + 3);
-  std::string origin = base_url.substr(0, path_start);
+  const std::size_t path_start = base_url.find('/', scheme_end + 3);
+  const std::string origin = base_url.substr(0, path_start);
   base_path_ = path_start == std::string::npos ? "" : base_url.substr(path_start);
 
   http_ = std::make_unique<httplib::Client>(origin);
@@ -50,8 +50,8 @@ std::string ApiClient::post(const std::string& procedure, const std::string& bod
   auto response = http_->Post(path, body, "application/json");
   if (!response) throw ApiError("POST " + path + " failed: " + httplib::to_string(response.error()));
   if (response->status < 200 || response->status >= 300) {
-    throw ApiError(format("POST %s returned HTTP %d: %s", path.c_str(), response->status,
-                          truncated(response->body, 300).c_str()));
+    throw ApiError(
+        format("POST %s returned HTTP %d: %s", path.c_str(), response->status, truncated(response->body, 300).c_str()));
   }
   return std::move(response->body);
 }

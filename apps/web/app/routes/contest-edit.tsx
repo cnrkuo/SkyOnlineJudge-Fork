@@ -1,11 +1,27 @@
 import { TeamState } from '@skyoj/contract';
 import { Form } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
-import { idParam } from '~/lib/params';
-import { Button, ButtonLink, Card, CardBody, Cluster, css, Empty, Field, Measure, Muted, Notice, PageHeader, Stack, Time, UserLink } from '~/ui';
-import { DataTable, type Column } from '~/ui/data-table';
 import { api, load, submit } from '~/lib/api.server';
 import { parseContestForm, stateWord } from '~/lib/contest-form.server';
+import { idParam } from '~/lib/params';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  Cluster,
+  css,
+  Empty,
+  Field,
+  Measure,
+  Muted,
+  Notice,
+  PageHeader,
+  Stack,
+  Time,
+  UserLink,
+} from '~/ui';
+import { type Column, DataTable } from '~/ui/data-table';
 import type { Route } from './+types/contest-edit';
 
 const TEAM_STATES: [TeamState, string][] = [
@@ -47,7 +63,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   return { intent: 'settings', ...result, message: 'Contest saved.' };
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Edit: ${loaderData?.settings.title ?? 'contest'}` }];
+export const meta: Route.MetaFunction = ({ loaderData }) => [
+  { title: `Edit: ${loaderData?.settings.title ?? 'contest'}` },
+];
 
 type Participant = Route.ComponentProps['loaderData']['participants'][number];
 
@@ -62,7 +80,16 @@ const participantColumns: Column<Participant>[] = [
       </Cluster>
     ),
   },
-  { id: 'registered', header: 'Registered', sortValue: (p) => p.registeredAt, cell: (p) => <Muted><Time value={p.registeredAt} /></Muted> },
+  {
+    id: 'registered',
+    header: 'Registered',
+    sortValue: (p) => p.registeredAt,
+    cell: (p) => (
+      <Muted>
+        <Time value={p.registeredAt} />
+      </Muted>
+    ),
+  },
   {
     id: 'state',
     header: 'State',
@@ -73,7 +100,11 @@ const participantColumns: Column<Participant>[] = [
         <Cluster>
           <input type="hidden" name="intent" value="participant" />
           <input type="hidden" name="userId" value={p.user.id} />
-          <select className={`${css.select} ${css.inputWidth.auto}`} name="state" defaultValue={p.state} aria-label={`State of ${p.user.nickname}`}>
+          <select
+            className={`${css.select} ${css.inputWidth.auto}`}
+            name="state"
+            defaultValue={p.state}
+            aria-label={`State of ${p.user.nickname}`}>
             {TEAM_STATES.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -93,9 +124,16 @@ export default function ContestEdit({ loaderData, actionData }: Route.ComponentP
   const { settings, participants } = loaderData;
   return (
     <Measure size="page">
-      <PageHeader title="Edit contest" actions={<ButtonLink to={`/contests/${settings.id}`}>View contest</ButtonLink>} />
+      <PageHeader
+        title="Edit contest"
+        actions={<ButtonLink to={`/contests/${settings.id}`}>View contest</ButtonLink>}
+      />
       <Stack gap="lg">
-        <ContestForm values={settings} submitLabel="Save contest" result={actionData?.intent === 'settings' ? actionData : null} />
+        <ContestForm
+          values={settings}
+          submitLabel="Save contest"
+          result={actionData?.intent === 'settings' ? actionData : null}
+        />
 
         <Card flush title={`Participants (${participants.length})`}>
           <CardBody>
@@ -113,7 +151,12 @@ export default function ContestEdit({ loaderData, actionData }: Route.ComponentP
               </Form>
             </Stack>
           </CardBody>
-          <DataTable data={participants} columns={participantColumns} rowKey={(p) => p.user.id} empty={<Empty>Nobody has registered yet.</Empty>} />
+          <DataTable
+            data={participants}
+            columns={participantColumns}
+            rowKey={(p) => p.user.id}
+            empty={<Empty>Nobody has registered yet.</Empty>}
+          />
         </Card>
       </Stack>
     </Measure>

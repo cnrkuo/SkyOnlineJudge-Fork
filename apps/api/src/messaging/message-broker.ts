@@ -1,5 +1,10 @@
 import { Injectable, Logger, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
-import amqp, { type ChannelModel, type ConfirmChannel, type ConsumeMessage, type RecoveringChannelModel } from 'amqplib';
+import amqp, {
+  type ChannelModel,
+  type ConfirmChannel,
+  type ConsumeMessage,
+  type RecoveringChannelModel,
+} from 'amqplib';
 import { ServiceUnavailableError } from '../common/errors.js';
 import { config } from '../config.js';
 
@@ -77,7 +82,9 @@ export class MessageBroker implements OnModuleInit, OnApplicationShutdown {
   }
 
   private resetReady(): void {
-    this.ready = new Promise((resolve) => (this.markReady = resolve));
+    this.ready = new Promise((resolve) => {
+      this.markReady = resolve;
+    });
   }
 
   /** Runs after every (re)connect: declares queues and restarts consumers. */
@@ -129,7 +136,10 @@ export class MessageBroker implements OnModuleInit, OnApplicationShutdown {
     if (!this.channel) {
       let timer: NodeJS.Timeout | undefined;
       const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new ServiceUnavailableError('The message queue is unavailable')), CONNECT_WAIT_MS);
+        timer = setTimeout(
+          () => reject(new ServiceUnavailableError('The message queue is unavailable')),
+          CONNECT_WAIT_MS,
+        );
       });
       await Promise.race([this.ready, timeout]).finally(() => clearTimeout(timer));
     }

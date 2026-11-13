@@ -1,6 +1,6 @@
 import { ContestStyle } from '@skyoj/contract';
-import { idParam } from '~/lib/params';
 import { api, load } from '~/lib/api.server';
+import { idParam } from '~/lib/params';
 import type { Route } from './+types/contest-scoreboard-csv';
 
 /** Quotes a CSV field and defuses spreadsheet formulas in user-chosen names. */
@@ -16,11 +16,25 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const board = await load(request, (o) => api.contest.scoreboard({ id }, o));
   const ioi = board.style === ContestStyle.IOI;
 
-  const header = ['rank', 'nickname', ...board.problems.map((p) => p.tag), ioi ? 'score' : 'solved', ...(ioi ? [] : ['penalty'])];
+  const header = [
+    'rank',
+    'nickname',
+    ...board.problems.map((p) => p.tag),
+    ioi ? 'score' : 'solved',
+    ...(ioi ? [] : ['penalty']),
+  ];
   const lines = board.rows.map((row) => [
     row.rank,
     row.user.nickname,
-    ...row.cells.map((cell) => (ioi ? cell.score : cell.accepted ? `${cell.attempts}/${cell.acceptedMinute}` : cell.attempts ? `${cell.attempts}/--` : '')),
+    ...row.cells.map((cell) =>
+      ioi
+        ? cell.score
+        : cell.accepted
+          ? `${cell.attempts}/${cell.acceptedMinute}`
+          : cell.attempts
+            ? `${cell.attempts}/--`
+            : '',
+    ),
     ioi ? row.score : row.solved,
     ...(ioi ? [] : [row.penalty]),
   ]);

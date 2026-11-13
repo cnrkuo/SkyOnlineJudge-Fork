@@ -28,13 +28,13 @@ namespace {
 
 volatile std::sig_atomic_t g_stop = 0;
 
-void request_stop(int) {
+void request_stop(int /*unused*/) {
   g_stop = 1;
 }
 
 /** Sleeps in short slices so a termination signal is honoured promptly. */
 void idle(int milliseconds) {
-  for (int waited = 0; waited < milliseconds && !g_stop; waited += 100) {
+  for (int waited = 0; waited < milliseconds && g_stop == 0; waited += 100) {
     std::this_thread::sleep_for(std::chrono::milliseconds(std::min(100, milliseconds - waited)));
   }
 }
@@ -75,7 +75,8 @@ void probe_sandbox(const judge::Config& config) {
 
   if (result.status != judge::sandbox::Status::Exited || result.exit_code != 0) {
     judge::log("FATAL", "sandbox self-test failed: " +
-                            (result.error.empty() ? judge::format("probe ended with status %d", result.exit_code) : result.error));
+                            (result.error.empty() ? judge::format("probe ended with status %d", result.exit_code)
+                                                  : result.error));
     std::exit(1);
   }
 }
@@ -95,14 +96,17 @@ std::vector<std::string> check_toolchains(const judge::Config& config, judge::Ru
     }
     // Keep the log readable: the first line of a compiler's complaint.
     if (const auto newline = problem.find('\n'); newline != std::string::npos) problem.resize(newline);
-    judge::log("WARN", "language " + id + " disabled: " + problem);
+    judge::log("WARN", judge::format("language %s disabled: %s", id.c_str(), problem.c_str()));
   }
   if (working.empty()) {
     judge::log("FATAL", "no language has a working toolchain");
     std::exit(1);
   }
   std::string list;
-  for (const std::string& id : working) list += (list.empty() ? "" : ", ") + id;
+  for (const std::string& id : working) {
+    if (!list.empty()) list += ", ";
+    list += id;
+  }
   judge::log("INFO", "languages: " + list);
   return working;
 }
@@ -111,18 +115,18 @@ std::vector<std::string> check_toolchains(const judge::Config& config, judge::Ru
 
 int main(int argc, char** argv) {
   // Inside a jail this binary is the init process, not the daemon.
-  if (argc >= 2 && !std::strcmp(argv[1], judge::sandbox::kInitFlag)) return judge::sandbox::init_main(argc, argv);
+  if (argc >= 2 && std::strcmp(argv[1], judge::sandbox::kInitFlag) == 0) return judge::sandbox::init_main(argc, argv);
 
   std::string config_path;
   bool once = false;
   for (int i = 1; i < argc; ++i) {
-    if (!std::strcmp(argv[i], "--config") && i + 1 < argc) {
+    if (std::strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
       config_path = argv[++i];
-    } else if (!std::strcmp(argv[i], "--once")) {
+    } else if (std::strcmp(argv[i], "--once") == 0) {
       once = true;
     } else {
       usage(argv[0]);
-      return !std::strcmp(argv[i], "--help") || !std::strcmp(argv[i], "-h") ? 0 : 2;
+      return std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0 ? 0 : 2;
     }
   }
 
@@ -155,7 +159,7 @@ int main(int argc, char** argv) {
     const std::vector<std::string> languages = check_toolchains(config, runner);
     judge::log("INFO", "judging for " + config.api_url);
 
-    while (!g_stop) {
+    while (g_stop == 0) {
       try {
         const auto task = api.fetch(languages);
         if (!task) {

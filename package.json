@@ -17,6 +17,14 @@
     "build:judge": "cmake -S judge -B judge/build -DCMAKE_BUILD_TYPE=Release && cmake --build judge/build -j",
     "docker:dev": "docker compose up --build",
     "docker:prod": "sh docker/prod.sh",
-    "docker:prod:down": "docker compose -f compose.prod.yaml --env-file .env.production down"
+    "docker:prod:down": "docker compose -f compose.prod.yaml --env-file .env.production down",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "lint:judge": "run-clang-tidy -p judge/build -quiet 'judge/(src|tests)/' && clang-format --dry-run --Werror judge/src/*.cpp judge/src/*.hpp judge/tests/*.cpp",
+    "format:judge": "clang-format -i judge/src/*.cpp judge/src/*.hpp judge/tests/*.cpp"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.13"
   }
 }

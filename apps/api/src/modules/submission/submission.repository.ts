@@ -1,10 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, between, count, desc, eq, inArray, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { Verdict } from '@skyoj/contract';
-import type { Actor } from '../../common/actor.js';
+import { and, asc, between, count, desc, eq, inArray, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { type Actor, GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
-import { DB, type Database } from '../../database/database.module.js';
-import { problems, submissions, users, type StoredTestResult } from '../../database/schema.js';
+import { type Database, DB } from '../../database/database.module.js';
+import { problems, type StoredTestResult, submissions, users } from '../../database/schema.js';
+import type { ScoreboardSubmission } from '../contest/scoreboard.js';
 import { visibleTo } from '../problem/problem.repository.js';
 
 export type SubmissionRow = typeof submissions.$inferSelect;
@@ -38,15 +39,6 @@ export interface JudgedResult {
   results: StoredTestResult[];
 }
 
-/** Minimal projection consumed by the contest scoreboard. */
-export interface ScoreboardSubmission {
-  userId: number;
-  problemId: number;
-  verdict: number;
-  score: number;
-  createdAt: Date;
-}
-
 @Injectable()
 export class SubmissionRepository {
   constructor(@Inject(DB) private readonly db: Database) {}
@@ -64,7 +56,9 @@ export class SubmissionRepository {
   }
 
   /** Inserts a submission under a reserved id. Safe to repeat (redelivery). */
-  async insert(data: Pick<SubmissionRow, 'id' | 'problemId' | 'userId' | 'language' | 'code' | 'createdAt'>): Promise<void> {
+  async insert(
+    data: Pick<SubmissionRow, 'id' | 'problemId' | 'userId' | 'language' | 'code' | 'createdAt'>,
+  ): Promise<void> {
     await this.db.insert(submissions).values(data).onConflictDoNothing({ target: submissions.id });
   }
 
@@ -119,13 +113,10 @@ export class SubmissionRepository {
   // -------------------------------------------------------------- judge queue
 
   /**
-   * Marks a waiting submission as being judged. Returns `undefined` when it
-   * is not waiting (already judged, or a duplicate task), so a submission is
-   * never handed to two judges.
-   */
-  /**
-   * Marks a waiting submission as being judged by `judgeId`. With
-   * `languages`, only a submission in one of them is claimed.
+   * Marks a waiting submission as being judged by `judgeId`; with `languages`,
+   * only a submission in one of them. Returns `undefined` when nothing was
+   * claimed (already judged, a duplicate task, another language), so a
+   * submission is never handed to two judges.
    */
   async claim(id: number, judgeId: number, languages?: readonly string[]): Promise<SubmissionRow | undefined> {
     const [row] = await this.db
@@ -213,7 +204,9 @@ export class SubmissionRepository {
   // --------------------------------------------------------------- statistics
 
   /** Per-problem totals for a page of the problem list. */
-  async countersFor(problemIds: number[]): Promise<Map<number, { submissions: number; accepted: number; acceptedUsers: number }>> {
+  async countersFor(
+    problemIds: number[],
+  ): Promise<Map<number, { submissions: number; accepted: number; acceptedUsers: number }>> {
     const result = new Map<number, { submissions: number; accepted: number; acceptedUsers: number }>();
     if (problemIds.length === 0) return result;
     const rows = await this.db
@@ -221,9 +214,10 @@ export class SubmissionRepository {
         problemId: submissions.problemId,
         submissions: count(),
         accepted: sql<number>`count(*) filter (where ${submissions.verdict} = ${Verdict.AC})`.mapWith(Number),
-        acceptedUsers: sql<number>`count(distinct ${submissions.userId}) filter (where ${submissions.verdict} = ${Verdict.AC})`.mapWith(
-          Number,
-        ),
+        acceptedUsers:
+          sql<number>`count(distinct ${submissions.userId}) filter (where ${submissions.verdict} = ${Verdict.AC})`.mapWith(
+            Number,
+          ),
       })
       .from(submissions)
       .where(inArray(submissions.problemId, problemIds))
@@ -235,7 +229,7 @@ export class SubmissionRepository {
   /** The user's best finished verdict per problem (AC wins; otherwise any attempt). */
   async bestVerdicts(userId: number, problemIds?: number[]): Promise<Map<number, number>> {
     const result = new Map<number, number>();
-    if (userId === 0 || problemIds?.length === 0) return result;
+    if (userId === GUEST.id || problemIds?.length === 0) return result;
     const rows = await this.db
       .select({ problemId: submissions.problemId, best: sql<number>`min(${submissions.verdict})`.mapWith(Number) })
       .from(submissions)

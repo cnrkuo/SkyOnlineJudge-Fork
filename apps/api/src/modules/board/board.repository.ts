@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, between, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { Verdict } from '@skyoj/contract';
+import { and, asc, between, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { boardProblems, boards, boardUsers, problems, submissions, users } from '../../database/schema.js';
 
 export type BoardRow = typeof boards.$inferSelect;
@@ -18,8 +18,12 @@ export class BoardRepository {
   constructor(@Inject(DB) private readonly db: Database) {}
 
   async list(page: PageInput) {
-    const userCount = sql<number>`(select count(*) from ${boardUsers} where ${boardUsers.boardId} = ${boards.id})`.mapWith(Number);
-    const problemCount = sql<number>`(select count(*) from ${boardProblems} where ${boardProblems.boardId} = ${boards.id})`.mapWith(Number);
+    const userCount =
+      sql<number>`(select count(*) from ${boardUsers} where ${boardUsers.boardId} = ${boards.id})`.mapWith(Number);
+    const problemCount =
+      sql<number>`(select count(*) from ${boardProblems} where ${boardProblems.boardId} = ${boards.id})`.mapWith(
+        Number,
+      );
     const [rows, [total]] = await Promise.all([
       this.db
         .select({ board: boards, users: userCount, problems: problemCount })

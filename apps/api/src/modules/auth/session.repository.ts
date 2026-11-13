@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gt, lt } from 'drizzle-orm';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { sessions, users } from '../../database/schema.js';
 import type { UserRow } from '../user/user.repository.js';
 

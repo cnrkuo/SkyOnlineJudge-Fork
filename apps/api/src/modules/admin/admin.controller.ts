@@ -3,10 +3,10 @@ import { Implement, implement } from '@orpc/nest';
 import { contract } from '@skyoj/contract';
 import type { Actor } from '../../common/actor.js';
 import { CurrentActor } from '../../common/auth.guard.js';
+import { OK } from '../../common/orpc.js';
 import { AdminService } from './admin.service.js';
 
 const os = implement(contract.admin);
-const ok = { ok: true as const };
 
 @Controller()
 export class AdminController {
@@ -14,26 +14,25 @@ export class AdminController {
 
   @Implement(contract.admin)
   routes(@CurrentActor() actor: Actor) {
-    const { admin } = this;
     return {
-      listUsers: os.listUsers.handler(({ input }) => admin.listUsers(actor, input)),
+      listUsers: os.listUsers.handler(({ input }) => this.admin.listUsers(actor, input)),
       setUserLevel: os.setUserLevel.handler(async ({ input }) => {
-        await admin.setUserLevel(actor, input.userId, input.level);
-        return ok;
+        await this.admin.setUserLevel(actor, input.userId, input.level);
+        return OK;
       }),
       updateUser: os.updateUser.handler(async ({ input }) => {
-        await admin.updateUser(actor, input);
-        return ok;
+        await this.admin.updateUser(actor, input);
+        return OK;
       }),
-      listJudges: os.listJudges.handler(() => admin.listJudges(actor)),
-      createJudge: os.createJudge.handler(({ input }) => admin.createJudge(actor, input.name)),
+      listJudges: os.listJudges.handler(() => this.admin.listJudges(actor)),
+      createJudge: os.createJudge.handler(({ input }) => this.admin.createJudge(actor, input.name)),
       setJudgeEnabled: os.setJudgeEnabled.handler(async ({ input }) => {
-        await admin.setJudgeEnabled(actor, input.id, input.enabled);
-        return ok;
+        await this.admin.setJudgeEnabled(actor, input.id, input.enabled);
+        return OK;
       }),
       deleteJudge: os.deleteJudge.handler(async ({ input }) => {
-        await admin.deleteJudge(actor, input.id);
-        return ok;
+        await this.admin.deleteJudge(actor, input.id);
+        return OK;
       }),
     };
   }

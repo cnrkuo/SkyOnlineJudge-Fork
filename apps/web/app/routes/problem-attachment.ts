@@ -1,5 +1,5 @@
-import { idParam } from '~/lib/params';
 import { api, load } from '~/lib/api.server';
+import { idParam } from '~/lib/params';
 import type { Route } from './+types/problem-attachment';
 
 const INLINE_TYPES: Record<string, string> = {

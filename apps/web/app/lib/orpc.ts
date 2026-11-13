@@ -10,6 +10,11 @@ export interface ClientContext {
   token?: string;
 }
 
+/** Base URL of the NestJS API as reachable from the web server; server side only. */
+export function apiUrl(): string {
+  return process.env.API_URL ?? 'http://127.0.0.1:3001';
+}
+
 /**
  * The one API client of the web app, typed end to end by the shared oRPC
  * contract. It is the same object on both sides; only its transport differs:
@@ -24,7 +29,7 @@ const link = new OpenAPILink<ClientContext>(
   contract,
   typeof window === 'undefined'
     ? {
-        url: process.env.API_URL ?? 'http://127.0.0.1:3001',
+        url: apiUrl(),
         headers: ({ context }) => (context.token ? { authorization: `Bearer ${context.token}` } : {}),
       }
     : { url: `${window.location.origin}/rpc` },

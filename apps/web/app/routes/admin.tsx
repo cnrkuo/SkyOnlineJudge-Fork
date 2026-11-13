@@ -6,19 +6,41 @@ import { api, prefetch, submit } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { paging } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
-import { Badge, Button, Card, CardBody, Cluster, Control, css, Empty, Field, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  Cluster,
+  Control,
+  css,
+  Empty,
+  Field,
+  Muted,
+  Notice,
+  PageHeader,
+  Stack,
+  Time,
+  UserLink,
+  useRoot,
+} from '~/ui';
 import { languageName } from '~/ui/code';
-import { DataTable, Pager, type Column } from '~/ui/data-table';
+import { type Column, DataTable, Pager } from '~/ui/data-table';
 import { Confirm, SelectBox } from '~/ui/overlays';
 import type { Route } from './+types/admin';
 
-const LEVELS: { value: string; level: UserLevel; label: string }[] = [
-  { value: String(UserLevel.BANNED), level: UserLevel.BANNED, label: 'Banned' },
-  { value: String(UserLevel.UNVERIFIED), level: UserLevel.UNVERIFIED, label: 'Unverified' },
-  { value: String(UserLevel.USER), level: UserLevel.USER, label: 'User' },
-  { value: String(UserLevel.ADMIN), level: UserLevel.ADMIN, label: 'Administrator' },
-  { value: String(UserLevel.ROOT), level: UserLevel.ROOT, label: 'Site owner' },
+const LEVELS: { level: UserLevel; label: string }[] = [
+  { level: UserLevel.BANNED, label: 'Banned' },
+  { level: UserLevel.UNVERIFIED, label: 'Unverified' },
+  { level: UserLevel.USER, label: 'User' },
+  { level: UserLevel.ADMIN, label: 'Administrator' },
+  { level: UserLevel.ROOT, label: 'Site owner' },
 ];
+
+/** A judge polls every second or so; silence for this long means it is gone. */
+const JUDGE_ONLINE_WITHIN_MS = 30_000;
+
+const levelOf = (value: string) => LEVELS.find((l) => String(l.level) === value)?.level;
 
 function usersInput(params: URLSearchParams) {
   return { ...paging(params), search: params.get('q')?.trim() || undefined };
@@ -65,17 +87,20 @@ function Judges({ actionData }: { actionData: Route.ComponentProps['actionData']
       header: 'Status',
       cell: (j) => {
         if (!j.enabled) return <Badge>Disabled</Badge>;
-        const online = j.lastSeenAt !== null && dataUpdatedAt - Date.parse(j.lastSeenAt) < 30_000;
+        const online = j.lastSeenAt !== null && dataUpdatedAt - Date.parse(j.lastSeenAt) < JUDGE_ONLINE_WITHIN_MS;
         return online ? <Badge tone="success">Online</Badge> : <Badge tone="warning">Offline</Badge>;
       },
     },
     {
       id: 'languages',
       header: 'Languages',
-      cell: (j) =>
-        j.languages.length > 0 ? j.languages.map(languageName).join(', ') : <Muted>not reported</Muted>,
+      cell: (j) => (j.languages.length > 0 ? j.languages.map(languageName).join(', ') : <Muted>not reported</Muted>),
     },
-    { id: 'seen', header: 'Last seen', cell: (j) => <Muted>{j.lastSeenAt ? <Time value={j.lastSeenAt} /> : 'never'}</Muted> },
+    {
+      id: 'seen',
+      header: 'Last seen',
+      cell: (j) => <Muted>{j.lastSeenAt ? <Time value={j.lastSeenAt} /> : 'never'}</Muted>,
+    },
     {
       id: 'actions',
       header: 'Actions',
@@ -93,8 +118,7 @@ function Judges({ actionData }: { actionData: Route.ComponentProps['actionData']
             }
             title={`Delete judge "${j.name}"?`}
             confirmLabel="Delete judge"
-            onConfirm={() => remove.mutate({ id: j.id })}
-          >
+            onConfirm={() => remove.mutate({ id: j.id })}>
             Its token stops working immediately. Submissions it is judging are handed to another judge.
           </Confirm>
         </Cluster>
@@ -146,17 +170,34 @@ function Users() {
   const queryClient = useQueryClient();
   const query = useQuery({ ...orpc.admin.listUsers.queryOptions({ input }), placeholderData: keepPreviousData });
   const setLevel = useMutation(
-    orpc.admin.setUserLevel.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.admin.listUsers.key() }) }),
+    orpc.admin.setUserLevel.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.admin.listUsers.key() }),
+    }),
   );
   const list = query.data;
 
   const columns = useMemo<Column<AdminUser>[]>(
     () => [
       { id: 'id', header: '#', fixed: true, sortValue: (u) => u.id, cell: (u) => <Muted>{u.id}</Muted> },
-      { id: 'nickname', header: 'Nickname', fixed: true, sortValue: (u) => u.nickname.toLowerCase(), cell: (u) => <UserLink user={u} /> },
+      {
+        id: 'nickname',
+        header: 'Nickname',
+        fixed: true,
+        sortValue: (u) => u.nickname.toLowerCase(),
+        cell: (u) => <UserLink user={u} />,
+      },
       { id: 'email', header: 'E-mail', sortValue: (u) => u.email, cell: (u) => <Muted>{u.email}</Muted> },
       { id: 'realname', header: 'Real name', hidden: true, cell: (u) => u.realname },
-      { id: 'joined', header: 'Joined', sortValue: (u) => u.createdAt, cell: (u) => <Muted><Time value={u.createdAt} /></Muted> },
+      {
+        id: 'joined',
+        header: 'Joined',
+        sortValue: (u) => u.createdAt,
+        cell: (u) => (
+          <Muted>
+            <Time value={u.createdAt} />
+          </Muted>
+        ),
+      },
       {
         id: 'level',
         header: 'Level',
@@ -169,8 +210,14 @@ function Users() {
               size="sm"
               label={`Level of ${u.nickname}`}
               value={String(u.level)}
-              options={LEVELS.filter((l) => l.level < myLevel)}
-              onChange={(value) => setLevel.mutate({ userId: u.id, level: LEVELS.find((l) => l.value === value)!.level })}
+              options={LEVELS.filter((l) => l.level < myLevel).map(({ level, label }) => ({
+                value: String(level),
+                label,
+              }))}
+              onChange={(value) => {
+                const level = levelOf(value);
+                if (level !== undefined) setLevel.mutate({ userId: u.id, level });
+              }}
             />
           );
         },
@@ -203,7 +250,14 @@ function Users() {
           <Form method="get" role="search">
             <Cluster>
               <Control>
-                <input className={css.inputWidth.md} type="search" name="q" defaultValue={input.search ?? ''} placeholder="Nickname or e-mail" aria-label="Search users" />
+                <input
+                  className={css.inputWidth.md}
+                  type="search"
+                  name="q"
+                  defaultValue={input.search ?? ''}
+                  placeholder="Nickname or e-mail"
+                  aria-label="Search users"
+                />
               </Control>
               <Button variant="secondary">Search</Button>
             </Cluster>

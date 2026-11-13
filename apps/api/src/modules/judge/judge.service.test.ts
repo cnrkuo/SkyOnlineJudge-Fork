@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
 import { Verdict } from '@skyoj/contract';
+import { describe, expect, it } from 'vitest';
 import type { JudgeTaskMessage } from '../../messaging/commands.js';
 import type { MessageBroker } from '../../messaging/message-broker.js';
+import type { StorageService } from '../../storage/storage.service.js';
 import type { ProblemRepository } from '../problem/problem.repository.js';
 import type { SubmissionRepository } from '../submission/submission.repository.js';
-import type { StorageService } from '../../storage/storage.service.js';
 import type { JudgeRepository, JudgeRow } from './judge.repository.js';
 import { JudgeService } from './judge.service.js';
 
@@ -44,7 +44,10 @@ const ids = (queue: JudgeTaskMessage[]) => queue.map((t) => t.submissionId);
 
 describe('JudgeService.fetch', () => {
   it('hands out the oldest submission when the judge does not list languages', async () => {
-    const { service, queue } = setup([{ id: 1, language: 'clang-cpp23' }, { id: 2, language: 'cpp' }]);
+    const { service, queue } = setup([
+      { id: 1, language: 'clang-cpp23' },
+      { id: 2, language: 'cpp' },
+    ]);
     expect((await service.fetch(judge)).task?.submissionId).toBe(1);
     expect(ids(queue)).toEqual([2]);
   });
@@ -61,7 +64,10 @@ describe('JudgeService.fetch', () => {
   });
 
   it('stops after one pass over a queue with nothing it can run, losing no task', async () => {
-    const { service, queue } = setup([{ id: 1, language: 'clang-cpp23' }, { id: 2, language: 'clang-cpp17' }]);
+    const { service, queue } = setup([
+      { id: 1, language: 'clang-cpp23' },
+      { id: 2, language: 'clang-cpp17' },
+    ]);
     expect((await service.fetch(judge, ['cpp'])).task).toBeNull();
     expect(ids(queue).sort()).toEqual([1, 2]);
   });

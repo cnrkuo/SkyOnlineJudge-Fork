@@ -1,16 +1,16 @@
 import {
+  type ColumnDef,
   columnVisibilityFeature,
   createSortedRowModel,
+  type RowData,
   rowSortingFeature,
   sortFns,
   tableFeatures,
   useTable,
-  type ColumnDef,
-  type RowData,
 } from '@tanstack/react-table';
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { css as kit, table as css } from './classes';
+import { table as css, css as kit } from './classes';
 import { Menu, MenuCheck, MenuLabel, SelectBox } from './overlays';
 
 /**
@@ -82,6 +82,11 @@ export function DataTable<T extends RowData>({
   caption,
 }: DataTableProps<T>) {
   const byId = useMemo(() => new Map(columns.map((column) => [column.id, column])), [columns]);
+  const columnOf = (id: string) => {
+    const column = byId.get(id);
+    if (!column) throw new Error(`DataTable: no column "${id}"`);
+    return column;
+  };
   const defs = useMemo<ColumnDef<typeof features, T>[]>(
     () =>
       columns.map((column) => ({
@@ -119,7 +124,10 @@ export function DataTable<T extends RowData>({
             <Menu label="Columns">
               <MenuLabel>Show columns</MenuLabel>
               {hideable.map((column) => (
-                <MenuCheck key={column.id} checked={column.getIsVisible()} onChange={(visible) => column.toggleVisibility(visible)}>
+                <MenuCheck
+                  key={column.id}
+                  checked={column.getIsVisible()}
+                  onChange={(visible) => column.toggleVisibility(visible)}>
                   {byId.get(column.id)?.header}
                 </MenuCheck>
               ))}
@@ -138,7 +146,7 @@ export function DataTable<T extends RowData>({
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
                   {group.headers.map((header) => {
-                    const column = byId.get(header.column.id)!;
+                    const column = columnOf(header.column.id);
                     const sorted = header.column.getIsSorted();
                     const label = column.headerNode ?? column.header;
                     return (
@@ -146,10 +154,12 @@ export function DataTable<T extends RowData>({
                         key={header.id}
                         scope="col"
                         className={`${css.headCell} ${css.align[column.align ?? 'left']}`}
-                        aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
-                      >
+                        aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}>
                         {header.column.getCanSort() ? (
-                          <button type="button" className={css.sortButton} onClick={header.column.getToggleSortingHandler()}>
+                          <button
+                            type="button"
+                            className={css.sortButton}
+                            onClick={header.column.getToggleSortingHandler()}>
                             {label}
                             <span aria-hidden className={css.sortIcon[sorted ? 'active' : 'idle']}>
                               {sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : '↕'}
@@ -168,9 +178,11 @@ export function DataTable<T extends RowData>({
               {rows.map((row) => (
                 <tr key={row.id} className={`${css.row} ${highlight?.(row.original) ? css.rowHighlight : ''}`}>
                   {row.getVisibleCells().map((cell) => {
-                    const column = byId.get(cell.column.id)!;
+                    const column = columnOf(cell.column.id);
                     return (
-                      <td key={cell.id} className={`${css.align[column.align ?? 'left']} ${column.cellClass?.(row.original) ?? ''}`}>
+                      <td
+                        key={cell.id}
+                        className={`${css.align[column.align ?? 'left']} ${column.cellClass?.(row.original) ?? ''}`}>
                         {column.cell(row.original)}
                       </td>
                     );
@@ -193,7 +205,17 @@ const PAGE_SIZES = ['20', '50', '100'] as const;
  * (`?page=`, `?size=`), so a page can be linked, reloaded and navigated with
  * the browser's back button; the links work without JavaScript.
  */
-export function Pager({ page, pageSize, total, sizes = false }: { page: number; pageSize: number; total: number; sizes?: boolean }) {
+export function Pager({
+  page,
+  pageSize,
+  total,
+  sizes = false,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  sizes?: boolean;
+}) {
   const [params, setParams] = useSearchParams();
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const to = (target: number) => {

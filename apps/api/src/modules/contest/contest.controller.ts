@@ -3,10 +3,10 @@ import { Implement, implement } from '@orpc/nest';
 import { contract } from '@skyoj/contract';
 import type { Actor } from '../../common/actor.js';
 import { CurrentActor } from '../../common/auth.guard.js';
+import { OK } from '../../common/orpc.js';
 import { ContestService } from './contest.service.js';
 
 const os = implement(contract.contest);
-const ok = { ok: true as const };
 
 @Controller()
 export class ContestController {
@@ -14,23 +14,22 @@ export class ContestController {
 
   @Implement(contract.contest)
   routes(@CurrentActor() actor: Actor) {
-    const { contests } = this;
     return {
-      list: os.list.handler(({ input }) => contests.list(input)),
-      get: os.get.handler(({ input }) => contests.get(actor, input.id)),
-      settings: os.settings.handler(({ input }) => contests.settings(actor, input.id)),
-      create: os.create.handler(({ input }) => contests.create(actor, input)),
+      list: os.list.handler(({ input }) => this.contests.list(input)),
+      get: os.get.handler(({ input }) => this.contests.get(actor, input.id)),
+      settings: os.settings.handler(({ input }) => this.contests.settings(actor, input.id)),
+      create: os.create.handler(({ input }) => this.contests.create(actor, input)),
       update: os.update.handler(async ({ input: { id, ...patch } }) => {
-        await contests.update(actor, id, patch);
-        return ok;
+        await this.contests.update(actor, id, patch);
+        return OK;
       }),
-      register: os.register.handler(({ input }) => contests.register(actor, input.id, input.password)),
-      participants: os.participants.handler(({ input }) => contests.participants(actor, input.id)),
+      register: os.register.handler(({ input }) => this.contests.register(actor, input.id, input.password)),
+      participants: os.participants.handler(({ input }) => this.contests.participants(actor, input.id)),
       setParticipant: os.setParticipant.handler(async ({ input }) => {
-        await contests.setParticipant(actor, input.id, input.userId, input.state, input.note);
-        return ok;
+        await this.contests.setParticipant(actor, input.id, input.userId, input.state, input.note);
+        return OK;
       }),
-      scoreboard: os.scoreboard.handler(({ input }) => contests.scoreboard(actor, input.id)),
+      scoreboard: os.scoreboard.handler(({ input }) => this.contests.scoreboard(actor, input.id)),
     };
   }
 }

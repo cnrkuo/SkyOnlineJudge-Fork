@@ -1,7 +1,7 @@
 import { Form, Link, redirect, useNavigation } from 'react-router';
-import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import { api, submit } from '~/lib/api.server';
 import { startSession } from '~/lib/session.server';
+import { Button, Card, Field, Measure, Muted, Notice, Stack } from '~/ui';
 import type { Route } from './+types/register';
 
 export async function action({ request }: Route.ActionArgs) {
@@ -9,7 +9,10 @@ export async function action({ request }: Route.ActionArgs) {
   const password = String(form.get('password') ?? '');
   if (password !== form.get('repeat')) return { ok: false as const, error: 'The two passwords do not match' };
   const result = await submit(request, (o) =>
-    api.auth.register({ email: String(form.get('email') ?? ''), nickname: String(form.get('nickname') ?? ''), password }, o),
+    api.auth.register(
+      { email: String(form.get('email') ?? ''), nickname: String(form.get('nickname') ?? ''), password },
+      o,
+    ),
   );
   if (!result.ok) return result;
   return redirect('/', { headers: { 'Set-Cookie': await startSession(result.data.token) } });

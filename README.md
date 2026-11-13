@@ -147,6 +147,10 @@ Scripts
 | `pnpm docker:prod:down` | Stop the production stack (data volumes are kept) |
 | `pnpm build` | Build contract, API and web |
 | `pnpm typecheck` | Type-check all TypeScript packages |
+| `pnpm lint` / `pnpm lint:fix` | [Biome](https://biomejs.dev) lint and format check of all TypeScript, CSS and JSON (`biome.json`); `:fix` applies safe fixes |
+| `pnpm format` | Format TypeScript, CSS and JSON with Biome |
+| `pnpm lint:judge` | clang-tidy (`judge/.clang-tidy`) and a clang-format check of the judge; needs `pnpm build:judge` first |
+| `pnpm format:judge` | Format the judge with clang-format (`judge/.clang-format`) |
 | `pnpm test` | Unit tests (scoring, scoreboard, permissions, testdata archives, time zones, Markdown, interface rules, colour contrast) |
 | `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |

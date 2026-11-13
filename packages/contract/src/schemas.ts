@@ -1,5 +1,5 @@
 import './arktype-config.js';
-import { type, type Type } from 'arktype';
+import { type Type, type } from 'arktype';
 import {
   AccessLevel,
   CODE_MAX_LENGTH,
@@ -64,7 +64,10 @@ export const OkSchema = type({ ok: 'true' });
 
 export const NicknameSchema = type('string.trim')
   .to('2 <= string <= 32')
-  .narrow((value, ctx) => /^[^\s@<>&"'\\/]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ /'));
+  .narrow(
+    (value, ctx) =>
+      /^[^\s@<>&"'\\/]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ /'),
+  );
 export const PasswordSchema = type('6 <= string <= 128');
 
 export const UserRefSchema = type({

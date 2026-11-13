@@ -1,7 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import { Global, Inject, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { config } from '../config.js';
 import * as schema from './schema.js';

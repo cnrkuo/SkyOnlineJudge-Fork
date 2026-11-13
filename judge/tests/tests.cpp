@@ -22,16 +22,17 @@ namespace {
 
 int g_failures = 0;
 
-#define CHECK(condition)                                                    \
-  do {                                                                      \
-    if (!(condition)) {                                                     \
-      std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #condition); \
-      ++g_failures;                                                         \
-    }                                                                       \
-  } while (0)
+/** Records a failed expectation; the run continues so every failure is reported. */
+void expect(bool passed, const char* expression, int line) {
+  if (passed) return;
+  std::fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, line, expression);
+  ++g_failures;
+}
+
+#define CHECK(condition) expect(static_cast<bool>(condition), #condition, __LINE__)
 
 std::string slurp(const fs::path& path) {
-  std::ifstream file(path);
+  const std::ifstream file(path);
   std::ostringstream buffer;
   buffer << file.rdbuf();
   return buffer.str();
@@ -40,11 +41,11 @@ std::string slurp(const fs::path& path) {
 void test_checker() {
   using judge::checker::compare;
   CHECK(compare("1 2\n3\n", "1 2\n3\n").verdict == Verdict::Accepted);
-  CHECK(compare("1 2\n3\n", "1 2  \r\n3").verdict == Verdict::Accepted);        // trailing whitespace, CRLF
-  CHECK(compare("1 2\n3\n", "1 2\n3\n\n\n").verdict == Verdict::Accepted);      // trailing blank lines
+  CHECK(compare("1 2\n3\n", "1 2  \r\n3").verdict == Verdict::Accepted);    // trailing whitespace, CRLF
+  CHECK(compare("1 2\n3\n", "1 2\n3\n\n\n").verdict == Verdict::Accepted);  // trailing blank lines
   CHECK(compare("", "").verdict == Verdict::Accepted);
-  CHECK(compare("1 2\n3\n", "1\n2\n3\n").verdict == Verdict::PresentationError); // same tokens, other layout
-  CHECK(compare("1 2\n", " 1 2\n").verdict == Verdict::PresentationError);       // leading whitespace matters
+  CHECK(compare("1 2\n3\n", "1\n2\n3\n").verdict == Verdict::PresentationError);  // same tokens, other layout
+  CHECK(compare("1 2\n", " 1 2\n").verdict == Verdict::PresentationError);        // leading whitespace matters
   CHECK(compare("1 2\n3\n", "1 2\n4\n").verdict == Verdict::WrongAnswer);
   CHECK(compare("1 2\n3\n", "1 2\n4\n").message == "Line 2 differs");
   CHECK(compare("1\n2\n", "1\n").verdict == Verdict::WrongAnswer);
@@ -112,7 +113,7 @@ void test_sandbox(const fs::path& dir) {
   // Writing past the output limit is SIGXFSZ, i.e. Output Limit Exceeded.
   auto noisy = run(shell(dir, "exec yes"));
   CHECK(noisy.status == Status::OutputLimit);
-  CHECK(fs::file_size(dir.parent_path() / "out") <= 1024 * 1024);
+  CHECK(fs::file_size(dir.parent_path() / "out") <= std::uintmax_t{1024} * 1024);
 
   spec = shell(dir, "exec python3 -c 'b = bytearray(400 * 1024 * 1024); print(len(b))'");
   spec.limits.memory_kb = 131072;
@@ -151,9 +152,9 @@ void test_sandbox(const fs::path& dir) {
   std::this_thread::sleep_for(std::chrono::milliseconds(2500));
   CHECK(!fs::exists(dir / "straggler"));
 
-  // A missing program is the program's failure (127), not the sandbox's.
+  // A missing program is the program's failure, not the sandbox's.
   auto missing = run(shell(dir, "exec /no/such/program"));
-  CHECK(missing.status == Status::Exited && missing.exit_code == 127);
+  CHECK(missing.status == Status::Exited && missing.exit_code == judge::sandbox::kExitCannotExecute);
 }
 
 /** Compiles and runs C++23 inside the sandbox, as the judge does. */
@@ -184,7 +185,12 @@ int main() {
   compile.cwd = dir.string();
   compile.stdout_path = compile.stderr_path = (dir.parent_path() / "out").string();
   compile.single_cpu = false;
-  compile.limits = {.cpu_ms = 30000, .wall_ms = 60000, .memory_kb = 2097152, .output_kb = 65536, .max_processes = 256, .tmp_kb = 524288};
+  compile.limits = {.cpu_ms = 30000,
+                    .wall_ms = 60000,
+                    .memory_kb = 2097152,
+                    .output_kb = 65536,
+                    .max_processes = 256,
+                    .tmp_kb = 524288};
   auto built = judge::sandbox::run(compile);
   CHECK(built.status == Status::Exited && built.exit_code == 0);
   if (built.exit_code != 0) std::fprintf(stderr, "compile output:\n%s\n%s\n", out(dir).c_str(), built.error.c_str());

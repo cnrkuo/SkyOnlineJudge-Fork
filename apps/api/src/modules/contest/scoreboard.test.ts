@@ -1,6 +1,6 @@
 import { ContestStyle, TeamState, Verdict } from '@skyoj/contract';
 import { describe, expect, it } from 'vitest';
-import { buildScoreboard, type BoardSubmission } from './scoreboard.js';
+import { buildScoreboard, type ScoreboardSubmission } from './scoreboard.js';
 
 const startAt = new Date('2026-01-01T00:00:00Z');
 const at = (minutes: number) => new Date(startAt.getTime() + minutes * 60_000);
@@ -13,7 +13,7 @@ const users = [
   { id: 2, nickname: 'bob', state: TeamState.ACCEPTED },
   { id: 3, nickname: 'carol', state: TeamState.ACCEPTED },
 ];
-const sub = (userId: number, problemId: number, verdict: number, minute: number, score = 0): BoardSubmission => ({
+const sub = (userId: number, problemId: number, verdict: number, minute: number, score = 0): ScoreboardSubmission => ({
   userId,
   problemId,
   verdict,
@@ -68,11 +68,12 @@ describe('buildScoreboard (IOI)', () => {
       sub(3, 10, Verdict.AC, 4),
       sub(3, 20, Verdict.WA, 5, 20),
     ]);
-    const more = buildScoreboard(contest, problems, [...users, { id: 4, nickname: 'dave', state: TeamState.ACCEPTED }], [
-      sub(1, 10, Verdict.WA, 1, 40),
-      sub(2, 10, Verdict.WA, 3, 40),
-      sub(4, 10, Verdict.WA, 4, 10),
-    ]);
+    const more = buildScoreboard(
+      contest,
+      problems,
+      [...users, { id: 4, nickname: 'dave', state: TeamState.ACCEPTED }],
+      [sub(1, 10, Verdict.WA, 1, 40), sub(2, 10, Verdict.WA, 3, 40), sub(4, 10, Verdict.WA, 4, 10)],
+    );
     // Dense ranking: after two teams tied for first comes rank 2, not 3.
     expect(more.rows.map((r) => [r.user.nickname, r.rank])).toEqual([
       ['alice', 1],

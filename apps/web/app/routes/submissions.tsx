@@ -1,13 +1,26 @@
-import { Verdict, VERDICT_LABEL } from '@skyoj/contract';
+import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Form, Link, useSearchParams } from 'react-router';
-import { prefetch, type api } from '~/lib/api.server';
+import { type api, prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { paging, positive } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
-import { Button, ButtonLink, Card, Cluster, css, Empty, Field, Muted, PageHeader, Time, UserLink, VerdictBadge } from '~/ui';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  Cluster,
+  css,
+  Empty,
+  Field,
+  Muted,
+  PageHeader,
+  Time,
+  UserLink,
+  VerdictBadge,
+} from '~/ui';
 import { languageName } from '~/ui/code';
-import { DataTable, Pager, type Column } from '~/ui/data-table';
+import { type Column, DataTable, Pager } from '~/ui/data-table';
 import type { Route } from './+types/submissions';
 
 const verdicts = Object.values(Verdict);
@@ -36,7 +49,15 @@ type Submission = Awaited<ReturnType<typeof api.submission.list>>['items'][numbe
 
 const columns: Column<Submission>[] = [
   { id: 'id', header: '#', fixed: true, cell: (s) => <Link to={`/submissions/${s.id}`}>{s.id}</Link> },
-  { id: 'when', header: 'When', cell: (s) => <Muted><Time value={s.createdAt} /></Muted> },
+  {
+    id: 'when',
+    header: 'When',
+    cell: (s) => (
+      <Muted>
+        <Time value={s.createdAt} />
+      </Muted>
+    ),
+  },
   { id: 'user', header: 'User', cell: (s) => <UserLink user={s.user} /> },
   {
     id: 'problem',
@@ -49,7 +70,14 @@ const columns: Column<Submission>[] = [
     ),
   },
   { id: 'verdict', header: 'Verdict', fixed: true, cell: (s) => <VerdictBadge verdict={s.verdict} /> },
-  { id: 'score', header: 'Score', align: 'right', descFirst: true, sortValue: (s) => s.score, cell: (s) => Math.round(s.score * 100) / 100 },
+  {
+    id: 'score',
+    header: 'Score',
+    align: 'right',
+    descFirst: true,
+    sortValue: (s) => s.score,
+    cell: (s) => Math.round(s.score * 100) / 100,
+  },
   { id: 'time', header: 'Time', align: 'right', sortValue: (s) => s.timeMs, cell: (s) => `${s.timeMs} ms` },
   { id: 'memory', header: 'Memory', align: 'right', sortValue: (s) => s.memoryKb, cell: (s) => `${s.memoryKb} KB` },
   { id: 'language', header: 'Language', cell: (s) => <Muted>{languageName(s.language)}</Muted> },
@@ -83,10 +111,20 @@ export default function Submissions() {
             <Form method="get" key={params.toString()}>
               <Cluster align="end" gap="md">
                 <Field label="Problem #">
-                  <input className={css.inputWidth.xs} name="problem" inputMode="numeric" defaultValue={input.problemId ?? ''} />
+                  <input
+                    className={css.inputWidth.xs}
+                    name="problem"
+                    inputMode="numeric"
+                    defaultValue={input.problemId ?? ''}
+                  />
                 </Field>
                 <Field label="User #">
-                  <input className={css.inputWidth.xs} name="user" inputMode="numeric" defaultValue={input.userId ?? ''} />
+                  <input
+                    className={css.inputWidth.xs}
+                    name="user"
+                    inputMode="numeric"
+                    defaultValue={input.userId ?? ''}
+                  />
                 </Field>
                 <Field label="Verdict">
                   <select className={css.inputWidth.auto} name="verdict" defaultValue={input.verdict ?? ''}>

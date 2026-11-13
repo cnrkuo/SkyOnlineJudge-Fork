@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import { ContestProblemState, PARTICIPATING_STATES } from '@skyoj/contract';
+import { and, asc, count, desc, eq, inArray, lte, ne, sql } from 'drizzle-orm';
+import { GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { contestProblems, contests, contestUsers, problems, users } from '../../database/schema.js';
 
 export type ContestRow = typeof contests.$inferSelect;
@@ -130,15 +131,12 @@ export class ContestRepository {
    * contest is running and the problem is open for submissions there.
    */
   async grantsFor(userId: number, problemId: number, now: Date): Promise<{ read: boolean; submit: boolean }> {
-    if (userId === 0) return { read: false, submit: false };
+    if (userId === GUEST.id) return { read: false, submit: false };
     const rows = await this.db
       .select({ endAt: contests.endAt, state: contestProblems.state })
       .from(contestProblems)
       .innerJoin(contests, eq(contests.id, contestProblems.contestId))
-      .innerJoin(
-        contestUsers,
-        and(eq(contestUsers.contestId, contests.id), eq(contestUsers.userId, userId)),
-      )
+      .innerJoin(contestUsers, and(eq(contestUsers.contestId, contests.id), eq(contestUsers.userId, userId)))
       .where(
         and(
           eq(contestProblems.problemId, problemId),

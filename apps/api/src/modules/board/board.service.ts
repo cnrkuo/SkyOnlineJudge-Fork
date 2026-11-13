@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Verdict } from '@skyoj/contract';
-import { isAdmin, isUser, requireAdmin, requireUser, type Actor } from '../../common/actor.js';
+import { type Actor, isAdmin, isUser, requireAdmin, requireUser } from '../../common/actor.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors.js';
-import { pageOf, type PageInput } from '../../common/pagination.js';
+import { type PageInput, pageOf } from '../../common/pagination.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { UserRepository } from '../user/user.repository.js';
 import { BoardRepository } from './board.repository.js';

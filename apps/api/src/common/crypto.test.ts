@@ -10,7 +10,7 @@ describe('passwords', () => {
   });
 
   it('accepts hashes written by PHP password_hash(PASSWORD_BCRYPT)', async () => {
-        const legacy = '$2y$10$92n.WHfZxBLEGhGmEcsOGOK4cUsxFRu4gGfFKrxhYd6o8NuoGySHu'; // "secret"
+    const legacy = '$2y$10$92n.WHfZxBLEGhGmEcsOGOK4cUsxFRu4gGfFKrxhYd6o8NuoGySHu'; // "secret"
     expect(isLegacyHash(legacy)).toBe(true);
     expect(await verifyPassword('secret', legacy)).toBe(true);
     expect(await verifyPassword('definitely-not-it', legacy)).toBe(false);

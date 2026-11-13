@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, gt, ilike, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, gt, ilike, or, type SQL, sql } from 'drizzle-orm';
 import type { Actor } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
-import { DB, type Database } from '../../database/database.module.js';
+import { type Database, DB } from '../../database/database.module.js';
 import { attachments, problems, testcases, users } from '../../database/schema.js';
 
 export type ProblemRow = typeof problems.$inferSelect;
@@ -67,11 +67,7 @@ export class ProblemRepository {
         .orderBy(asc(problems.id))
         .limit(page.pageSize)
         .offset(offsetOf(page)),
-      this.db
-        .select({ n: count() })
-        .from(problems)
-        .innerJoin(users, eq(users.id, problems.ownerId))
-        .where(where),
+      this.db.select({ n: count() }).from(problems).innerJoin(users, eq(users.id, problems.ownerId)).where(where),
     ]);
     return { rows, total: total?.n ?? 0 };
   }

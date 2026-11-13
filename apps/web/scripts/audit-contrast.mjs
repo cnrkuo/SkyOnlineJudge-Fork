@@ -41,7 +41,13 @@ async function audit(page, label) {
     return result.violations.flatMap((violation) =>
       violation.nodes.map((node) => {
         const data = node.any[0]?.data ?? {};
-        return { ratio: data.contrastRatio, fg: data.fgColor, bg: data.bgColor, size: data.fontSize, target: node.target.join(' ') };
+        return {
+          ratio: data.contrastRatio,
+          fg: data.fgColor,
+          bg: data.bgColor,
+          size: data.fontSize,
+          target: node.target.join(' '),
+        };
       }),
     );
   });

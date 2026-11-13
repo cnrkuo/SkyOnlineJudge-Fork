@@ -68,8 +68,8 @@ Config load_config(const std::string& path) {
     }
   }
 
-  if (const char* url = std::getenv("SKYOJ_API_URL"); url && *url) config.api_url = url;
-  if (const char* token = std::getenv("SKYOJ_JUDGE_TOKEN"); token && *token) config.token = token;
+  if (const char* url = std::getenv("SKYOJ_API_URL"); url && *url != '\0') config.api_url = url;
+  if (const char* token = std::getenv("SKYOJ_JUDGE_TOKEN"); token && *token != '\0') config.token = token;
 
   if (config.token.empty()) throw std::runtime_error("no judge token configured (\"token\" or SKYOJ_JUDGE_TOKEN)");
   while (!config.api_url.empty() && config.api_url.back() == '/') config.api_url.pop_back();

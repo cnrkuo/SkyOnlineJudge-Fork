@@ -1,13 +1,28 @@
-import { Verdict, VERDICT_LABEL } from '@skyoj/contract';
+import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Form, Link } from 'react-router';
 import { api, load, seed, submit } from '~/lib/api.server';
 import { highlight } from '~/lib/highlight.server';
 import { orpc } from '~/lib/orpc';
 import { idParam } from '~/lib/params';
-import { Button, Callout, Card, CardBody, css, Field, Muted, Notice, PageHeader, Stack, Stats, Time, UserLink, VerdictBadge } from '~/ui';
+import {
+  Button,
+  Callout,
+  Card,
+  CardBody,
+  css,
+  Field,
+  Muted,
+  Notice,
+  PageHeader,
+  Stack,
+  Stats,
+  Time,
+  UserLink,
+  VerdictBadge,
+} from '~/ui';
 import { CodeView, languageName } from '~/ui/code';
-import { DataTable, type Column } from '~/ui/data-table';
+import { type Column, DataTable } from '~/ui/data-table';
 import { Tabs } from '~/ui/overlays';
 import type { Route } from './+types/submission';
 
@@ -29,7 +44,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   const form = await request.formData();
   const comment = String(form.get('comment') ?? '');
   const verdict = Object.values(Verdict).find((value) => String(value) === form.get('verdict'));
-  return { ...(await submit(request, (o) => api.submission.setComment({ id, comment, verdict }, o))), message: 'Saved.' };
+  return {
+    ...(await submit(request, (o) => api.submission.setComment({ id, comment, verdict }, o))),
+    message: 'Saved.',
+  };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Submission #${loaderData?.id ?? ''}` }];
@@ -40,7 +58,12 @@ type Result = Awaited<ReturnType<typeof api.submission.get>>['results'][number];
 
 const resultColumns: Column<Result>[] = [
   { id: 'n', header: '#', cell: (r) => r.ordinal + 1 },
-  { id: 'verdict', header: 'Verdict', sortValue: (r) => r.verdict, cell: (r) => <VerdictBadge verdict={r.verdict} long /> },
+  {
+    id: 'verdict',
+    header: 'Verdict',
+    sortValue: (r) => r.verdict,
+    cell: (r) => <VerdictBadge verdict={r.verdict} long />,
+  },
   { id: 'time', header: 'Time', align: 'right', sortValue: (r) => r.timeMs, cell: (r) => `${r.timeMs} ms` },
   { id: 'memory', header: 'Memory', align: 'right', sortValue: (r) => r.memoryKb, cell: (r) => `${r.memoryKb} KB` },
   { id: 'message', header: 'Message', cell: (r) => <Muted>{r.message}</Muted> },
@@ -56,7 +79,9 @@ export default function Submission({ loaderData, actionData }: Route.ComponentPr
     refetchInterval: (current) => (current.state.data && isPending(current.state.data.verdict) ? 1500 : false),
   });
   const rejudge = useMutation(
-    orpc.submission.rejudge.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: options.queryKey }) }),
+    orpc.submission.rejudge.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: options.queryKey }),
+    }),
   );
   if (!submission) return null;
   const pending = isPending(submission.verdict);
@@ -80,14 +105,24 @@ export default function Submission({ loaderData, actionData }: Route.ComponentPr
           {
             id: 'testcases',
             label: `Testcases (${submission.results.length})`,
-            content: <DataTable data={submission.results} columns={resultColumns} rowKey={(r) => r.testcaseId} empty={null} />,
+            content: (
+              <DataTable data={submission.results} columns={resultColumns} rowKey={(r) => r.testcaseId} empty={null} />
+            ),
           },
         ]
       : []),
     {
       id: 'source',
       label: 'Source code',
-      content: <CardBody>{codeHtml === null ? <Muted>The source code of this submission is not public.</Muted> : <CodeView html={codeHtml} />}</CardBody>,
+      content: (
+        <CardBody>
+          {codeHtml === null ? (
+            <Muted>The source code of this submission is not public.</Muted>
+          ) : (
+            <CodeView html={codeHtml} />
+          )}
+        </CardBody>
+      ),
     },
   ];
 

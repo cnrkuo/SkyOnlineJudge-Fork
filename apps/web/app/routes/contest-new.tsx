@@ -1,9 +1,9 @@
 import { ContestStyle, RegisterType, UserLevel } from '@skyoj/contract';
 import { redirect } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
-import { Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseContestForm } from '~/lib/contest-form.server';
+import { Measure, PageHeader } from '~/ui';
 import type { Route } from './+types/contest-new';
 
 export async function loader({ request }: Route.LoaderArgs) {

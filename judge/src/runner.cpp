@@ -23,7 +23,7 @@ const std::vector<std::string> kEnvironment = {
 };
 
 std::string read_text(const fs::path& path) {
-  std::ifstream file(path, std::ios::binary);
+  const std::ifstream file(path, std::ios::binary);
   std::ostringstream buffer;
   buffer << file.rdbuf();
   return std::move(buffer).str();
@@ -124,8 +124,8 @@ std::optional<Runner::Failure> Runner::build(const LanguageSpec& spec, const std
     // The program's uid must traverse into the box but never into io/.
     fs::permissions(root, fs::perms::owner_all | fs::perms::group_exec | fs::perms::others_exec);
     fs::permissions(io, fs::perms::owner_all);
-    fs::permissions(box, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec |
-                             fs::perms::others_read | fs::perms::others_exec);
+    fs::permissions(box, fs::perms::owner_all | fs::perms::group_read | fs::perms::group_exec | fs::perms::others_read |
+                             fs::perms::others_exec);
     std::ofstream(box / spec.source, std::ios::binary) << code;
     if (::geteuid() == 0) {
       // The compiler runs as the unprivileged uid and writes into the box.
@@ -182,7 +182,7 @@ Report Runner::judge(const Task& task) {
   const LanguageSpec& spec = language->second;
 
   const fs::path root = fs::path(config_.work_dir) / format("%d-%d", task.submission_id, static_cast<int>(::getpid()));
-  ScopedDirectory cleanup{root};
+  const ScopedDirectory cleanup{root};
   if (auto failed = build(spec, task.code, root)) return failure(task, failed->verdict, std::move(failed->message));
   const fs::path io = root / "io";
   const sandbox::RunSpec base = base_spec(root);
@@ -219,16 +219,18 @@ std::string Runner::check_toolchain(const std::string& language) {
     code = "#include <stdio.h>\nint main(void) { puts(\"ok\"); return 0; }\n";
   } else if (extension == ".cpp" || extension == ".cc" || extension == ".cxx") {
     // <iostream> and <vector> catch a missing standard library (libc++).
-    code = "#include <iostream>\n#include <vector>\n"
-           "int main() { std::vector<const char*> v{\"ok\"}; std::cout << v[0] << '\\n'; }\n";
+    code =
+        "#include <iostream>\n#include <vector>\n"
+        "int main() { std::vector<const char*> v{\"ok\"}; std::cout << v[0] << '\\n'; }\n";
   } else if (extension == ".py") {
     code = "print('ok')\n";
   } else {
     return {};
   }
 
-  const fs::path root = fs::path(config_.work_dir) / format(".check-%s-%d", language.c_str(), static_cast<int>(::getpid()));
-  ScopedDirectory cleanup{root};
+  const fs::path root =
+      fs::path(config_.work_dir) / format(".check-%s-%d", language.c_str(), static_cast<int>(::getpid()));
+  const ScopedDirectory cleanup{root};
   if (auto failed = build(spec, code, root)) return failed->message;
 
   sandbox::RunSpec run = base_spec(root);

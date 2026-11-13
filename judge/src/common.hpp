@@ -30,7 +30,7 @@ enum class Verdict : int {
   va_start(args, fmt);
   va_list copy;
   va_copy(copy, args);
-  int size = std::vsnprintf(nullptr, 0, fmt, copy);
+  const int size = std::vsnprintf(nullptr, 0, fmt, copy);
   va_end(copy);
   std::string out(size > 0 ? static_cast<std::size_t>(size) : 0, '\0');
   if (size > 0) std::vsnprintf(out.data(), out.size() + 1, fmt, args);
@@ -41,7 +41,7 @@ enum class Verdict : int {
 /** Timestamped line on stderr; the daemon is expected to run under a supervisor. */
 inline void log(const char* level, const std::string& message) {
   char stamp[32];
-  std::time_t now = std::time(nullptr);
+  const std::time_t now = std::time(nullptr);
   std::tm tm{};
   localtime_r(&now, &tm);
   std::strftime(stamp, sizeof stamp, "%F %T", &tm);

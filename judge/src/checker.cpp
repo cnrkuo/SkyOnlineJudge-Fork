@@ -30,23 +30,24 @@ std::vector<std::string_view> normalized_lines(std::string_view text) {
 /** Advances to the next whitespace-separated token; empty at end of input. */
 std::string_view next_token(std::string_view text, std::size_t& position) {
   while (position < text.size() && is_space(text[position])) ++position;
-  std::size_t begin = position;
+  const std::size_t begin = position;
   while (position < text.size() && !is_space(text[position])) ++position;
   return text.substr(begin, position - begin);
 }
 
 bool same_tokens(std::string_view a, std::string_view b) {
-  std::size_t pa = 0, pb = 0;
+  std::size_t pa = 0;
+  std::size_t pb = 0;
   for (;;) {
-    std::string_view ta = next_token(a, pa);
-    std::string_view tb = next_token(b, pb);
+    const std::string_view ta = next_token(a, pa);
+    const std::string_view tb = next_token(b, pb);
     if (ta != tb) return false;
     if (ta.empty()) return true;
   }
 }
 
 bool read_file(const std::string& path, std::string& out) {
-  std::ifstream file(path, std::ios::binary);
+  const std::ifstream file(path, std::ios::binary);
   if (!file) return false;
   std::ostringstream buffer;
   buffer << file.rdbuf();
@@ -77,7 +78,8 @@ Outcome compare(std::string_view expected, std::string_view actual) {
 }
 
 Outcome compare_files(const std::string& expected_path, const std::string& actual_path) {
-  std::string expected, actual;
+  std::string expected;
+  std::string actual;
   if (!read_file(expected_path, expected)) return {Verdict::JudgeError, 0.0, "Cannot read the expected output"};
   if (!read_file(actual_path, actual)) return {Verdict::JudgeError, 0.0, "Cannot read the program output"};
   return compare(expected, actual);

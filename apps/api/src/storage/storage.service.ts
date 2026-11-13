@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
 import * as fs from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
+import { Injectable } from '@nestjs/common';
 import { config } from '../config.js';
 
 /**
@@ -34,6 +34,5 @@ export class StorageService {
 
   static testdataDir = (problemId: number) => join('problems', String(problemId), 'testdata');
   static testdataKey = (problemId: number, sha256: string) => join(StorageService.testdataDir(problemId), sha256);
-  static attachmentKey = (problemId: number, name: string) =>
-    join('problems', String(problemId), 'attachments', name);
+  static attachmentKey = (problemId: number, name: string) => join('problems', String(problemId), 'attachments', name);
 }

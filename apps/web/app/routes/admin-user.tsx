@@ -1,7 +1,7 @@
 import { Form } from 'react-router';
+import { api, load, submit } from '~/lib/api.server';
 import { idParam } from '~/lib/params';
 import { Button, ButtonLink, Card, Field, Measure, Notice, PageHeader, Stack } from '~/ui';
-import { api, load, submit } from '~/lib/api.server';
 import type { Route } from './+types/admin-user';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -33,7 +33,10 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `Edit user
 export default function AdminUser({ loaderData: user, actionData }: Route.ComponentProps) {
   return (
     <Measure size="page">
-      <PageHeader title={`Edit user #${user.id}`} actions={<ButtonLink to="/admin">Back to administration</ButtonLink>} />
+      <PageHeader
+        title={`Edit user #${user.id}`}
+        actions={<ButtonLink to="/admin">Back to administration</ButtonLink>}
+      />
       <Card>
         <Form method="post">
           <Stack>

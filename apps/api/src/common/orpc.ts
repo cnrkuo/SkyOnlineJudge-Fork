@@ -4,6 +4,9 @@ import { DomainError } from './errors.js';
 
 const logger = new Logger('oRPC');
 
+/** Result of procedures that only report success (`OkSchema`). */
+export const OK = { ok: true } as const;
+
 /**
  * Translates service-layer {@link DomainError}s into the typed errors declared
  * in the contract, and logs anything unexpected before it becomes a 500.

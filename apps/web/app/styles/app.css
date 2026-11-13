@@ -12,11 +12,12 @@
 
 /* ------------------------------------------------------------ theme */
 
-:root[data-bs-theme='dark'] {
+:root[data-bs-theme="dark"] {
   /* IBM Plex (self-hosted via @fontsource); CJK falls back to system fonts. */
-  --bs-font-sans-serif: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', 'Noto Sans TC', 'PingFang TC',
-    'Microsoft JhengHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-  --bs-font-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --bs-font-sans-serif:
+    "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --bs-font-monospace: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Nearly square corners: 2 px on controls, 3 px at most anywhere.
      Bootstrap's defaults are 6 px, 8 px and up to 32 px. */
@@ -35,8 +36,8 @@
  * actually contains an equation.
  */
 @font-face {
-  font-family: 'SkyOJ Math';
-  src: url('@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2') format('woff2');
+  font-family: "SkyOJ Math";
+  src: url("@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2") format("woff2");
   font-display: swap;
 }
 
@@ -281,7 +282,7 @@ blockquote {
 .oj-tabs .nav-link {
   color: var(--bs-secondary-color);
 }
-.oj-tabs .nav-link[data-state='active'] {
+.oj-tabs .nav-link[data-state="active"] {
   color: var(--bs-nav-tabs-link-active-color);
   background-color: var(--bs-card-bg, var(--bs-body-bg));
   border-color: var(--bs-nav-tabs-link-active-border-color);
@@ -396,7 +397,8 @@ blockquote {
 }
 /* Math is MathML laid out by the browser with a system (or fallback) math font. */
 .oj-prose math {
-  font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', 'SkyOJ Math', math;
+  /* biome-ignore lint/a11y/useGenericFontNames: `math` is the generic family (CSS Fonts 4). */
+  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "SkyOJ Math", math;
   font-size: 1.1em;
 }
 .oj-prose .math-display {
@@ -411,8 +413,10 @@ blockquote {
 /* Malformed TeX: Temml's message, kept on one compact line. Temml colours
    it with an inline #b22222 (2.3 : 1 here), hence the !important. */
 .oj-prose .temml-error {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Temml's inline style. */
   color: var(--bs-danger-text-emphasis) !important;
   font-family: var(--bs-font-monospace);
   font-size: 0.875rem;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Temml's inline style. */
   white-space: normal !important;
 }

@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Language, UserLevel } from '@skyoj/contract';
-import { requireAdmin, type Actor } from '../../common/actor.js';
+import { type Actor, requireAdmin } from '../../common/actor.js';
 import { hashPassword, randomToken, sha256 } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
-import { pageOf, type PageInput } from '../../common/pagination.js';
+import { type PageInput, pageOf } from '../../common/pagination.js';
 import { SessionRepository } from '../auth/session.repository.js';
 import { JudgeRepository, type JudgeRow } from '../judge/judge.repository.js';
 import { UserRepository } from '../user/user.repository.js';
@@ -76,7 +76,7 @@ export class AdminService {
       throw new ForbiddenError('You may not edit this user');
     }
     if (input.nickname && input.nickname !== target.nickname) {
-      if (await this.users.emailOrNicknameTaken('', input.nickname, target.id)) {
+      if (await this.users.nicknameTaken(input.nickname, target.id)) {
         throw new ConflictError('This nickname is already taken');
       }
     }

@@ -1,4 +1,4 @@
-import { API_URL } from '~/lib/site.server';
+import { apiUrl } from '~/lib/orpc';
 import { getToken } from '~/lib/session.server';
 import type { Route } from './+types/rpc';
 
@@ -32,7 +32,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   const headers = new Headers({ 'Content-Type': request.headers.get('Content-Type') ?? 'application/json' });
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const upstream = await fetch(`${API_URL}/${procedure}`, {
+  const upstream = await fetch(`${apiUrl()}/${procedure}`, {
     method: 'POST',
     headers,
     body: request.body,

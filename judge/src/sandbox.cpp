@@ -5,16 +5,17 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
+#include <string_view>
 
 #include <fcntl.h>
 #include <poll.h>
-#include <signal.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <csignal>
 
 #include "common.hpp"
 
@@ -33,6 +34,8 @@ constexpr const char* kInitPath = "/.skyoj-init";
 constexpr int kStatusFd = 3;
 /** nsjail logs to this descriptor; the judge reads it only when something failed. */
 constexpr int kLogFd = 4;
+/** How nsjail reports a jail it had to kill (shell convention: 128 + signal). */
+constexpr int kKilledStatus = 128 + SIGKILL;
 /** Inside uid/gid when the judge is not root (any id works; only one can be mapped). */
 constexpr unsigned kUnprivilegedId = 1000;
 
@@ -64,6 +67,18 @@ constexpr const char* kSeccompPolicy =
     "  ERRNO(38) { clone3 }"
     "} USE judge DEFAULT ALLOW";
 
+/**
+ * Writes to `fd` from a child process that is about to exit; a failure cannot
+ * be reported anywhere, so it is deliberately ignored.
+ */
+void write_best_effort(int fd, const void* data, std::size_t size) {
+  [[maybe_unused]] const ssize_t written = ::write(fd, data, size);
+}
+
+void write_best_effort(int fd, std::string_view text) {
+  write_best_effort(fd, text.data(), text.size());
+}
+
 std::string mib(std::int64_t kb) {
   return std::to_string(std::max<std::int64_t>(1, (kb + 1023) / 1024));
 }
@@ -90,7 +105,8 @@ void add_system_mounts(std::vector<std::string>& args) {
   for (const char* path : {"/etc/ld.so.cache", "/etc/alternatives"}) {
     if (fs::exists(path)) args.insert(args.end(), {"--bindmount_ro", path});
   }
-  args.insert(args.end(), {"--bindmount", "/dev/null", "--bindmount_ro", "/dev/zero", "--bindmount_ro", "/dev/urandom"});
+  args.insert(args.end(),
+              {"--bindmount", "/dev/null", "--bindmount_ro", "/dev/zero", "--bindmount_ro", "/dev/urandom"});
 }
 
 std::vector<std::string> nsjail_args(const RunSpec& spec) {
@@ -101,6 +117,8 @@ std::vector<std::string> nsjail_args(const RunSpec& spec) {
   const std::string outer_uid = root ? uid : std::to_string(::geteuid());
   const std::string outer_gid = root ? gid : std::to_string(::getegid());
 
+  // Flag/value pairs share a line.
+  // clang-format off
   std::vector<std::string> args = {
       g_settings.nsjail, "--mode", "o",
       "--log_fd", std::to_string(kLogFd),
@@ -124,6 +142,7 @@ std::vector<std::string> nsjail_args(const RunSpec& spec) {
       "--time_limit", std::to_string((limits.wall_ms + 999) / 1000 + 1),
       "--pass_fd", std::to_string(kStatusFd),
   };
+  // clang-format on
   if (spec.single_cpu) args.insert(args.end(), {"--max_cpus", "1"});
   if (spec.syscall_filter) args.insert(args.end(), {"--seccomp_string", kSeccompPolicy});
 
@@ -152,24 +171,25 @@ std::vector<std::string> nsjail_args(const RunSpec& spec) {
                       ? ::dup(out)
                       : open_or_null(spec.stderr_path, O_WRONLY | O_CREAT | O_TRUNC);
   if (in < 0 || out < 0 || err < 0) {
-    (void)!::write(log_fd, "cannot open the standard streams\n", 33);
-    ::_exit(126);
+    write_best_effort(log_fd, "cannot open the standard streams\n");
+    ::_exit(kExitSetupFailed);
   }
   // Lift the pipes clear of 0–4 first, so no dup2 below overwrites a source.
   status_fd = ::fcntl(status_fd, F_DUPFD_CLOEXEC, 10);
   log_fd = ::fcntl(log_fd, F_DUPFD_CLOEXEC, 10);
   if (status_fd < 0 || log_fd < 0 || ::dup2(in, 0) < 0 || ::dup2(out, 1) < 0 || ::dup2(err, 2) < 0 ||
       ::dup2(status_fd, kStatusFd) < 0 || ::dup2(log_fd, kLogFd) < 0) {
-    ::_exit(126);
+    ::_exit(kExitSetupFailed);
   }
   std::vector<char*> argv;
+  argv.reserve(args.size());
   for (auto& arg : args) argv.push_back(arg.data());
   argv.push_back(nullptr);
   // nsjail clears the environment for the jail; only PATH matters here, to find nsjail.
   ::execvp(argv[0], argv.data());
   const std::string message = "cannot execute " + args[0] + ": " + std::strerror(errno) + "\n";
-  (void)!::write(kLogFd, message.data(), message.size());
-  ::_exit(127);
+  write_best_effort(kLogFd, message);
+  ::_exit(kExitCannotExecute);
 }
 
 /** Waits up to `timeout_ms` for `pid`; true when it exited. */
@@ -187,7 +207,9 @@ bool wait_for_exit(pid_t pid, std::int64_t timeout_ms, int& status) {
     const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
     if (left <= 0) break;
     if (pidfd >= 0) {
-      struct pollfd pfd {pidfd, POLLIN, 0};
+      struct pollfd pfd {
+        pidfd, POLLIN, 0
+      };
       ::poll(&pfd, 1, static_cast<int>(std::min<long long>(left, 1000)));
     } else {
       ::usleep(1000);
@@ -258,7 +280,7 @@ RunResult run(const RunSpec& spec) {
   const pid_t pid = ::fork();
   if (pid < 0) {
     result.error = std::string("fork: ") + std::strerror(errno);
-    for (int fd : {status_pipe[0], status_pipe[1], log_pipe[0], log_pipe[1]}) ::close(fd);
+    for (const int fd : {status_pipe[0], status_pipe[1], log_pipe[0], log_pipe[1]}) ::close(fd);
     return result;
   }
   if (pid == 0) exec_nsjail(spec, args, status_pipe[1], log_pipe[1]);
@@ -284,7 +306,8 @@ RunResult run(const RunSpec& spec) {
   if (!reported) {
     // The program never finished under the init: either the jail was killed
     // at the wall-clock limit, or it could not be set up at all.
-    if (timed_out || (WIFEXITED(status) && WEXITSTATUS(status) == 137) || log.find("time limit") != std::string::npos) {
+    if (timed_out || (WIFEXITED(status) && WEXITSTATUS(status) == kKilledStatus) ||
+        log.find("time limit") != std::string::npos) {
       result.status = Status::TimeLimit;
       result.cpu_ms = spec.limits.cpu_ms;
       return result;
@@ -310,7 +333,8 @@ RunResult run(const RunSpec& spec) {
   } else if (WIFSIGNALED(report.status)) {
     // SIGKILL here is the hard RLIMIT_CPU limit when it came in just under the
     // measured limit; anything else is a crash.
-    result.status = result.signal == SIGKILL && result.cpu_ms + 1000 >= spec.limits.cpu_ms ? Status::TimeLimit : Status::Signaled;
+    result.status =
+        result.signal == SIGKILL && result.cpu_ms + 1000 >= spec.limits.cpu_ms ? Status::TimeLimit : Status::Signaled;
   } else {
     result.status = Status::Exited;
   }
@@ -319,25 +343,25 @@ RunResult run(const RunSpec& spec) {
 
 int init_main(int argc, char** argv) {
   // <exe> --sandbox-init <fd> <program> [args…]
-  if (argc < 4) return 125;
+  if (argc < 4) return kExitInitFailed;
   const int report_fd = std::atoi(argv[2]);
   ::fcntl(report_fd, F_SETFD, FD_CLOEXEC);
 
   const pid_t child = ::fork();
-  if (child < 0) return 125;
+  if (child < 0) return kExitInitFailed;
   if (child == 0) {
     ::execvp(argv[3], argv + 3);
     const std::string message = std::string("cannot execute ") + argv[3] + ": " + std::strerror(errno) + "\n";
-    (void)!::write(STDERR_FILENO, message.data(), message.size());
-    ::_exit(127);
+    write_best_effort(STDERR_FILENO, message);
+    ::_exit(kExitCannotExecute);
   }
   // As PID 1 this process also inherits every orphan; only the program's own
   // status matters, and the namespace takes the rest down when it exits.
   ExitReport report{};
   while (::wait4(child, &report.status, 0, &report.usage) < 0) {
-    if (errno != EINTR) return 125;
+    if (errno != EINTR) return kExitInitFailed;
   }
-  (void)!::write(report_fd, &report, sizeof report);
+  write_best_effort(report_fd, &report, sizeof report);
   return 0;
 }
 

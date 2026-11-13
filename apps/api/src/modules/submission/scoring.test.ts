@@ -19,8 +19,20 @@ describe('computeScore', () => {
       [30, 1],
     ];
     const verdicts = [Verdict.AC, Verdict.AC, Verdict.AC, Verdict.WA, Verdict.AC];
-    expect(computeScore(ScoreMode.GROUP_MIN, groups, verdicts.map((v, i) => result(i, v)))).toBe(50);
-    expect(computeScore(ScoreMode.GROUP_MIN, groups, verdicts.map((_, i) => result(i, Verdict.AC)))).toBe(100);
+    expect(
+      computeScore(
+        ScoreMode.GROUP_MIN,
+        groups,
+        verdicts.map((v, i) => result(i, v)),
+      ),
+    ).toBe(50);
+    expect(
+      computeScore(
+        ScoreMode.GROUP_MIN,
+        groups,
+        verdicts.map((_, i) => result(i, Verdict.AC)),
+      ),
+    ).toBe(100);
   });
 
   it('group_min: uses partial checker scores and ignores ungrouped testcases', () => {
@@ -40,7 +52,9 @@ describe('computeScore', () => {
 
 describe('overallVerdict', () => {
   it('is the worst testcase verdict', () => {
-    expect(overallVerdict([{ verdict: Verdict.AC }, { verdict: Verdict.TLE }, { verdict: Verdict.WA }])).toBe(Verdict.TLE);
+    expect(overallVerdict([{ verdict: Verdict.AC }, { verdict: Verdict.TLE }, { verdict: Verdict.WA }])).toBe(
+      Verdict.TLE,
+    );
     expect(overallVerdict([{ verdict: Verdict.AC }])).toBe(Verdict.AC);
   });
 });

@@ -1,4 +1,4 @@
-import { Verdict, VERDICT_LABEL, VERDICT_SHORT } from '@skyoj/contract';
+import { VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@skyoj/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
@@ -8,9 +8,9 @@ import { renderMarkdown } from '~/lib/markdown.server';
 import { orpc } from '~/lib/orpc';
 import { idParam } from '~/lib/params';
 import { Button, ButtonLink, Card, css, Empty, Muted, Notice, PageHeader, Stack, Time, UserLink, useRoot } from '~/ui';
-import { DataTable, type Column } from '~/ui/data-table';
-import { Tip } from '~/ui/overlays';
 import { table } from '~/ui/classes';
+import { type Column, DataTable } from '~/ui/data-table';
+import { Tip } from '~/ui/overlays';
 import type { Route } from './+types/board';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -43,15 +43,37 @@ export default function Board({ loaderData }: Route.ComponentProps) {
   const queryClient = useQueryClient();
   const options = orpc.board.get.queryOptions({ input: { id } });
   const { data: board } = useQuery({ ...options, refetchInterval: 60_000 });
-  const join = useMutation(orpc.board.join.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: options.queryKey }) }));
+  const join = useMutation(
+    orpc.board.join.mutationOptions({ onSuccess: () => queryClient.invalidateQueries({ queryKey: options.queryKey }) }),
+  );
 
   const columns = useMemo<Column<Row>[]>(() => {
     if (!board) return [];
     const total = board.problems.length;
     return [
-      { id: 'user', header: 'User', fixed: true, sortValue: (r) => r.user.nickname.toLowerCase(), cell: (r) => <UserLink user={r.user} /> },
-      { id: 'score', header: 'Score', align: 'right', descFirst: true, sortValue: (r) => r.score, cell: (r) => <strong>{round(r.score)}</strong> },
-      { id: 'ac', header: 'AC', align: 'right', descFirst: true, sortValue: (r) => r.accepted, cell: (r) => r.accepted },
+      {
+        id: 'user',
+        header: 'User',
+        fixed: true,
+        sortValue: (r) => r.user.nickname.toLowerCase(),
+        cell: (r) => <UserLink user={r.user} />,
+      },
+      {
+        id: 'score',
+        header: 'Score',
+        align: 'right',
+        descFirst: true,
+        sortValue: (r) => r.score,
+        cell: (r) => <strong>{round(r.score)}</strong>,
+      },
+      {
+        id: 'ac',
+        header: 'AC',
+        align: 'right',
+        descFirst: true,
+        sortValue: (r) => r.accepted,
+        cell: (r) => r.accepted,
+      },
       {
         id: 'rate',
         header: 'Rate',
@@ -98,7 +120,8 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         title={board.title}
         meta={
           <>
-            Submissions from <Time value={board.startAt} /> to <Time value={board.endAt} /> · by <UserLink user={board.owner} />
+            Submissions from <Time value={board.startAt} /> to <Time value={board.endAt} /> · by{' '}
+            <UserLink user={board.owner} />
           </>
         }
         actions={

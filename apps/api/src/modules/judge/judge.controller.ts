@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { Implement, implement } from '@orpc/nest';
 import { contract } from '@skyoj/contract';
 import { BearerToken } from '../../common/auth.guard.js';
+import { OK } from '../../common/orpc.js';
 import { JudgeService } from './judge.service.js';
 
 const os = implement(contract.judge);
@@ -13,16 +14,17 @@ export class JudgeController {
 
   @Implement(contract.judge)
   routes(@BearerToken() token: string | undefined) {
-    const { judge } = this;
     return {
-      fetch: os.fetch.handler(async ({ input }) => judge.fetch(await judge.authenticate(token), input.languages)),
+      fetch: os.fetch.handler(async ({ input }) =>
+        this.judge.fetch(await this.judge.authenticate(token), input.languages),
+      ),
       testdata: os.testdata.handler(async ({ input }) => {
-        await judge.authenticate(token);
-        return judge.testdata(input.testcaseId, input.kind);
+        await this.judge.authenticate(token);
+        return this.judge.testdata(input.testcaseId, input.kind);
       }),
       report: os.report.handler(async ({ input }) => {
-        await judge.report(await judge.authenticate(token), input);
-        return { ok: true as const };
+        await this.judge.report(await this.judge.authenticate(token), input);
+        return OK;
       }),
     };
   }

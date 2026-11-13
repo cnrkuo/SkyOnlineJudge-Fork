@@ -3,12 +3,19 @@
  * names of their own; the Bootstrap classes behind them live in classes.ts.
  * See docs/design.md.
  */
-import { ContestPhase, Verdict, VERDICT_LABEL, VERDICT_SHORT } from '@skyoj/contract';
-import { cloneElement, isValidElement, type ButtonHTMLAttributes, type ComponentProps, type ReactElement, type ReactNode } from 'react';
+import { ContestPhase, VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@skyoj/contract';
+import {
+  type ButtonHTMLAttributes,
+  type ComponentProps,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Link, useRouteLoaderData } from 'react-router';
 import { formatDateTime } from '~/lib/time';
 import type { loader as rootLoader } from '~/root';
-import { css, type ButtonVariant, type Tone } from './classes';
+import { type ButtonVariant, css, type Tone } from './classes';
 import { Tip } from './overlays';
 
 export { css };
@@ -127,14 +134,23 @@ export function Button({
   ...props
 }: ButtonStyle & { busy?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button {...props} className={cx(css.button({ variant, size, block }), className)} aria-busy={busy || undefined} disabled={props.disabled || busy}>
+    <button
+      {...props}
+      className={cx(css.button({ variant, size, block }), className)}
+      aria-busy={busy || undefined}
+      disabled={props.disabled || busy}>
       {busy && <span className={css.spinner} aria-hidden />} {children}
     </button>
   );
 }
 
 /** A navigation link that looks like a button. */
-export function ButtonLink({ variant = 'secondary', size, block, ...props }: ButtonStyle & ComponentProps<typeof Link>) {
+export function ButtonLink({
+  variant = 'secondary',
+  size,
+  block,
+  ...props
+}: ButtonStyle & ComponentProps<typeof Link>) {
   return <Link {...props} role="button" className={css.button({ variant, size, block })} />;
 }
 
@@ -157,6 +173,7 @@ function control(element: ReactNode): ReactNode {
  */
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: the control is `children`, wrapped by control().
     <label className={css.field}>
       <span className={css.fieldLabel}>{label}</span>
       {control(children)}
@@ -190,20 +207,12 @@ export function Notice({ result }: { result?: { ok: boolean; error?: string; mes
     );
   }
   if (!result.message) return null;
-  return (
-    <div role="status" className={css.alert.success}>
-      {result.message}
-    </div>
-  );
+  return <output className={`d-block ${css.alert.success}`}>{result.message}</output>;
 }
 
 /** Standing information about the page's state (not the result of an action). */
 export function Callout({ tone = 'primary', children }: { tone?: Tone; children: ReactNode }) {
-  return (
-    <div role="status" className={css.alert[tone]}>
-      {children}
-    </div>
-  );
+  return <output className={`d-block ${css.alert[tone]}`}>{children}</output>;
 }
 
 // ------------------------------------------------------------ data display
@@ -222,7 +231,11 @@ export function verdictTone(verdict: Verdict): Tone {
 }
 
 export function VerdictBadge({ verdict, long = false }: { verdict: Verdict; long?: boolean }) {
-  const label = <span className={cx(css.toneText[verdictTone(verdict)], css.nowrap)}>{long ? VERDICT_LABEL[verdict] : VERDICT_SHORT[verdict]}</span>;
+  const label = (
+    <span className={cx(css.toneText[verdictTone(verdict)], css.nowrap)}>
+      {long ? VERDICT_LABEL[verdict] : VERDICT_SHORT[verdict]}
+    </span>
+  );
   return long ? label : <Tip label={VERDICT_LABEL[verdict]}>{label}</Tip>;
 }
 
@@ -257,7 +270,9 @@ export function Muted({ children, small = false }: { children: ReactNode; small?
 // ------------------------------------------------------------ app helpers
 
 export function useRoot() {
-  return useRouteLoaderData<typeof rootLoader>('root')!;
+  const data = useRouteLoaderData<typeof rootLoader>('root');
+  if (!data) throw new Error('useRoot() is only available below the root route');
+  return data;
 }
 
 export function UserLink({ user }: { user: { id: number; nickname: string } }) {

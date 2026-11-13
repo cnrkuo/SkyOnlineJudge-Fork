@@ -1,6 +1,6 @@
 import { UserLevel } from '@skyoj/contract';
-import { HydrationBoundary, QueryClient, QueryClientProvider, type DehydratedState } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { type DehydratedState, HydrationBoundary, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type ReactNode, useState } from 'react';
 import {
   data,
   Form,
@@ -84,10 +84,18 @@ export function Layout({ children }: { children: ReactNode }) {
  * starts with data on the server and in the browser alike.
  */
 function Hydrated({ children }: { children: ReactNode }) {
-  const states = useMatches()
-    .map((match) => (match.loaderData as { dehydrated?: DehydratedState } | undefined)?.dehydrated)
-    .filter((state) => state !== undefined);
-  return states.reduceRight<ReactNode>((inner, state) => <HydrationBoundary state={state}>{inner}</HydrationBoundary>, children);
+  const prefetched = useMatches().flatMap((match) => {
+    const state = (match.loaderData as { dehydrated?: DehydratedState } | undefined)?.dehydrated;
+    return state ? [{ routeId: match.id, state }] : [];
+  });
+  return prefetched.reduceRight<ReactNode>(
+    (inner, { routeId, state }) => (
+      <HydrationBoundary key={routeId} state={state}>
+        {inner}
+      </HydrationBoundary>
+    ),
+    children,
+  );
 }
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) => (isActive ? shell.navLinkActive : shell.navLink);
@@ -188,7 +196,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       <h1>{title}</h1>
       <p className={css.muted}>{detail}</p>
       <p>
-        <a role="button" className={css.button({ variant: 'secondary' })} href="/">
+        <a className={css.button({ variant: 'secondary' })} href="/">
           Back to the home page
         </a>
       </p>

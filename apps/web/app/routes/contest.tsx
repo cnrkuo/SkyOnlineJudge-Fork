@@ -1,12 +1,30 @@
 import { ContestPhase, ContestProblemState, ContestStyle, RegisterType, TeamState } from '@skyoj/contract';
 import { Form, Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
-import { idParam } from '~/lib/params';
-import { Badge, Button, ButtonLink, Callout, Card, Cluster, css, Empty, Field, Muted, Notice, PageHeader, PhaseBadge, Stack, Time, UserLink, useRoot } from '~/ui';
-import { DataTable, type Column } from '~/ui/data-table';
 import { api, load, submit } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
+import { idParam } from '~/lib/params';
 import { formatDuration } from '~/lib/time';
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  Callout,
+  Card,
+  Cluster,
+  css,
+  Empty,
+  Field,
+  Muted,
+  Notice,
+  PageHeader,
+  PhaseBadge,
+  Stack,
+  Time,
+  UserLink,
+  useRoot,
+} from '~/ui';
+import { type Column, DataTable } from '~/ui/data-table';
 import type { Route } from './+types/contest';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -68,7 +86,9 @@ function Registration({ contest, loggedIn }: { contest: Contest; loggedIn: boole
           </Field>
         )}
         <Button>Register</Button>
-        {contest.registerType === RegisterType.PERMIT_REQUIRED && <Muted small>An administrator has to approve your registration.</Muted>}
+        {contest.registerType === RegisterType.PERMIT_REQUIRED && (
+          <Muted small>An administrator has to approve your registration.</Muted>
+        )}
       </Cluster>
     </Form>
   );
@@ -82,7 +102,11 @@ const problemColumns: Column<Contest['problems'][number]>[] = [
     header: 'Status',
     align: 'right',
     cell: (p) =>
-      p.state === ContestProblemState.READONLY ? <Badge>submissions closed</Badge> : p.state === ContestProblemState.HIDDEN ? <Badge>hidden from participants</Badge> : null,
+      p.state === ContestProblemState.READONLY ? (
+        <Badge>submissions closed</Badge>
+      ) : p.state === ContestProblemState.HIDDEN ? (
+        <Badge>hidden from participants</Badge>
+      ) : null,
   },
 ];
 

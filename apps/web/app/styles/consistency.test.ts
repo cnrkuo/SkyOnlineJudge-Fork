@@ -31,7 +31,9 @@ const pages = components.filter((path) => !rel(path).startsWith('ui/'));
 function offenders(paths: string[], pattern: RegExp): string[] {
   return paths.flatMap((path) => {
     const lines = code(read(path)).split('\n');
-    return lines.flatMap((line, index) => (pattern.test(line) ? [`${rel(path)}:${index + 1}: ${line.trim().slice(0, 80)}`] : []));
+    return lines.flatMap((line, index) =>
+      pattern.test(line) ? [`${rel(path)}:${index + 1}: ${line.trim().slice(0, 80)}`] : [],
+    );
   });
 }
 
@@ -41,7 +43,9 @@ describe('interface consistency', () => {
   });
 
   it('styles with Bootstrap plus exactly one stylesheet of our own', () => {
-    expect(files(appDir, (name) => name.endsWith('.css') || name.endsWith('.css.ts')).map(rel)).toEqual(['styles/app.css']);
+    expect(files(appDir, (name) => name.endsWith('.css') || name.endsWith('.css.ts')).map(rel)).toEqual([
+      'styles/app.css',
+    ]);
     const manifest = JSON.parse(read(join(appDir, '..', 'package.json'))) as { dependencies: Record<string, string> };
     expect(manifest.dependencies.bootstrap).toMatch(/^\^5\./);
     expect(JSON.stringify(manifest)).not.toMatch(/tailwind|vanilla-extract|react-bootstrap|"@popperjs/);
@@ -49,7 +53,7 @@ describe('interface consistency', () => {
 
   it('prefixes every class of its own with oj- so it cannot collide with Bootstrap', () => {
     const css = read(join(appDir, 'styles/app.css')).replace(/\/\*[\s\S]*?\*\//g, '');
-    const own = [...css.matchAll(/(?:^|[\s,>+~(])\.([a-zA-Z][\w-]*)/gm)].map((match) => match[1]!);
+    const own = [...css.matchAll(/(?:^|[\s,>+~(])\.([a-zA-Z][\w-]*)/gm)].map(([, name = '']) => name);
     // Bootstrap/Radix/Shiki/Temml hooks that app.css is allowed to refine.
     const allowed = new Set(['dropdown-item', 'nav-link', 'line', 'math-display', 'temml-error']);
     expect(own.filter((name) => !name.startsWith('oj-') && !allowed.has(name))).toEqual([]);
@@ -66,13 +70,15 @@ describe('interface consistency', () => {
     const root = read(join(appDir, 'root.tsx'));
     expect(root).toMatch(/@fontsource\/ibm-plex-sans\//);
     expect(root).toMatch(/@fontsource\/ibm-plex-mono\//);
-    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-sans-serif:\s*'IBM Plex Sans'/);
-    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-monospace:\s*'IBM Plex Mono'/);
+    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-sans-serif:\s*['"]IBM Plex Sans['"]/);
+    expect(read(join(appDir, 'styles/app.css'))).toMatch(/--bs-font-monospace:\s*['"]IBM Plex Mono['"]/);
     expect(offenders(sources, /fonts\.(googleapis|gstatic)\.com|use\.typekit|fonts\.bunny/)).toEqual([]);
   });
 
   it('keeps corners nearly square (at most 3 px)', () => {
-    const radii = [...read(join(appDir, 'styles/app.css')).matchAll(/--bs-border-radius(?:-\w+)?:\s*([\d.]+)rem/g)].map((m) => Number(m[1]));
+    const radii = [...read(join(appDir, 'styles/app.css')).matchAll(/--bs-border-radius(?:-\w+)?:\s*([\d.]+)rem/g)].map(
+      (m) => Number(m[1]),
+    );
     expect(radii.length).toBeGreaterThanOrEqual(5);
     expect(radii.every((rem) => rem <= 0.1875)).toBe(true);
     expect(offenders(sources, /rounded-(pill|circle|[3-5])\b/)).toEqual([]);

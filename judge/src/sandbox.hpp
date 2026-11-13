@@ -101,6 +101,11 @@ struct RunResult {
 RunResult run(const RunSpec& spec);
 
 /** Argument that switches the executable into its in-jail init role. */
+/** Exit statuses the sandbox itself produces, following the shell's conventions. */
+inline constexpr int kExitInitFailed = 125;     // the init could not run or wait for the program
+inline constexpr int kExitSetupFailed = 126;    // the standard streams could not be set up
+inline constexpr int kExitCannotExecute = 127;  // the program (or nsjail) could not be executed
+
 inline constexpr const char* kInitFlag = "--sandbox-init";
 
 /**

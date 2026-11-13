@@ -13,11 +13,10 @@ export class CodepadController {
 
   @Implement(contract.codepad)
   routes(@CurrentActor() actor: Actor) {
-    const { codepads } = this;
     return {
-      create: os.create.handler(({ input }) => codepads.create(actor, input)),
-      get: os.get.handler(({ input }) => codepads.get(input.hash)),
-      mine: os.mine.handler(() => codepads.mine(actor)),
+      create: os.create.handler(({ input }) => this.codepads.create(actor, input)),
+      get: os.get.handler(({ input }) => this.codepads.get(input.hash)),
+      mine: os.mine.handler(() => this.codepads.mine(actor)),
     };
   }
 }

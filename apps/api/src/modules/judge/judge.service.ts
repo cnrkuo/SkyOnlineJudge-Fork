@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Verdict, type Language } from '@skyoj/contract';
+import { type Language, Verdict } from '@skyoj/contract';
 import { sha256 } from '../../common/crypto.js';
 import { NotFoundError, UnauthorizedError } from '../../common/errors.js';
+import type { StoredTestResult } from '../../database/schema.js';
 import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
 import { MessageBroker, Queue } from '../../messaging/message-broker.js';
-import type { StoredTestResult } from '../../database/schema.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { computeScore, overallVerdict, ScoreError } from '../submission/scoring.js';
-import { SubmissionRepository, type JudgedResult, type SubmissionRow } from '../submission/submission.repository.js';
+import { type JudgedResult, SubmissionRepository, type SubmissionRow } from '../submission/submission.repository.js';
 import { JudgeRepository, type JudgeRow } from './judge.repository.js';
 
 export interface JudgeReport {

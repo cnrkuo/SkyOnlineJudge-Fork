@@ -1,8 +1,8 @@
 import { BoardForm } from '~/components/board-form';
-import { idParam } from '~/lib/params';
-import { ButtonLink, Measure, PageHeader } from '~/ui';
 import { api, load, submit } from '~/lib/api.server';
 import { parseBoardForm } from '~/lib/board-form.server';
+import { idParam } from '~/lib/params';
+import { ButtonLink, Measure, PageHeader } from '~/ui';
 import type { Route } from './+types/board-edit';
 
 export async function loader({ request, params }: Route.LoaderArgs) {

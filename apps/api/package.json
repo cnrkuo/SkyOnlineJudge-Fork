@@ -1,0 +1,38 @@
+{
+  "name": "@skyoj/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && (tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch-path=dist $(test -f .env && echo --env-file=.env) dist/main.js)",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.4.2",
+    "@nestjs/core": "^12.4.2",
+    "@nestjs/platform-fastify": "^12.4.2",
+    "@orpc/contract": "^1.16.2",
+    "@orpc/nest": "^1.16.2",
+    "@orpc/server": "^1.16.2",
+    "@skyoj/contract": "workspace:*",
+    "amqplib": "^2.3.1",
+    "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.8",
+    "fflate": "^0.8.2",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

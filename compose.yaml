@@ -1,0 +1,125 @@
+# Development stack — everything in containers, source code live-reloaded.
+#
+#   docker compose up            (or: pnpm docker:dev)
+#
+# Web: http://localhost:3000 · API: http://localhost:3001 ·
+# RabbitMQ console: http://localhost:15672 (guest / guest) ·
+# PostgreSQL: localhost:5432 (skyoj / skyoj).
+#
+# The repository is bind-mounted, so edits on the host rebuild the contract,
+# restart the API and hot-reload the web app. Containers run as uid 1000; set
+# DEV_UID / DEV_GID if your user has another id (`id -u`, `id -g`). Local
+# tweaks belong in compose.override.yaml (git-ignored, loaded automatically).
+# Production uses compose.prod.yaml instead.
+
+name: skyoj-dev
+
+x-workspace: &workspace
+  image: skyoj-dev-node
+  user: '${DEV_UID:-1000}:${DEV_GID:-1000}'
+  working_dir: /workspace
+  init: true
+  volumes:
+    - .:/workspace
+    - node_modules:/workspace/node_modules
+    - contract_node_modules:/workspace/packages/contract/node_modules
+    - api_node_modules:/workspace/apps/api/node_modules
+    - web_node_modules:/workspace/apps/web/node_modules
+
+services:
+  # Installs dependencies and builds the contract once, then exits.
+  install:
+    <<: *workspace
+    build:
+      context: .
+      dockerfile: docker/dev.Dockerfile
+      secrets: [ca]
+    command: sh -c 'pnpm install --frozen-lockfile && pnpm --filter @skyoj/contract build'
+
+  contract:
+    <<: *workspace
+    command: pnpm --filter @skyoj/contract dev
+    depends_on:
+      install: { condition: service_completed_successfully }
+
+  api:
+    <<: *workspace
+    command: pnpm --filter @skyoj/api dev
+    environment:
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://skyoj:skyoj@postgres:5432/skyoj
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      DATA_DIR: /workspace/apps/api/data
+      # Lets the judge service below log in. Development only.
+      BUNDLED_JUDGE_TOKEN: skyoj_judge_development_only_not_a_secret
+    ports: ['127.0.0.1:3001:3001']
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/auth/me',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 5s
+      start_period: 120s
+    depends_on:
+      install: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_started }
+
+  web:
+    <<: *workspace
+    command: pnpm --filter @skyoj/web dev --host 0.0.0.0
+    environment:
+      API_URL: http://api:3001
+      SESSION_SECRET: development-only
+      COOKIE_SECURE: 'false'
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      install: { condition: service_completed_successfully }
+      api: { condition: service_started }
+
+  judge:
+    build:
+      context: .
+      dockerfile: judge/Dockerfile
+      secrets: [ca]
+    image: skyoj-dev-judge
+    # Each submission runs in its own nsjail jail. Creating its namespaces
+    # and mounts needs these relaxed (no extra capabilities, no devices);
+    # nsjail applies its own seccomp policy to every submission.
+    security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
+    environment:
+      SKYOJ_API_URL: http://api:3001
+      SKYOJ_JUDGE_TOKEN: skyoj_judge_development_only_not_a_secret
+    volumes: [judge_work:/var/lib/skyoj-judge]
+    depends_on:
+      api: { condition: service_healthy }
+
+  postgres:
+    image: docker.io/library/postgres:16
+    environment:
+      POSTGRES_USER: skyoj
+      POSTGRES_PASSWORD: skyoj
+      POSTGRES_DB: skyoj
+    ports: ['127.0.0.1:5432:5432']
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'skyoj']
+      interval: 2s
+
+  rabbitmq:
+    image: docker.io/library/rabbitmq:3.13-management
+    hostname: rabbitmq
+    ports: ['127.0.0.1:5672:5672', '127.0.0.1:15672:15672']
+    volumes: [rabbitmq:/var/lib/rabbitmq]
+
+secrets:
+  # Optional CA certificate (PEM text) for builds behind a TLS-intercepting
+  # proxy: BUILD_CA_CERT="$(cat proxy-ca.pem)". Empty when unset.
+  ca:
+    environment: BUILD_CA_CERT
+
+volumes:
+  node_modules:
+  contract_node_modules:
+  api_node_modules:
+  web_node_modules:
+  judge_work:
+  postgres:
+  rabbitmq:

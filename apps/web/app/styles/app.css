@@ -1,0 +1,422 @@
+/*
+ * The application's own stylesheet, loaded after Bootstrap 5.
+ *
+ * Bootstrap provides the look, always in its dark colour mode. This file
+ *   1. sets the site's typeface and corner radius through Bootstrap's own
+ *      variables (the theme block below), and
+ *   2. adds what Bootstrap has no class for.
+ * Everything else is expressed in Bootstrap's CSS variables (--bs-*). Class
+ * names are prefixed `oj-` and are referenced from ui/classes.ts only.
+ * `styles/contrast.test.ts` checks every text/background pair used here.
+ */
+
+/* ------------------------------------------------------------ theme */
+
+:root[data-bs-theme="dark"] {
+  /* IBM Plex (self-hosted via @fontsource); CJK falls back to system fonts. */
+  --bs-font-sans-serif:
+    "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --bs-font-monospace: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Nearly square corners: 2 px on controls, 3 px at most anywhere.
+     Bootstrap's defaults are 6 px, 8 px and up to 32 px. */
+  --bs-border-radius: 0.125rem;
+  --bs-border-radius-sm: 0.125rem;
+  --bs-border-radius-lg: 0.1875rem;
+  --bs-border-radius-xl: 0.1875rem;
+  --bs-border-radius-xxl: 0.1875rem;
+}
+
+/* ------------------------------------------------------------ fonts */
+
+/*
+ * Fallback math font for MathML. It sits last in the math font stack, so
+ * browsers download it only when the system has no math font and the page
+ * actually contains an equation.
+ */
+@font-face {
+  font-family: "SkyOJ Math";
+  src: url("@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2") format("woff2");
+  font-display: swap;
+}
+
+/* ----------------------------------------------------------- layout */
+
+.oj-min0 {
+  min-width: 0;
+}
+/* Takes the remaining room in a row, even when it is a full-width control. */
+.oj-grow {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.oj-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+.oj-grid-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.oj-split {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .oj-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .oj-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 992px) {
+  .oj-split-narrow {
+    grid-template-columns: minmax(0, 1fr) 19rem;
+  }
+  .oj-split-wide {
+    grid-template-columns: minmax(0, 1fr) 23rem;
+  }
+  .oj-split-half {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+.oj-measure-form {
+  width: 100%;
+  max-width: 24rem;
+  margin-inline: auto;
+}
+.oj-measure-page {
+  width: 100%;
+  max-width: 50rem;
+  margin-inline: auto;
+}
+
+.oj-w-xs {
+  width: 6rem;
+}
+.oj-w-sm {
+  width: 10rem;
+}
+.oj-w-md {
+  width: 16rem;
+}
+
+/* ----------------------------------------------------- legibility */
+
+/* Primary button one shade darker than Bootstrap's #0d6efd, which puts its
+   white label at exactly 4.5 : 1 — the bare minimum. */
+.oj-btn-primary {
+  --bs-btn-bg: #0b5ed7;
+  --bs-btn-border-color: #0b5ed7;
+  --bs-btn-hover-bg: #0a58ca;
+  --bs-btn-hover-border-color: #0a58ca;
+  --bs-btn-active-bg: #0a53be;
+  --bs-btn-active-border-color: #0a53be;
+}
+
+/* Secondary and danger buttons: Bootstrap's dark-mode outline colours
+   (#6c757d, #dc3545) are under 3.5 : 1 against the page. */
+.oj-btn-secondary {
+  --bs-btn-color: var(--bs-body-color);
+  --bs-btn-border-color: var(--bs-gray-600);
+  --bs-btn-hover-color: var(--bs-emphasis-color);
+  --bs-btn-hover-bg: var(--bs-secondary-bg);
+  --bs-btn-hover-border-color: var(--bs-gray-500);
+  --bs-btn-active-color: var(--bs-emphasis-color);
+  --bs-btn-active-bg: var(--bs-secondary-bg);
+  --bs-btn-active-border-color: var(--bs-gray-500);
+  --bs-btn-disabled-color: var(--bs-secondary-color);
+  --bs-btn-disabled-border-color: var(--bs-border-color);
+}
+.oj-btn-danger {
+  --bs-btn-color: var(--bs-danger-text-emphasis);
+  --bs-btn-hover-color: var(--bs-white);
+  --bs-btn-active-color: var(--bs-white);
+}
+
+/* Field borders at 3 : 1 against the page, so inputs are visible as inputs
+   (Bootstrap's dark border colour is 1.9 : 1). Focus styles still win. */
+.oj-control {
+  border-color: var(--bs-gray-600);
+}
+
+/* ------------------------------------------------------------- text */
+
+.oj-num {
+  font-variant-numeric: tabular-nums;
+}
+.oj-pre-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.oj-code-size {
+  font-size: 0.875rem;
+}
+.oj-avatar {
+  width: 4rem;
+  height: 4rem;
+  object-fit: cover;
+}
+blockquote {
+  padding-left: 1rem;
+  border-left: 0.25rem solid var(--bs-border-color);
+  color: var(--bs-secondary-color);
+}
+
+/* ------------------------------------------------------------ table */
+
+.oj-table > :not(caption) > * > * {
+  padding-inline: 0.75rem;
+}
+.oj-table > tbody > tr:last-child > * {
+  border-bottom-width: 0;
+}
+/* Links in dense tables are underlined on hover only. */
+.oj-table a {
+  text-decoration: none;
+}
+.oj-table a:hover {
+  text-decoration: underline;
+}
+.oj-table > thead > tr > .oj-th {
+  /* Bootstrap paints table cells from these variables. */
+  --bs-table-bg: var(--bs-tertiary-bg);
+  --bs-table-color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* A sortable header: the whole label is the button. */
+.oj-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.oj-sort:hover {
+  color: var(--bs-emphasis-color);
+}
+.oj-row-own > * {
+  box-shadow: inset 0 0 0 9999px var(--bs-primary-bg-subtle);
+}
+.oj-score-cell {
+  min-width: 3.5rem;
+  line-height: 1.25;
+  text-align: center;
+}
+.oj-score-cell a {
+  color: inherit;
+  text-decoration: none;
+}
+.oj-score-sub {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+/* ----------------------------------------------- Radix UI overlays */
+
+.oj-pop {
+  --bs-dropdown-min-width: 11rem;
+  /* Bootstrap hard-codes #6c757d here (3.3 : 1 in dark mode). */
+  --bs-dropdown-header-color: var(--bs-secondary-color);
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.dropdown-item {
+  cursor: pointer;
+  user-select: none;
+}
+/* Radix marks the keyboard/hover target with data-highlighted. */
+.dropdown-item[data-highlighted] {
+  outline: none;
+  background-color: var(--bs-dropdown-link-hover-bg);
+  color: var(--bs-dropdown-link-hover-color);
+}
+.oj-menu-indicator {
+  display: inline-flex;
+  width: 1rem;
+  justify-content: center;
+  color: var(--bs-primary);
+}
+.oj-tooltip {
+  z-index: 1080;
+  max-width: 18rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-emphasis-color);
+  color: var(--bs-body-bg);
+  font-size: 0.875rem;
+}
+.oj-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.oj-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1055;
+  width: min(30rem, calc(100vw - 2rem));
+  transform: translate(-50%, -50%);
+}
+.oj-tabs .nav-link {
+  color: var(--bs-secondary-color);
+}
+.oj-tabs .nav-link[data-state="active"] {
+  color: var(--bs-nav-tabs-link-active-color);
+  background-color: var(--bs-card-bg, var(--bs-body-bg));
+  border-color: var(--bs-nav-tabs-link-active-border-color);
+  border-bottom-color: var(--bs-card-bg, var(--bs-body-bg));
+}
+
+/* ------------------------------------------------- highlighted code */
+
+/*
+ * Shiki (server-side) emits spans coloured by these variables. Every token
+ * colour is at least 7 : 1 against the code background.
+ */
+.oj-code {
+  --shiki-foreground: var(--bs-body-color);
+  --shiki-background: transparent;
+  --shiki-token-comment: #a3acb6;
+  --shiki-token-keyword: #d2a8ff;
+  --shiki-token-string: #7ee787;
+  --shiki-token-string-expression: #7ee787;
+  --shiki-token-constant: #f2cc60;
+  --shiki-token-function: #79c0ff;
+  --shiki-token-parameter: var(--bs-emphasis-color);
+  --shiki-token-punctuation: var(--bs-body-color);
+  --shiki-token-link: var(--bs-link-color);
+
+  overflow-x: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-tertiary-bg);
+}
+.oj-code pre {
+  min-width: max-content;
+  margin: 0;
+  padding: 0.75rem 0;
+  background: transparent;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.oj-code code {
+  display: block;
+  counter-reset: line;
+  color: inherit;
+  font-size: inherit;
+}
+.oj-code .line {
+  display: inline-block;
+  min-width: 100%;
+  padding-inline: 1rem;
+}
+/* Line numbers come from CSS so that copying the code never includes them. */
+.oj-code-numbered .line {
+  padding-left: 0;
+}
+.oj-code-numbered .line::before {
+  content: counter(line);
+  counter-increment: line;
+  display: inline-block;
+  width: 3rem;
+  margin-right: 1rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid var(--bs-border-color);
+  color: var(--bs-secondary-color);
+  text-align: right;
+  user-select: none;
+}
+
+/* ------------------------------------------------ rendered Markdown */
+
+.oj-prose {
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+.oj-prose > :last-child {
+  margin-bottom: 0;
+}
+/* Statements sit on a page that already has a title; keep theirs modest. */
+.oj-prose h1 {
+  font-size: 1.5rem;
+}
+.oj-prose h2 {
+  font-size: 1.25rem;
+}
+.oj-prose h3 {
+  font-size: 1.1rem;
+}
+.oj-prose h1,
+.oj-prose h2,
+.oj-prose h3 {
+  margin-top: 1.5rem;
+}
+.oj-prose > :first-child {
+  margin-top: 0;
+}
+.oj-prose table {
+  width: auto;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+.oj-prose th,
+.oj-prose td {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--bs-border-color);
+}
+.oj-prose th {
+  background-color: var(--bs-tertiary-bg);
+}
+.oj-prose img {
+  max-width: 100%;
+}
+.oj-prose .oj-code {
+  margin-bottom: 1rem;
+}
+/* Math is MathML laid out by the browser with a system (or fallback) math font. */
+.oj-prose math {
+  /* biome-ignore lint/a11y/useGenericFontNames: `math` is the generic family (CSS Fonts 4). */
+  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "SkyOJ Math", math;
+  font-size: 1.1em;
+}
+.oj-prose .math-display {
+  margin-bottom: 1rem;
+  padding: 0.25rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.oj-prose .math-display > math {
+  display: block math;
+}
+/* Malformed TeX: Temml's message, kept on one compact line. Temml colours
+   it with an inline #b22222 (2.3 : 1 here), hence the !important. */
+.oj-prose .temml-error {
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Temml's inline style. */
+  color: var(--bs-danger-text-emphasis) !important;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875rem;
+  /* biome-ignore lint/complexity/noImportantStyles: overrides Temml's inline style. */
+  white-space: normal !important;
+}

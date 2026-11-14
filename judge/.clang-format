@@ -1,0 +1,11 @@
+# C++ formatting for the judge. Matches the TypeScript side (Biome): two
+# spaces, 120 columns.
+BasedOnStyle: Google
+ColumnLimit: 120
+DerivePointerAlignment: false
+PointerAlignment: Left
+IncludeBlocks: Preserve
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+QualifierAlignment: Left

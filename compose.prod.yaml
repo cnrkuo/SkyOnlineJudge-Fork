@@ -1,0 +1,111 @@
+# Production stack — prebuilt images, secrets from an env file.
+#
+#   pnpm docker:prod     (= sh docker/prod.sh: creates .env.production with
+#                         fresh secrets on first run, then builds and starts)
+#
+# Afterwards manage it with
+#   docker compose -f compose.prod.yaml --env-file .env.production <command>
+#
+# Only the web app is published (WEB_BIND:WEB_PORT). Put a TLS-terminating
+# reverse proxy in front of it: the session cookie is Secure by default.
+
+name: skyoj
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  postgres:
+    <<: *restart
+    image: docker.io/library/postgres:16
+    environment:
+      POSTGRES_USER: skyoj
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run docker/prod.sh to create .env.production}
+      POSTGRES_DB: skyoj
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'skyoj']
+      interval: 5s
+
+  rabbitmq:
+    <<: *restart
+    image: docker.io/library/rabbitmq:3.13-alpine
+    # RabbitMQ keys its data directory by host name; keep it fixed.
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: skyoj
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run docker/prod.sh to create .env.production}
+    volumes: [rabbitmq:/var/lib/rabbitmq]
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      start_period: 30s
+
+  api:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      secrets: [ca]
+    image: skyoj/api:${SKYOJ_TAG:-latest}
+    environment:
+      DATABASE_URL: postgres://skyoj:${POSTGRES_PASSWORD}@postgres:5432/skyoj
+      RABBITMQ_URL: amqp://skyoj:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      BUNDLED_JUDGE_TOKEN: ${JUDGE_TOKEN:?run docker/prod.sh to create .env.production}
+      JUDGE_TIMEOUT_SEC: ${JUDGE_TIMEOUT_SEC:-600}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
+    volumes: [api_data:/var/lib/skyoj/data]
+    # Judges on other machines connect here; publish it on a private
+    # interface (API_BIND) if you run any.
+    ports: ['${API_BIND:-127.0.0.1}:${API_PORT:-3001}:3001']
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+
+  web:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      secrets: [ca]
+    image: skyoj/web:${SKYOJ_TAG:-latest}
+    environment:
+      API_URL: http://api:3001
+      SESSION_SECRET: ${SESSION_SECRET:?run docker/prod.sh to create .env.production}
+      SITE_NAME: ${SITE_NAME:-Sky Online Judge}
+      SITE_TIMEZONE: ${SITE_TIMEZONE:-Asia/Taipei}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
+    ports: ['${WEB_BIND:-0.0.0.0}:${WEB_PORT:-3000}:3000']
+    depends_on:
+      api: { condition: service_healthy }
+
+  judge:
+    <<: *restart
+    build:
+      context: .
+      dockerfile: judge/Dockerfile
+      secrets: [ca]
+    image: skyoj/judge:${SKYOJ_TAG:-latest}
+    # Each submission runs in its own nsjail jail. Creating its namespaces
+    # and mounts needs these relaxed (no extra capabilities, no devices);
+    # nsjail applies its own seccomp policy to every submission.
+    security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
+    environment:
+      SKYOJ_API_URL: http://api:3001
+      SKYOJ_JUDGE_TOKEN: ${JUDGE_TOKEN}
+    volumes: [judge_work:/var/lib/skyoj-judge]
+    depends_on:
+      api: { condition: service_healthy }
+
+secrets:
+  # Optional CA certificate (PEM text) for builds behind a TLS-intercepting
+  # proxy: BUILD_CA_CERT="$(cat proxy-ca.pem)". Empty when unset.
+  ca:
+    environment: BUILD_CA_CERT
+
+volumes:
+  postgres:
+  rabbitmq:
+  api_data:
+  judge_work:

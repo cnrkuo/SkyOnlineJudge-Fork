@@ -197,6 +197,15 @@ describe('contrast (dark mode, WCAG AA)', () => {
     );
   });
 
+  it('every verdict colour on every surface', () => {
+    const kinds = Object.keys(vars).filter((name) => name.startsWith('--oj-verdict-'));
+    expect(kinds).toHaveLength(7);
+    check(
+      kinds.flatMap((kind) => onSurfaces(kind, `var(${kind})`)),
+      4.5,
+    );
+  });
+
   it('every syntax-highlighting colour on the code background', () => {
     const code = scoped(/\.oj-code\s*\{/);
     const tokens = Object.keys(code).filter((name) => name.startsWith('--shiki-') && name !== '--shiki-background');

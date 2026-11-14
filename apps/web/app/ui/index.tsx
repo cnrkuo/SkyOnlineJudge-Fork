@@ -15,7 +15,7 @@ import {
 import { Link, useRouteLoaderData } from 'react-router';
 import { formatDateTime } from '~/lib/time';
 import type { loader as rootLoader } from '~/root';
-import { type ButtonVariant, css, type Tone } from './classes';
+import { type ButtonVariant, css, type Tone, type VerdictKind } from './classes';
 import { Tip } from './overlays';
 
 export { css };
@@ -221,18 +221,28 @@ export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: R
   return <span className={css.badge[tone]}>{children}</span>;
 }
 
-/** Every verdict maps to one tone, everywhere it appears. */
-export function verdictTone(verdict: Verdict): Tone {
-  if (verdict === Verdict.AC) return 'success';
-  if (verdict === Verdict.WAIT || verdict === Verdict.JUDGING) return 'neutral';
-  if (verdict === Verdict.CE || verdict === Verdict.JE || verdict === Verdict.SE) return 'info';
-  if (verdict === Verdict.TLE || verdict === Verdict.MLE || verdict === Verdict.OLE) return 'warning';
-  return 'danger';
-}
+/** Every verdict belongs to one kind, and so has one colour, everywhere it appears. */
+const VERDICT_KIND: Record<Verdict, VerdictKind> = {
+  [Verdict.AC]: 'accepted',
+  [Verdict.PE]: 'wrong',
+  [Verdict.WA]: 'wrong',
+  [Verdict.TLE]: 'limit',
+  [Verdict.MLE]: 'limit',
+  [Verdict.OLE]: 'limit',
+  [Verdict.RE]: 'runtime',
+  [Verdict.CE]: 'compile',
+  [Verdict.RF]: 'restricted',
+  [Verdict.WAIT]: 'neutral',
+  [Verdict.JUDGING]: 'neutral',
+  [Verdict.JE]: 'neutral',
+  [Verdict.SE]: 'neutral',
+};
+
+export const verdictKind = (verdict: Verdict): VerdictKind => VERDICT_KIND[verdict];
 
 export function VerdictBadge({ verdict, long = false }: { verdict: Verdict; long?: boolean }) {
   const label = (
-    <span className={cx(css.toneText[verdictTone(verdict)], css.nowrap)}>
+    <span className={cx(css.verdictText[verdictKind(verdict)], css.nowrap)}>
       {long ? VERDICT_LABEL[verdict] : VERDICT_SHORT[verdict]}
     </span>
   );

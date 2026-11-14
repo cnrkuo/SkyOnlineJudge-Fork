@@ -35,6 +35,17 @@
   --bs-tertiary-bg-rgb: 21, 23, 26;
   --bs-secondary-bg: #202327;
   --bs-secondary-bg-rgb: 32, 35, 39;
+
+  /* Verdict colours: one family per kind of outcome, all at the same OKLCH
+     lightness (0.78) so none looks brighter than another; only hue and
+     chroma differ. `verdict-colours.test.ts` checks the lightness. */
+  --oj-verdict-accepted: #31d78c; /* emerald: AC */
+  --oj-verdict-wrong: #f983f7; /* magenta: WA, PE */
+  --oj-verdict-limit: #c9a1ff; /* violet: TLE, MLE, OLE */
+  --oj-verdict-runtime: #9fb3fe; /* indigo: RE */
+  --oj-verdict-compile: #e5ae0d; /* gold: CE */
+  --oj-verdict-restricted: #ff8fb7; /* pink: RF */
+  --oj-verdict-neutral: #b7b7b7; /* white at the same lightness: waiting, judging, JE, SE */
 }
 
 /* ------------------------------------------------------------ fonts */
@@ -48,6 +59,30 @@
   font-family: "SkyOJ Math";
   src: url("@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2") format("woff2");
   font-display: swap;
+}
+
+/* ---------------------------------------------------------- verdicts */
+
+.oj-verdict-accepted {
+  color: var(--oj-verdict-accepted);
+}
+.oj-verdict-wrong {
+  color: var(--oj-verdict-wrong);
+}
+.oj-verdict-limit {
+  color: var(--oj-verdict-limit);
+}
+.oj-verdict-runtime {
+  color: var(--oj-verdict-runtime);
+}
+.oj-verdict-compile {
+  color: var(--oj-verdict-compile);
+}
+.oj-verdict-restricted {
+  color: var(--oj-verdict-restricted);
+}
+.oj-verdict-neutral {
+  color: var(--oj-verdict-neutral);
 }
 
 /* ----------------------------------------------------------- layout */

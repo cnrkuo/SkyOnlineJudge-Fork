@@ -21,6 +21,18 @@ const tones = Object.keys(bs) as Tone[];
 const byTone = (build: (name: string, tone: Tone) => string) =>
   Object.fromEntries(tones.map((tone) => [tone, build(bs[tone], tone)])) as Record<Tone, string>;
 
+/** Kinds of verdict; each has its own colour (see `--oj-verdict-*` in app.css). */
+export type VerdictKind = 'accepted' | 'wrong' | 'limit' | 'runtime' | 'compile' | 'restricted' | 'neutral';
+export const VERDICT_KINDS: readonly VerdictKind[] = [
+  'accepted',
+  'wrong',
+  'limit',
+  'runtime',
+  'compile',
+  'restricted',
+  'neutral',
+];
+
 type Gap = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 const gapClass: Record<Gap, string> = { xs: 'gap-1', sm: 'gap-2', md: 'gap-3', lg: 'gap-4', xl: 'gap-5' };
 
@@ -109,6 +121,11 @@ export const css = {
     (name) => `badge rounded-1 fw-medium bg-${name}-subtle text-${name}-emphasis border border-${name}-subtle`,
   ),
   notice: 'rounded p-3',
+  /** Verdict text, in its kind's colour. */
+  verdictText: Object.fromEntries(VERDICT_KINDS.map((kind) => [kind, `fw-semibold oj-verdict-${kind}`])) as Record<
+    VerdictKind,
+    string
+  >,
 
   // ---- data display
   stat: 'card card-body py-2',

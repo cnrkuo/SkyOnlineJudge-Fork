@@ -150,14 +150,35 @@ without JavaScript.
 Bootstrap's theme colours are used for meaning only, and each means the same
 thing everywhere:
 
-| Colour | Means | Verdicts |
+| Colour | Means |
+| --- | --- |
+| `success` (green) | It worked; solved on a scoreboard |
+| `danger` (red) | Destructive action; failed on a scoreboard |
+| `warning` (yellow) | Partial credit on a scoreboard |
+| `secondary` (grey) | Nothing to report yet |
+| `primary` (blue) | Links, the main action, "your row" on a scoreboard |
+
+### Verdict colours
+
+Verdicts have a palette of their own, one colour per kind of outcome
+(`--oj-verdict-*` in `app.css`, mapped in `verdictKind()` in `ui/index.tsx`):
+
+| Colour | Verdicts | Value |
 | --- | --- | --- |
-| `success` (green) | It worked | Accepted |
-| `danger` (red) | Wrong answer; destructive action | WA, PE, RE, RF |
-| `warning` (yellow) | A limit was exceeded; partial credit | TLE, MLE, OLE |
-| `info` (cyan) | Not the algorithm's fault | CE, JE, SE |
-| `secondary` (grey) | Nothing to report yet | Waiting, Judging |
-| `primary` (blue) | Links, the main action, "your row" on a scoreboard | — |
+| Emerald | AC | `#31d78c` |
+| Magenta | WA, PE | `#f983f7` |
+| Violet | TLE, MLE, OLE | `#c9a1ff` |
+| Indigo | RE | `#9fb3fe` |
+| Gold | CE | `#e5ae0d` |
+| Pink | RF | `#ff8fb7` |
+| White | Waiting, Judging, JE, SE | `#b7b7b7` |
+
+All seven have the same OKLCH lightness (0.78), so none looks brighter or
+louder than another; only hue and saturation differ. That is why "white" is
+a light grey: pure white would be the brightest thing in the list. To change
+a colour, keep its lightness — `styles/verdict-colours.test.ts` fails if the
+seven drift more than 0.01 apart, and `contrast.test.ts` checks each on every
+surface (all above 7 : 1).
 
 Tone text always uses Bootstrap's `*-text-emphasis` shade, which is the
 readable one on the dark background.

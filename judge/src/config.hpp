@@ -31,6 +31,13 @@ struct Config {
   unsigned run_gid = 65534;
   /** The nsjail binary that every compilation and run goes through. */
   std::string nsjail_path = "nsjail";
+  /**
+   * Enforce memory limits with a cgroup when the system allows it (root and
+   * a writable cgroup filesystem); otherwise only an address-space rlimit.
+   */
+  bool memory_cgroup = true;
+  /** Where the cgroup filesystem is mounted. */
+  std::string cgroup_root = "/sys/fs/cgroup";
 
   std::int64_t output_limit_kb = 65536;
   std::int64_t compile_time_ms = 15000;

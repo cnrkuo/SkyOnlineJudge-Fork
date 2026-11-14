@@ -39,6 +39,14 @@ constexpr int kStatusFd = 3;
 constexpr int kLogFd = 4;
 /** How nsjail reports a jail it had to kill (shell convention: 128 + signal). */
 constexpr int kKilledStatus = 128 + SIGKILL;
+/**
+ * Room a memory cgroup leaves above the memory limit: the init, page tables
+ * and the program's page cache are charged to the cgroup too. (The private
+ * /tmp is charged as well and is added on top.)
+ */
+constexpr std::int64_t kCgroupHeadroomKb = 32768;
+/** How long nsjail gets to stop a jail cleanly before it is killed. */
+constexpr std::int64_t kTerminateGraceMs = 1000;
 /** Inside uid/gid when the judge is not root (any id works; only one can be mapped). */
 constexpr unsigned kUnprivilegedId = 1000;
 
@@ -112,6 +120,31 @@ void add_system_mounts(std::vector<std::string>& args) {
               {"--bindmount", "/dev/null", "--bindmount_ro", "/dev/zero", "--bindmount_ro", "/dev/urandom"});
 }
 
+/**
+ * Runtimes reserve far more address space than they touch, so the memory
+ * verdict never comes from this limit. With a memory cgroup there is none:
+ * an allocation only counts once it is used. Without one, a loose limit is
+ * the only backstop.
+ */
+std::string address_space_limit(const Limits& limits) {
+  return g_settings.memory_cgroup ? "inf" : mib(limits.memory_kb * 2 + 65536);
+}
+
+/** A hard memory limit for the jail, enforced by the kernel. Swap is not an escape. */
+void add_memory_cgroup(std::vector<std::string>& args, const Limits& limits) {
+  const auto& cgroup = g_settings.memory_cgroup;
+  if (!cgroup) return;
+  const std::string bytes = std::to_string((limits.memory_kb + limits.tmp_kb + kCgroupHeadroomKb) * 1024);
+  if (cgroup->version == 2) {
+    args.insert(args.end(), {"--use_cgroupv2", "--cgroupv2_mount", cgroup->path, "--cgroup_mem_max", bytes});
+    if (cgroup->limits_swap) args.insert(args.end(), {"--cgroup_mem_swap_max", "0"});
+  } else {
+    args.insert(args.end(), {"--cgroup_mem_mount", cgroup->v1_mount, "--cgroup_mem_parent", cgroup->v1_parent,
+                             "--cgroup_mem_max", bytes});
+    if (cgroup->limits_swap) args.insert(args.end(), {"--cgroup_mem_memsw_max", bytes});
+  }
+}
+
 std::vector<std::string> nsjail_args(const RunSpec& spec) {
   const Limits& limits = spec.limits;
   const bool root = ::geteuid() == 0;
@@ -131,9 +164,7 @@ std::vector<std::string> nsjail_args(const RunSpec& spec) {
       "--user", uid + ":" + outer_uid + ":1",
       "--group", gid + ":" + outer_gid + ":1",
       // nsjail's own defaults (4 GiB, 600 s, 1 MiB files, 32 files) are all replaced.
-      // The address-space limit is a loose backstop: runtimes reserve far more than
-      // they touch, so the memory verdict comes from peak RSS.
-      "--rlimit_as", mib(limits.memory_kb * 2 + 65536),
+      "--rlimit_as", address_space_limit(limits),
       "--rlimit_stack", mib(limits.memory_kb),
       // One-second granularity; the exact CPU limit is judged from the usage report.
       "--rlimit_cpu", std::to_string((limits.cpu_ms + 999) / 1000 + 1),
@@ -149,6 +180,7 @@ std::vector<std::string> nsjail_args(const RunSpec& spec) {
   if (spec.single_cpu) args.insert(args.end(), {"--max_cpus", "1"});
   if (spec.syscall_filter) args.insert(args.end(), {"--seccomp_string", kSeccompPolicy});
 
+  add_memory_cgroup(args, limits);
   add_system_mounts(args);
   args.insert(args.end(), {"--mount", "none:/tmp:tmpfs:size=" + std::to_string(limits.tmp_kb * 1024)});
   args.insert(args.end(), {spec.readonly_cwd ? "--bindmount_ro" : "--bindmount", spec.cwd + ":" + kBox, "--cwd", kBox});
@@ -290,17 +322,26 @@ RunResult internal_error(std::string error) {
   return result;
 }
 
-/** Kills nsjail, which takes the jail with it (its children die with the PID namespace). */
+/**
+ * Stops nsjail, which takes the jail with it (its children die with the PID
+ * namespace). SIGTERM first: nsjail then kills the jail itself and removes
+ * the jail's cgroup. SIGKILL if it has not exited after a grace period, and
+ * then the judge removes the cgroup nsjail left behind.
+ */
 int kill_and_reap(pid_t pid) {
-  ::kill(pid, SIGKILL);
+  ::kill(pid, SIGTERM);
   int status = 0;
+  if (wait_for_exit(pid, kTerminateGraceMs, status)) return status;
+  ::kill(pid, SIGKILL);
   while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
   }
+  if (g_settings.memory_cgroup) cgroup::remove_jail_cgroups(*g_settings.memory_cgroup);
   return status;
 }
 
 /** Judges a run the init reported on: usage against the limits, then how it ended. */
 RunResult classify(const ExitReport& report, const Limits& limits, bool timed_out) {
+  const bool memory_cgroup = g_settings.memory_cgroup.has_value();
   RunResult result;
   result.cpu_ms = to_ms(report.usage.ru_utime) + to_ms(report.usage.ru_stime);
   result.memory_kb = report.usage.ru_maxrss;
@@ -316,10 +357,18 @@ RunResult classify(const ExitReport& report, const Limits& limits, bool timed_ou
   } else if (result.signal == SIGSYS) {
     result.status = Status::Restricted;
   } else if (WIFSIGNALED(report.status)) {
-    // SIGKILL here is the hard RLIMIT_CPU limit when it came in just under the
-    // measured limit; anything else is a crash.
-    const bool cpu_limit = result.signal == SIGKILL && result.cpu_ms + 1000 >= limits.cpu_ms;
-    result.status = cpu_limit ? Status::TimeLimit : Status::Signaled;
+    // SIGKILL is the hard RLIMIT_CPU limit when it came in just under the
+    // measured limit. Otherwise, with a memory cgroup, it is the kernel's
+    // OOM killer: nothing else in the jail sends SIGKILL (short of the
+    // program killing itself). Any other signal is a crash.
+    const bool killed = result.signal == SIGKILL;
+    if (killed && result.cpu_ms + 1000 >= limits.cpu_ms) {
+      result.status = Status::TimeLimit;
+    } else if (killed && memory_cgroup) {
+      result.status = Status::MemoryLimit;
+    } else {
+      result.status = Status::Signaled;
+    }
   } else {
     result.status = Status::Exited;
   }
@@ -328,11 +377,19 @@ RunResult classify(const ExitReport& report, const Limits& limits, bool timed_ou
 
 /**
  * Judges a run without a report: the program never finished under the init,
- * because the jail was killed at the wall-clock limit or could not be set up.
+ * because the jail was killed — at the wall-clock limit, or by the OOM
+ * killer, which may pick the init — or could not be set up.
  */
 RunResult classify_unreported(int nsjail_status, bool timed_out, const std::string& log, const Limits& limits) {
   const bool killed = WIFEXITED(nsjail_status) && WEXITSTATUS(nsjail_status) == kKilledStatus;
-  if (timed_out || killed || log.find("time limit") != std::string::npos) {
+  const bool time_limit = timed_out || log.find("time limit") != std::string::npos;
+  if (killed && !time_limit && g_settings.memory_cgroup) {
+    RunResult result;
+    result.status = Status::MemoryLimit;
+    result.memory_kb = limits.memory_kb;
+    return result;
+  }
+  if (time_limit || killed) {
     RunResult result;
     result.status = Status::TimeLimit;
     result.cpu_ms = limits.cpu_ms;

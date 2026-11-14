@@ -94,6 +94,17 @@ TEST_CASE("the runner turns runtime failures into verdicts") {
   CHECK(slow.results.at(0).time_ms == 1000);  // capped at the limit
 }
 
+TEST_CASE("the runner reports memory-limit kills as such") {
+  if (!judge::testing::sandbox_settings().memory_cgroup) {
+    MESSAGE("skipped: no memory cgroup (run the tests as root)");
+    return;
+  }
+  Bench bench("runner-mle");
+  Task task = bench.task("py3", "b = bytearray(300 * 1024 * 1024)", {{"", ""}});
+  task.memory_limit_kb = 65536;
+  CHECK(bench.runner.judge(task).results.at(0).verdict == Verdict::MemoryLimitExceeded);
+}
+
 TEST_CASE("the runner reports compile errors with the compiler's message") {
   Bench bench("runner-ce");
   const Report report = bench.runner.judge(bench.task("c", "int main(void) { return undefined_name; }", kSums));

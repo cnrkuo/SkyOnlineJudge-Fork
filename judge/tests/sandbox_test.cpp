@@ -94,23 +94,80 @@ TEST_CASE("the sandbox enforces the time limits") {
   const RunResult slept = run(asleep);
   CHECK(slept.status == Status::TimeLimit);
   CHECK(slept.wall_ms < 3000);
+  // A jail stopped at the wall-clock limit leaves no cgroup behind.
+  if (const auto& cgroup = judge::testing::sandbox_settings().memory_cgroup) {
+    for (const auto& entry : fs::directory_iterator(cgroup->path)) {
+      CHECK_MESSAGE(!entry.path().filename().string().starts_with("NSJAIL."), entry.path().string());
+    }
+  }
 
   RunSpec spinning = jail.shell("while :; do :; done");
   spinning.limits.cpu_ms = 300;
   CHECK(run(spinning).status == Status::TimeLimit);
 }
 
-TEST_CASE("the sandbox enforces the output and memory limits") {
-  const Jail jail("sandbox-limits");
+TEST_CASE("the sandbox enforces the output limit") {
+  const Jail jail("sandbox-output");
   // Writing past the output limit is SIGXFSZ, i.e. Output Limit Exceeded.
   CHECK(jail.run_shell("exec yes").status == Status::OutputLimit);
   CHECK(fs::file_size(jail.dir / "out") <= std::uintmax_t{1024} * 1024);
+}
 
-  RunSpec hungry = jail.shell("exec python3 -c 'b = bytearray(400 * 1024 * 1024); print(len(b))'");
-  hungry.limits.memory_kb = 131072;
-  const RunResult result = run(hungry);
-  // Either the peak RSS is over the limit or the allocation fails outright.
-  CHECK((result.status == Status::MemoryLimit || (result.status == Status::Exited && result.exit_code != 0)));
+namespace {
+
+/** Python touching `mb` MiB at once, under a 128 MiB limit. */
+RunResult use_memory(const Jail& jail, int mb) {
+  RunSpec spec = jail.shell(judge::format("exec python3 -c 'b = bytearray(%d * 1024 * 1024); print(len(b))'", mb));
+  spec.limits.memory_kb = 131072;
+  return run(spec);
+}
+
+/** Python reserving 1 GiB of address space without touching it, under a 128 MiB limit. */
+RunResult reserve_memory(const Jail& jail) {
+  RunSpec spec = jail.shell(R"(exec python3 -c 'import mmap; m = mmap.mmap(-1, 1 << 30); print("ok")')");
+  spec.limits.memory_kb = 131072;
+  return run(spec);
+}
+
+bool has_memory_cgroup() {
+  if (judge::testing::sandbox_settings().memory_cgroup) return true;
+  MESSAGE("skipped: no memory cgroup (run the tests as root)");
+  return false;
+}
+
+}  // namespace
+
+TEST_CASE("with a memory cgroup, any use beyond the limit is a memory-limit verdict") {
+  if (!has_memory_cgroup()) return;
+  const Jail jail("sandbox-cgroup");
+  const RunResult hungry = use_memory(jail, 400);
+  INFO(hungry.error);
+  CHECK(hungry.status == Status::MemoryLimit);
+  CHECK(use_memory(jail, 40).status == Status::Exited);
+}
+
+TEST_CASE("with a memory cgroup, only memory that is used counts") {
+  if (!has_memory_cgroup()) return;
+  const Jail jail("sandbox-reserve");
+  const RunResult reserved = reserve_memory(jail);
+  CHECK(reserved.status == Status::Exited);
+  CHECK(reserved.exit_code == 0);
+  CHECK(jail.out() == "ok\n");
+}
+
+TEST_CASE("without a memory cgroup, an address-space limit bounds memory") {
+  auto settings = judge::testing::sandbox_settings();
+  settings.memory_cgroup.reset();
+  const judge::testing::ScopedSandbox rlimits_only(settings);
+  const Jail jail("sandbox-rlimits");
+
+  const RunResult hungry = use_memory(jail, 400);
+  // The allocation fails outright, or succeeds and peak RSS is over the limit.
+  CHECK((hungry.status == Status::MemoryLimit || (hungry.status == Status::Exited && hungry.exit_code != 0)));
+  // Reserving more address space than the limit allows fails.
+  const RunResult reserved = reserve_memory(jail);
+  CHECK(reserved.status == Status::Exited);
+  CHECK(reserved.exit_code != 0);
 }
 
 TEST_CASE("the syscall policy kills escape attempts and fails sockets softly") {

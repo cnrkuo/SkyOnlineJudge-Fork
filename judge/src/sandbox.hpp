@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
+
+#include "cgroup.hpp"
 
 namespace judge::sandbox {
 
@@ -20,6 +23,12 @@ struct Settings {
   /** When the judge runs as root, programs run as this uid/gid. */
   unsigned run_uid = 65534;
   unsigned run_gid = 65534;
+  /**
+   * When set, every jail gets a cgroup with a hard memory limit, and
+   * memory-limit kills are reported as such. Without it, memory is bounded
+   * by an address-space rlimit only.
+   */
+  std::optional<cgroup::MemoryCgroup> memory_cgroup;
 };
 
 void configure(const Settings& settings);
@@ -29,7 +38,10 @@ struct Limits {
   std::int64_t cpu_ms = 1000;
   /** Real time; guards against sleeping or blocked programs. */
   std::int64_t wall_ms = 4000;
-  /** Peak resident memory. */
+  /**
+   * Peak resident memory. With a memory cgroup the kernel also enforces it,
+   * killing the program once it (plus its /tmp and some headroom) needs more.
+   */
   std::int64_t memory_kb = 262144;
   /** Largest file (including stdout) the program may write. Rounded up to whole MiB. */
   std::int64_t output_kb = 65536;
@@ -90,8 +102,9 @@ struct RunResult {
  * device nodes, a private /tmp and the work directory as /box. Nothing else
  * of the host — testdata cache, captured output, the judge's config and
  * token — exists inside it. No network, no other processes. rlimits bound
- * CPU, memory, output, processes and open files, and a seccomp policy kills
- * the program on dangerous system calls.
+ * CPU, output, processes and open files; memory is bounded by a cgroup when
+ * one is configured, by an address-space rlimit otherwise. A seccomp policy
+ * kills the program on dangerous system calls.
  *
  * The program does not run as PID 1 of its namespace: `init_main` does, and
  * reports the program's exact exit status and resource usage back. (The

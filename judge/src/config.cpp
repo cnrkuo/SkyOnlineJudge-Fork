@@ -39,6 +39,8 @@ void apply_file(const nlohmann::json& json, Config& config) {
   read("run_uid", config.run_uid);
   read("run_gid", config.run_gid);
   read("nsjail_path", config.nsjail_path);
+  read("memory_cgroup", config.memory_cgroup);
+  read("cgroup_root", config.cgroup_root);
   read("output_limit_kb", config.output_limit_kb);
   read("compile_time_ms", config.compile_time_ms);
   read("compile_memory_kb", config.compile_memory_kb);

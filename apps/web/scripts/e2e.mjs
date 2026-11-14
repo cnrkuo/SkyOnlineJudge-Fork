@@ -53,6 +53,8 @@ const CASES = [
   { language: 'cpp', code: 'int main() { return undefined_name; }', verdict: 'Compile Error' },
   { language: 'py3', code: 'raise SystemExit(3)', verdict: 'Runtime Error' },
   { language: 'c', code: 'int main(void) { for (;;) {} }', verdict: 'Time Limit Exceeded' },
+  // Touches 1 GiB at once; the judge's memory cgroup must report it as MLE, not as a crash.
+  { language: 'py3', code: 'b = bytearray(1 << 30)', verdict: 'Memory Limit Exceeded' },
 ];
 
 let failures = 0;

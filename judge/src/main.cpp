@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "api_client.hpp"
+#include "cgroup.hpp"
 #include "common.hpp"
 #include "config.hpp"
 #include "runner.hpp"
@@ -76,6 +77,55 @@ std::optional<std::string> probe_sandbox(const judge::Config& config) {
 
   if (result.status == judge::sandbox::Status::Exited && result.exit_code == 0) return std::nullopt;
   return result.error.empty() ? judge::format("probe ended with status %d", result.exit_code) : result.error;
+}
+
+/** Removes the judge's memory cgroup when the daemon exits. */
+class ReleaseCgroup {
+ public:
+  explicit ReleaseCgroup(const std::optional<judge::cgroup::MemoryCgroup>& cgroup) : cgroup_(cgroup) {}
+  ReleaseCgroup(const ReleaseCgroup&) = delete;
+  ReleaseCgroup& operator=(const ReleaseCgroup&) = delete;
+  ~ReleaseCgroup() {
+    if (cgroup_) judge::cgroup::release(*cgroup_);
+  }
+
+ private:
+  const std::optional<judge::cgroup::MemoryCgroup>& cgroup_;
+};
+
+/**
+ * Sets the sandbox up and checks it works, preferring a memory cgroup. When
+ * the cgroup cannot be prepared, or jails fail with it, the judge carries
+ * on with rlimits only and says why. Returns why the sandbox does not work
+ * at all, or nothing.
+ */
+std::optional<std::string> configure_sandbox(const judge::Config& config, judge::sandbox::Settings& settings) {
+  std::string without_cgroup = "disabled in the configuration";
+  if (config.memory_cgroup) {
+    auto prepared = judge::cgroup::prepare_memory_cgroup(config.cgroup_root, judge::cgroup::default_instance_name());
+    settings.memory_cgroup = prepared.cgroup;
+    without_cgroup = prepared.unavailable;
+  }
+  judge::sandbox::configure(settings);
+  if (settings.memory_cgroup) {
+    const auto problem = probe_sandbox(config);
+    if (!problem) {
+      judge::log("INFO", judge::format("sandbox: nsjail (%s), namespaces + seccomp + rlimits; memory: cgroup v%d (%s)",
+                                       config.nsjail_path.c_str(), settings.memory_cgroup->version,
+                                       settings.memory_cgroup->path.c_str()));
+      return std::nullopt;
+    }
+    without_cgroup = "jails failed with it: " + *problem;
+    judge::cgroup::release(*settings.memory_cgroup);
+    settings.memory_cgroup.reset();
+    judge::sandbox::configure(settings);
+  }
+  if (const auto problem = probe_sandbox(config)) return problem;
+  judge::log("INFO", "sandbox: nsjail (" + config.nsjail_path + "), namespaces + seccomp + rlimits");
+  judge::log("WARN",
+             "memory: address-space rlimit only, no memory cgroup (" + without_cgroup +
+                 "); a program that exceeds the limit with one huge allocation may be judged RE instead of MLE");
+  return std::nullopt;
 }
 
 /**
@@ -138,17 +188,18 @@ int main(int argc, char** argv) {
     fs::permissions(config.work_dir, fs::perms::owner_all | fs::perms::group_exec | fs::perms::others_exec);
     fs::permissions(config.cache_dir, fs::perms::owner_all);
 
-    judge::sandbox::configure({
+    judge::sandbox::Settings settings{
         .nsjail = config.nsjail_path,
         .init = fs::canonical("/proc/self/exe").string(),
         .run_uid = config.run_uid,
         .run_gid = config.run_gid,
-    });
-    if (const auto problem = probe_sandbox(config)) {
+        .memory_cgroup = std::nullopt,
+    };
+    if (const auto problem = configure_sandbox(config, settings)) {
       judge::log("FATAL", "sandbox self-test failed: " + *problem);
       return 1;
     }
-    judge::log("INFO", "sandbox: nsjail (" + config.nsjail_path + "), namespaces + seccomp + rlimits");
+    const ReleaseCgroup release(settings.memory_cgroup);
 
     std::signal(SIGINT, request_stop);
     std::signal(SIGTERM, request_stop);

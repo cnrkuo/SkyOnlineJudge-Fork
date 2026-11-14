@@ -41,6 +41,7 @@ endif()
 # Everything except main() lives in a library so the tests can link it.
 add_library(judge_core STATIC
   src/api_client.cpp
+  src/cgroup.cpp
   src/checker.cpp
   src/config.cpp
   src/runner.cpp
@@ -66,6 +67,7 @@ endif()
 enable_testing()
 add_executable(judge_tests
   tests/main.cpp
+  tests/cgroup_test.cpp
   tests/checker_test.cpp
   tests/config_test.cpp
   tests/runner_test.cpp

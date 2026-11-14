@@ -45,7 +45,26 @@ security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
 ```
 
 It gets no extra capabilities and no host devices; `privileged: true` is not
-needed. At start it runs a sandbox self-test and compiles a sample program
+needed.
+
+Memory limits are enforced with one cgroup per run, created inside the
+judge's own cgroup (`skyoj-judge/<container>-<pid>`). Docker mounts the
+cgroup filesystem read-only, so the judge service also has
+
+```yaml
+cgroup: host
+volumes:
+  - /sys/fs/cgroup:/sys/fs/cgroup:rw
+```
+
+This works on cgroup v1 and v2 hosts. It gives the judge's process — not
+the submissions, which never see `/sys/fs/cgroup` — write access to the
+host's cgroup tree; if you would rather not, remove both lines and the judge
+falls back to an address-space limit (a program that allocates far too much
+at once may then be judged RE instead of MLE). The start-up log says which:
+`memory: cgroup v2 (…)`, or a warning with the reason.
+
+At start it runs a sandbox self-test and compiles a sample program
 per language; check the result with `docker compose logs judge`
 (`languages: c, clang-cpp17, …`). To run the full sandbox test suite on a
 host:
@@ -112,6 +131,7 @@ Admin → Judge machines, publish the API where that machine can reach it
 docker run -d --name skyoj-judge --restart unless-stopped \
   --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
   --security-opt systempaths=unconfined \
+  --cgroupns host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
   -e SKYOJ_API_URL=http://10.0.0.5:3001 -e SKYOJ_JUDGE_TOKEN=skyoj_judge_… \
   -v skyoj-judge:/var/lib/skyoj-judge skyoj/judge
 ```

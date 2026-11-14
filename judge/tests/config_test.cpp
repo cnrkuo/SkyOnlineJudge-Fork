@@ -111,6 +111,15 @@ TEST_CASE("a config file can replace one language and add another") {
   CHECK(config.languages.count("py3") == 1);  // the rest stay
 }
 
+TEST_CASE("the memory cgroup is on by default and can be turned off") {
+  const CleanEnv clean;
+  CHECK(load_config(config_file("cgroup-default.json", R"({"token": "t"})")).memory_cgroup);
+  const auto off =
+      load_config(config_file("cgroup-off.json", R"({"token": "t", "memory_cgroup": false, "cgroup_root": "/cg"})"));
+  CHECK_FALSE(off.memory_cgroup);
+  CHECK(off.cgroup_root == "/cg");
+}
+
 TEST_CASE("a broken configuration is refused with a reason") {
   const CleanEnv clean;
   CHECK_THROWS_WITH_AS(load_config("/no/such/config.json"), doctest::Contains("cannot open"), std::runtime_error);

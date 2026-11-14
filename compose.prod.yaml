@@ -94,7 +94,13 @@ services:
     environment:
       SKYOJ_API_URL: http://api:3001
       SKYOJ_JUDGE_TOKEN: ${JUDGE_TOKEN}
-    volumes: [judge_work:/var/lib/skyoj-judge]
+    # Memory limits are enforced with a cgroup per run (MLE instead of RE for
+    # programs that allocate too much at once), which needs the host's cgroup
+    # tree, writable. Without it the judge falls back to rlimits and says so.
+    cgroup: host
+    volumes:
+      - judge_work:/var/lib/skyoj-judge
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     depends_on:
       api: { condition: service_healthy }
 

@@ -300,7 +300,8 @@ jail, started by `sandbox::run` (`judge/src/sandbox.cpp`):
 | A filesystem built from scratch | Only `/usr` (and the `/bin`, `/lib`… links), the linker cache, `/etc/alternatives`, `/dev/null`, `/dev/zero`, `/dev/urandom`, a private `/tmp` and the work directory as `/box` exist. The testdata cache, captured output, the judge's config and token, `/etc/passwd` and every home directory are simply absent. |
 | Read-only `/box` for testcase runs | A run cannot leave files behind for later testcases (compilation gets it read-write) |
 | Unprivileged uid | `run_uid` (65534) when the judge is root; uid 1000 mapped to the judge's own uid otherwise |
-| rlimits | CPU time, address space, stack, output file size, open files, process count |
+| Memory cgroup (when available) | A hard memory limit per run, enforced by the kernel; swap is capped too. The judge owns `skyoj-judge/<host>-<pid>` in the cgroup tree (v1 or v2) and nsjail creates one cgroup per jail inside it |
+| rlimits | CPU time, stack, output file size, open files, process count; address space only without a memory cgroup |
 | seccomp policy (Kafel) | Kills on `ptrace`, `mount`, `unshare`, `setns`, `bpf`, namespace-creating `clone`, … → *Restricted Function*; `socket` fails with `EPERM` |
 | One CPU per run | `--max_cpus 1`, so timings do not depend on the machine's core count (compilers may use all) |
 
@@ -315,11 +316,24 @@ exact exit status and resource usage (`wait4`) to file descriptor 3, which
 nsjail passes through to the judge. CPU time and peak memory come from that
 report.
 
+**Memory.** With a memory cgroup, each jail may use the problem's memory
+limit plus its private `/tmp` plus 32 MB of headroom (the init, page tables
+and page cache are charged too) before the kernel's OOM killer stops it.
+Only memory that is used counts: reserving a huge array and touching part of
+it is fine. There is no address-space limit then. Without a cgroup (the judge
+not running as root, or a read-only cgroup filesystem), an address-space
+limit of twice the memory limit plus 64 MB is the only backstop, and the
+judge logs a warning at start-up.
+
 **Verdicts.** CPU time over the limit or wall time over `2 × limit + 1 s` →
-TLE; peak RSS over the limit → MLE; `SIGXFSZ` → OLE; `SIGSYS` → RF; any other
-signal or a non-zero exit → RE; otherwise the checker decides AC / PE / WA.
-The judge kills the jail itself at the exact wall-clock limit; nsjail's own
-`--time_limit` is a backstop one second later.
+TLE; peak RSS over the limit → MLE; with a memory cgroup, a `SIGKILL` that is
+not the CPU limit → MLE (the OOM killer; nothing else in the jail sends it,
+short of the program killing itself); `SIGXFSZ` → OLE; `SIGSYS` → RF; any
+other signal or a non-zero exit → RE; otherwise the checker decides AC / PE /
+WA. The judge stops the jail itself at the exact wall-clock limit (SIGTERM to
+nsjail, which then removes the jail's cgroup; SIGKILL after a second, and the
+judge removes the cgroup); nsjail's own `--time_limit` is a backstop one
+second later.
 
 **In Docker** the judge image ships nsjail and every toolchain; the
 container needs relaxed seccomp, AppArmor and `/proc` masking but no extra
@@ -328,17 +342,18 @@ capabilities ([deployment.md](deployment.md#the-bundled-judge)).
 **Requirements and start-up.** nsjail is not packaged for Debian or Ubuntu;
 `judge/scripts/install-nsjail.sh` builds a pinned release (3.6) and checks
 the commit. The kernel must allow user namespaces. At start-up the judge
-runs a self-test jail and refuses to start if it fails (then checks each
+prepares its memory cgroup (`memory_cgroup`, `cgroup_root` in the config),
+runs a self-test jail — retrying without the cgroup if jails fail with it —
+and refuses to start if it fails (then checks each
 language's toolchain, see *Mixed fleets*) — most often because
 a parent directory of `work_dir` or of the judge binary is not searchable by
 the jail's uid (nsjail mounts them from inside the user namespace; fix with
 `chmod o+x`). The error message quotes nsjail's own.
 
-Known limits: memory is enforced by an address-space limit and judged by
-peak RSS, not by a memory cgroup, so a program can be reported as RE instead
-of MLE when one huge allocation fails outright. nsjail can enforce cgroup
-limits; that is not wired up yet. Only the built-in token/line checker
-exists; special judges are not implemented yet.
+Known limits: without a memory cgroup, a program can be reported as RE
+instead of MLE when one huge allocation fails outright. A program that kills
+itself with `SIGKILL` is reported as MLE when the cgroup is active. Only the
+built-in token/line checker exists; special judges are not implemented yet.
 
 ## Testing
 

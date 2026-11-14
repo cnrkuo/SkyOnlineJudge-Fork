@@ -2,8 +2,8 @@
  * The application's own stylesheet, loaded after Bootstrap 5.
  *
  * Bootstrap provides the look, always in its dark colour mode. This file
- *   1. sets the site's typeface and corner radius through Bootstrap's own
- *      variables (the theme block below), and
+ *   1. sets the site's typeface, corner radius and near-black surfaces
+ *      through Bootstrap's own variables (the theme block below), and
  *   2. adds what Bootstrap has no class for.
  * Everything else is expressed in Bootstrap's CSS variables (--bs-*). Class
  * names are prefixed `oj-` and are referenced from ui/classes.ts only.
@@ -26,6 +26,15 @@
   --bs-border-radius-lg: 0.1875rem;
   --bs-border-radius-xl: 0.1875rem;
   --bs-border-radius-xxl: 0.1875rem;
+
+  /* Near-black surfaces instead of Bootstrap's grey #212529 / #2b3035 /
+     #343a40. Same order: page, raised (cards, table heads, code), hover. */
+  --bs-body-bg: #0a0b0d;
+  --bs-body-bg-rgb: 10, 11, 13;
+  --bs-tertiary-bg: #15171a;
+  --bs-tertiary-bg-rgb: 21, 23, 26;
+  --bs-secondary-bg: #202327;
+  --bs-secondary-bg-rgb: 32, 35, 39;
 }
 
 /* ------------------------------------------------------------ fonts */

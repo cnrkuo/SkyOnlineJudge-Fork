@@ -56,6 +56,16 @@ wear Bootstrap's classes (`dropdown-menu`, `dropdown-item`, `nav nav-tabs`,
 Bootstrap's dark palette, whatever their system prefers, and there is no
 switch. Native controls and scrollbars follow (`color-scheme: dark`).
 
+The surfaces are darker than Bootstrap's greys, close to black. They keep
+Bootstrap's three steps, so a card or a hovered row still stands out from
+the page:
+
+| Surface | Variable | Bootstrap dark | Here |
+| --- | --- | --- | --- |
+| Page | `--bs-body-bg` | `#212529` | `#0a0b0d` |
+| Raised: card and table headers, code | `--bs-tertiary-bg` | `#2b3035` | `#15171a` |
+| Hover, highlighted menu item | `--bs-secondary-bg` | `#343a40` | `#202327` |
+
 ### Typeface
 
 **IBM Plex Sans** for the interface and **IBM Plex Mono** for code, both
@@ -78,18 +88,18 @@ or circular.
 
 Everything meets **WCAG 2.2 AA**: 4.5 : 1 for text, 3 : 1 for the borders
 that identify a control. Bootstrap's dark mode falls short in a few places,
-fixed in `app.css`:
+fixed in `app.css` (ratios measured on the page background):
 
 | Element | Bootstrap dark | Here |
 | --- | --- | --- |
-| Verdict and tone text (`text-success`, `text-danger`) | 3.4 : 1 | `*-text-emphasis` shades, ≥ 6 : 1 |
-| Secondary (outline) buttons | 2.8–3.3 : 1 | body text colour, 11.9 : 1 |
-| Danger (outline) buttons | 3.4 : 1 | danger emphasis, 6.1 : 1 |
+| Verdict and tone text (`text-success`, `text-danger`) | 3.4 : 1 | `*-text-emphasis` shades, ≥ 7.8 : 1 |
+| Secondary (outline) buttons | 2.8–3.3 : 1 | body text colour, 15.1 : 1 |
+| Danger (outline) buttons | 3.4 : 1 | danger emphasis, 7.8 : 1 |
 | Primary button label | 4.5 : 1 (bare minimum) | button one shade darker, 5.2 : 1 |
 | Menu section headers | 3.3 : 1 | secondary text colour |
-| Input and checkbox borders | 1.9 : 1 | grey-600, 3.3 : 1 |
+| Input and checkbox borders | 1.9 : 1 | grey-600, 4.2 : 1 |
 | TeX error messages (Temml) | 2.3 : 1 | danger emphasis |
-| Code comments | — | ≥ 5.8 : 1; every syntax colour ≥ 4.5 : 1 |
+| Code comments | — | 7.8 : 1 on code blocks; every syntax colour ≥ 4.5 : 1 |
 
 Two checks keep it that way:
 

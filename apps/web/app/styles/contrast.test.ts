@@ -103,7 +103,7 @@ const onSurfaces = (name: string, colour: string): [string, string, string][] =>
 
 describe('contrast (dark mode, WCAG AA)', () => {
   it('reads the dark palette', () => {
-    expect(resolve('var(--bs-body-bg)', vars)).toBe('#212529');
+    expect(resolve('var(--bs-body-bg)', vars)).toBe('#0a0b0d');
     expect(ratio('#ffffff', '#000000')).toBe(21);
   });
 

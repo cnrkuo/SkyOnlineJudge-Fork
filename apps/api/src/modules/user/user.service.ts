@@ -25,8 +25,7 @@ export class UserService {
       nickname: user.nickname,
       level: user.level as UserLevel,
       realname: user.realname,
-      quote: user.quote,
-      quoteRef: user.quoteRef,
+      introduction: user.introduction,
       // Like the legacy site, fall back to the e-mail's Gravatar.
       avatarUrl:
         user.avatarUrl || `https://www.gravatar.com/avatar/${md5(user.email.trim().toLowerCase())}?d=identicon&s=200`,
@@ -35,10 +34,7 @@ export class UserService {
     };
   }
 
-  async updateProfile(
-    actor: Actor,
-    patch: Pick<UserPatch, 'nickname' | 'realname' | 'quote' | 'quoteRef' | 'avatarUrl'>,
-  ) {
+  async updateProfile(actor: Actor, patch: Pick<UserPatch, 'nickname' | 'realname' | 'introduction' | 'avatarUrl'>) {
     requireLogin(actor);
     if (patch.nickname && patch.nickname !== actor.nickname) {
       if (await this.users.nicknameTaken(patch.nickname, actor.id)) {

@@ -1,12 +1,17 @@
 import { UserLevel } from '@skyoj/contract';
 import { Link } from 'react-router';
+import { Markdown } from '~/components/markdown';
 import { api, load } from '~/lib/api.server';
+import { renderMarkdown } from '~/lib/markdown.server';
 import { idParam } from '~/lib/params';
 import { Badge, ButtonLink, Card, Cluster, css, Empty, Grid, PageHeader, Stack, Stats, Time } from '~/ui';
 import type { Route } from './+types/user';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return load(request, (o) => api.user.get({ id: idParam(params.id) }, o));
+  const user = await load(request, (o) => api.user.get({ id: idParam(params.id) }, o));
+  // The Markdown source stays on the server; the page only needs the HTML.
+  const introduction = user.introduction ? await renderMarkdown(user.introduction) : null;
+  return { ...user, introduction };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: loaderData?.nickname ?? 'User' }];
@@ -52,11 +57,10 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
         />
       </Cluster>
 
-      {user.quote && (
-        <blockquote>
-          <p className={css.preWrap}>{user.quote}</p>
-          {user.quoteRef && <small>— {user.quoteRef}</small>}
-        </blockquote>
+      {user.introduction && (
+        <Card title="About">
+          <Markdown html={user.introduction} />
+        </Card>
       )}
 
       <Stats

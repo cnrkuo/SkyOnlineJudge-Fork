@@ -1,7 +1,14 @@
 import { type } from 'arktype';
 import { describe, expect, it } from 'vitest';
-import { CODE_MAX_LENGTH, Language } from './enums.js';
-import { IdSchema, NicknameSchema, PageInputSchema, PasswordSchema, SubmitInputSchema } from './schemas.js';
+import { CODE_MAX_LENGTH, INTRODUCTION_MAX_LENGTH, Language } from './enums.js';
+import {
+  IdSchema,
+  NicknameSchema,
+  PageInputSchema,
+  PasswordSchema,
+  SubmitInputSchema,
+  UpdateProfileInputSchema,
+} from './schemas.js';
 
 const ok = <T>(result: T | InstanceType<typeof type.errors>) => {
   if (result instanceof type.errors) throw new Error(result.summary);
@@ -50,5 +57,15 @@ describe('SubmitInputSchema', () => {
     rejects(SubmitInputSchema({ ...submission, language: 'brainfuck' }));
     rejects(SubmitInputSchema({ ...submission, code: '' }));
     rejects(SubmitInputSchema({ ...submission, code: 'x'.repeat(CODE_MAX_LENGTH + 1) }));
+  });
+});
+
+describe('UpdateProfileInputSchema', () => {
+  it('takes a self-introduction up to its length limit, or null to remove it', () => {
+    expect(ok(UpdateProfileInputSchema({ introduction: 'I like graphs.' }))).toEqual({
+      introduction: 'I like graphs.',
+    });
+    expect(ok(UpdateProfileInputSchema({ introduction: null }))).toEqual({ introduction: null });
+    rejects(UpdateProfileInputSchema({ introduction: 'x'.repeat(INTRODUCTION_MAX_LENGTH + 1) }));
   });
 });

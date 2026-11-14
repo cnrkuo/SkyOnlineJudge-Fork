@@ -24,9 +24,8 @@ export const users = pgTable(
     passwordHash: text().notNull(),
     realname: varchar({ length: 30 }),
     level: integer().notNull(),
-    quote: text(),
-    /** Who the quote is attributed to. */
-    quoteRef: varchar({ length: 80 }),
+    /** Self-introduction in Markdown, shown on the profile. */
+    introduction: text(),
     avatarUrl: text(),
     createdAt: createdAt(),
   },

@@ -29,6 +29,13 @@
       "when": 1794580223961,
       "tag": "0003_judge_languages",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794665442221,
+      "tag": "0004_self_introduction",
+      "breakpoints": true
     }
   ]
 }

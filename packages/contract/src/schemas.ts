@@ -6,6 +6,7 @@ import {
   ContestPhase,
   ContestProblemState,
   ContestStyle,
+  INTRODUCTION_MAX_LENGTH,
   Language,
   RegisterType,
   ScoreMode,
@@ -83,8 +84,8 @@ export const SessionUserSchema = UserRefSchema.merge({
 export const UserProfileSchema = UserRefSchema.merge({
   level: UserLevelSchema,
   realname: 'string | null',
-  quote: 'string | null',
-  quoteRef: 'string | null',
+  /** Self-introduction in Markdown (with TeX math), as written. */
+  introduction: 'string | null',
   /** The user's own picture, or their Gravatar when none is set. */
   avatarUrl: 'string | null',
   createdAt: TimestampSchema,
@@ -122,8 +123,7 @@ export const AuthResultSchema = type({
 export const UpdateProfileInputSchema = type({
   'nickname?': NicknameSchema,
   'realname?': 'string <= 30 | null',
-  'quote?': 'string <= 500 | null',
-  'quoteRef?': 'string <= 80 | null',
+  'introduction?': `string <= ${INTRODUCTION_MAX_LENGTH} | null`,
   'avatarUrl?': 'string.url <= 500 | null',
 });
 

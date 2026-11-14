@@ -157,3 +157,5 @@ export const ContestPhase = {
 export type ContestPhase = (typeof ContestPhase)[keyof typeof ContestPhase];
 
 export const CODE_MAX_LENGTH = 100_000;
+/** Longest self-introduction on a profile, in characters. */
+export const INTRODUCTION_MAX_LENGTH = 2000;

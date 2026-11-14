@@ -29,8 +29,10 @@ purpose, and what was not carried over.
   PHP (`password_hash(..., PASSWORD_BCRYPT)`, `$2y$…`) are accepted and
   upgraded on first login, so imported accounts keep their passwords.
   Administrators can edit another account, including its password, without
-  the old password. Profiles keep quote, quote source and avatar, with the
-  Gravatar of the e-mail as default avatar.
+  the old password. Profiles keep the avatar, with the Gravatar of the
+  e-mail as default. The quote and its source are replaced by a
+  self-introduction in Markdown (up to 2000 characters); existing quotes
+  were carried over as a blockquote ending in "— source".
 - **Verdicts.** Same codes and ordering (`WAIT 0 … AC 20, PE 25, WA 30, OLE 35,
   RE 40, TLE 50, MLE 60, RF 65, CE 70, JE 80, SE 85`); a submission's verdict
   is the worst testcase verdict, its time the sum over testcases.

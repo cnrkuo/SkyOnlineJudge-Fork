@@ -1,6 +1,7 @@
+import { INTRODUCTION_MAX_LENGTH } from '@skyoj/contract';
 import { Form, redirect } from 'react-router';
 import { api, load, submit } from '~/lib/api.server';
-import { Button, Card, Field, Measure, Notice, Stack } from '~/ui';
+import { Button, Card, css, Field, Measure, Notice, Stack } from '~/ui';
 import type { Route } from './+types/settings';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -31,8 +32,7 @@ export async function action({ request }: Route.ActionArgs) {
       {
         nickname: text('nickname'),
         realname: text('realname') || null,
-        quote: text('quote') || null,
-        quoteRef: text('quoteRef') || null,
+        introduction: text('introduction') || null,
         avatarUrl: text('avatarUrl') || null,
       },
       o,
@@ -68,11 +68,16 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
               <Field label="Avatar URL" hint="Optional link to an image. Without one, your Gravatar is shown.">
                 <input name="avatarUrl" type="url" defaultValue={ownAvatar} maxLength={500} />
               </Field>
-              <Field label="Quote">
-                <textarea name="quote" rows={3} defaultValue={profile.quote ?? ''} maxLength={500} />
-              </Field>
-              <Field label="Quote source" hint="Who said it.">
-                <input name="quoteRef" defaultValue={profile.quoteRef ?? ''} maxLength={80} />
+              <Field
+                label="Self-introduction"
+                hint="Shown on your profile. Markdown with TeX math, like problem statements.">
+                <textarea
+                  className={css.monoInput}
+                  name="introduction"
+                  rows={8}
+                  defaultValue={profile.introduction ?? ''}
+                  maxLength={INTRODUCTION_MAX_LENGTH}
+                />
               </Field>
               <div>
                 <Button>Save profile</Button>

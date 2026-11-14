@@ -7,7 +7,7 @@ import { users } from '../../database/schema.js';
 export type UserRow = typeof users.$inferSelect;
 export type NewUser = Pick<UserRow, 'email' | 'nickname' | 'passwordHash' | 'level'>;
 export type UserPatch = Partial<
-  Pick<UserRow, 'nickname' | 'realname' | 'quote' | 'quoteRef' | 'avatarUrl' | 'passwordHash' | 'level'>
+  Pick<UserRow, 'nickname' | 'realname' | 'introduction' | 'avatarUrl' | 'passwordHash' | 'level'>
 >;
 
 @Injectable()

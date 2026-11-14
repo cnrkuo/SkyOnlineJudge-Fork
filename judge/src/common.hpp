@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdarg>
 #include <cstdio>
 #include <ctime>
@@ -50,14 +51,17 @@ inline std::optional<std::string> read_file(const std::string& path) {
   return out;
 }
 
-/** Timestamped line on stderr; the daemon is expected to run under a supervisor. */
+/**
+ * Timestamped line on stderr, in UTC (`2026-11-14T11:09:32Z`) so logs read
+ * the same on every host. The daemon is expected to run under a supervisor.
+ */
 inline void log(const char* level, const std::string& message) {
-  char stamp[32];
+  std::array<char, 32> stamp{};
   const std::time_t now = std::time(nullptr);
   std::tm tm{};
-  localtime_r(&now, &tm);
-  std::strftime(stamp, sizeof stamp, "%F %T", &tm);
-  std::fprintf(stderr, "%s [%s] %s\n", stamp, level, message.c_str());
+  gmtime_r(&now, &tm);
+  std::strftime(stamp.data(), stamp.size(), "%FT%TZ", &tm);
+  std::fprintf(stderr, "%s [%s] %s\n", stamp.data(), level, message.c_str());
 }
 
 }  // namespace judge

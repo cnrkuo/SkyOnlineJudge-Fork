@@ -1,12 +1,15 @@
 import { SITE_TIMEZONE } from './site.server';
-import { localInputToIso } from './time';
+import { parseLocalInput } from './time';
 
 /** Reads the fields of `<BoardForm>` into a board create/update input. */
 export function parseBoardForm(form: FormData) {
   const text = (name: string) => String(form.get(name) ?? '');
-  const startAt = localInputToIso(text('startAt'), SITE_TIMEZONE);
-  const endAt = localInputToIso(text('endAt'), SITE_TIMEZONE);
-  if (!startAt || !endAt) return { ok: false as const, error: 'Enter both a start and an end time' };
+  const start = parseLocalInput(text('startAt'), SITE_TIMEZONE);
+  if (!start.ok) return { ok: false as const, error: `Start: ${start.error}` };
+  const end = parseLocalInput(text('endAt'), SITE_TIMEZONE);
+  if (!end.ok) return { ok: false as const, error: `End: ${end.error}` };
+  const startAt = start.iso;
+  const endAt = end.iso;
 
   // Users: ids separated by commas, spaces or new lines.
   const userIds = text('users')

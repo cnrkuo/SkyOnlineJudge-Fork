@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Verdict } from '@skyoj/contract';
-import { and, asc, between, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, notInArray, sql } from 'drizzle-orm';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
 import { type Database, DB } from '../../database/database.module.js';
 import { boardProblems, boards, boardUsers, problems, submissions, users } from '../../database/schema.js';
@@ -117,7 +117,8 @@ export class BoardRepository {
         and(
           inArray(submissions.userId, userIds),
           inArray(submissions.problemId, problemIds),
-          between(submissions.createdAt, from, to),
+          gte(submissions.createdAt, from),
+          lt(submissions.createdAt, to),
           notInArray(submissions.verdict, [Verdict.WAIT, Verdict.JUDGING]),
         ),
       )

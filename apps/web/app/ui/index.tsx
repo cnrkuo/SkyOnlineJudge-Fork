@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Link, useRouteLoaderData } from 'react-router';
-import { formatDateTime } from '~/lib/time';
+import { formatDateTime, formatOffset } from '~/lib/time';
 import type { loader as rootLoader } from '~/root';
 import { type ButtonVariant, css, type Tone, type VerdictKind } from './classes';
 import { Tip } from './overlays';
@@ -289,12 +289,18 @@ export function UserLink({ user }: { user: { id: number; nickname: string } }) {
   return <Link to={`/users/${user.id}`}>{user.nickname}</Link>;
 }
 
-/** Timestamp in the site timezone. */
-export function Time({ value }: { value: string }) {
+/**
+ * Timestamp in the site time zone. The zone and its offset are in the
+ * tooltip; `withZone` also prints the offset, for times people plan around
+ * (a contest's start and end).
+ */
+export function Time({ value, withZone = false }: { value: string; withZone?: boolean }) {
   const { timeZone } = useRoot();
+  const offset = formatOffset(value, timeZone);
   return (
-    <time dateTime={value} className={cx(css.nowrap, css.numeric)}>
+    <time dateTime={value} title={`${timeZone} (${offset})`} className={cx(css.nowrap, css.numeric)}>
       {formatDateTime(value, timeZone)}
+      {withZone && <span className={css.muted}> {offset}</span>}
     </time>
   );
 }

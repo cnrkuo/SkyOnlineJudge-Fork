@@ -4,6 +4,7 @@ import { Markdown } from '~/components/markdown';
 import { api, load, submit } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
 import { idParam } from '~/lib/params';
+import { useRefreshAt } from '~/lib/revalidate';
 import { formatDuration } from '~/lib/time';
 import {
   Badge,
@@ -111,6 +112,14 @@ const problemColumns: Column<Contest['problems'][number]>[] = [
 ];
 
 export default function Contest({ loaderData: contest, actionData }: Route.ComponentProps) {
+  // Show the new phase when the contest starts or ends, without a manual reload.
+  useRefreshAt(
+    contest.phase === ContestPhase.PREPARING
+      ? contest.startAt
+      : contest.phase === ContestPhase.RUNNING
+        ? contest.endAt
+        : null,
+  );
   const { user } = useRoot();
   const boardVisible = contest.canManage || contest.phase !== ContestPhase.PREPARING;
   return (
@@ -121,7 +130,7 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
           <Cluster>
             <PhaseBadge phase={contest.phase} />
             <span>
-              <Time value={contest.startAt} /> → <Time value={contest.endAt} /> (
+              <Time value={contest.startAt} withZone /> → <Time value={contest.endAt} withZone /> (
               {formatDuration((Date.parse(contest.endAt) - Date.parse(contest.startAt)) / 1000)})
             </span>
             <span>{contest.style === ContestStyle.IOI ? 'IOI rules' : 'ICPC rules'}</span>

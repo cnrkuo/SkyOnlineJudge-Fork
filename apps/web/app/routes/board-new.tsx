@@ -3,7 +3,8 @@ import { redirect } from 'react-router';
 import { BoardForm } from '~/components/board-form';
 import { api, load, submit } from '~/lib/api.server';
 import { parseBoardForm } from '~/lib/board-form.server';
-import { DAY_MS, HOUR_MS } from '~/lib/time';
+import { SITE_TIMEZONE } from '~/lib/site.server';
+import { defaultBoardWindow } from '~/lib/time';
 import { Measure, PageHeader } from '~/ui';
 import type { Route } from './+types/board-new';
 
@@ -11,9 +12,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const me = await load(request, (o) => api.auth.me(undefined, o));
   if (!me) throw redirect('/login?next=/scoreboards/new');
   if (me.level < UserLevel.ADMIN) throw new Response('Administrator permission required', { status: 403 });
-  // Default window: from the current hour, for one year.
-  const start = new Date(Math.floor(Date.now() / HOUR_MS) * HOUR_MS);
-  return { startAt: start.toISOString(), endAt: new Date(start.getTime() + 365 * DAY_MS).toISOString() };
+  return defaultBoardWindow(SITE_TIMEZONE);
 }
 
 export async function action({ request }: Route.ActionArgs) {

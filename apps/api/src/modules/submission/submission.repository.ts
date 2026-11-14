@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Verdict } from '@skyoj/contract';
-import { and, asc, between, count, desc, eq, inArray, notInArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, notInArray, or, type SQL, sql } from 'drizzle-orm';
 import { type Actor, GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';
 import { type Database, DB } from '../../database/database.module.js';
@@ -270,7 +270,7 @@ export class SubmissionRepository {
       .limit(limit);
   }
 
-  /** Submissions that count towards a contest, oldest first. */
+  /** Submissions made in `[from, to)` that count towards a contest, oldest first. */
   async forScoreboard(problemIds: number[], userIds: number[], from: Date, to: Date): Promise<ScoreboardSubmission[]> {
     if (problemIds.length === 0 || userIds.length === 0) return [];
     return this.db
@@ -286,7 +286,8 @@ export class SubmissionRepository {
         and(
           inArray(submissions.problemId, problemIds),
           inArray(submissions.userId, userIds),
-          between(submissions.createdAt, from, to),
+          gte(submissions.createdAt, from),
+          lt(submissions.createdAt, to),
         ),
       )
       .orderBy(asc(submissions.id));

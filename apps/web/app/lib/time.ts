@@ -1,52 +1,81 @@
 /**
- * All times are shown in one site-wide timezone (like the legacy system,
- * which was fixed to Asia/Taipei). Formatting with an explicit zone also
- * keeps server-rendered and hydrated markup identical.
+ * All times are shown and entered in one site-wide time zone (like the
+ * legacy system, which was fixed to Asia/Taipei). Formatting with an
+ * explicit zone also keeps server-rendered and hydrated markup identical.
+ *
+ * Time-zone arithmetic is done by date-fns with `@date-fns/tz`: a `TZDate`
+ * is an instant viewed in a zone, so formatting, rounding and adding days
+ * follow that zone's calendar, daylight-saving changes included.
  */
+import { TZDate } from '@date-fns/tz';
+import { addDays, addHours, addYears, format, startOfHour } from 'date-fns';
 
-export const HOUR_MS = 60 * 60 * 1000;
-export const DAY_MS = 24 * HOUR_MS;
+const LOCAL_INPUT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
-/** Offset of `timeZone` from UTC at `instant`, in milliseconds. */
-function offsetAt(instant: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-  }).formatToParts(instant);
-  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-  const wall = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
-  return wall - Math.floor(instant / 1000) * 1000;
-}
+export type LocalTime = { ok: true; iso: string } | { ok: false; error: string };
 
-/** `<input type="datetime-local">` value (wall time in `timeZone`) → ISO UTC. */
-export function localInputToIso(value: string, timeZone: string): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
-  if (!match) return null;
-  const [, y, mo, d, h, mi, s] = match;
-  const wall = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s ?? 0));
-  // The offset depends on the instant we are solving for; two passes settle
-  // it across daylight-saving transitions.
-  let instant = wall - offsetAt(wall, timeZone);
-  instant = wall - offsetAt(instant, timeZone);
-  return new Date(instant).toISOString();
+/**
+ * Reads an `<input type="datetime-local">` value as wall-clock time in
+ * `timeZone` and returns the instant as ISO UTC.
+ *
+ * - A date that does not exist (30 February) is refused.
+ * - A time the clocks skip when daylight-saving time starts is refused.
+ * - A time that happens twice when it ends means its first occurrence.
+ */
+export function parseLocalInput(value: string, timeZone: string): LocalTime {
+  const match = LOCAL_INPUT.exec(value);
+  if (!match) return { ok: false, error: 'Enter a date and a time' };
+  const [y, mo, d, h, mi, s] = match.slice(1).map((part) => Number(part ?? 0)) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const calendar = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  if (calendar.getUTCMonth() !== mo - 1 || calendar.getUTCDate() !== d || calendar.getUTCHours() !== h) {
+    return { ok: false, error: `${value.replace('T', ' ')} is not a valid date and time` };
+  }
+  const zoned = TZDate.tz(timeZone, y, mo - 1, d, h, mi, s);
+  // TZDate moves a skipped wall time forward; reading it back shows that.
+  const written = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6] ?? '00'}`;
+  if (format(zoned, "yyyy-MM-dd'T'HH:mm:ss") !== written) {
+    return {
+      ok: false,
+      error: `${value.replace('T', ' ')} does not exist in ${timeZone}: the clocks skip it when daylight-saving time starts`,
+    };
+  }
+  return { ok: true, iso: toUtcIso(zoned) };
 }
 
 /** ISO timestamp → `<input type="datetime-local">` value in `timeZone`. */
-export function isoToLocalInput(iso: string, timeZone: string): string {
-  const instant = new Date(iso).getTime();
-  return new Date(instant + offsetAt(instant, timeZone)).toISOString().slice(0, 16);
-}
+export const isoToLocalInput = (iso: string, timeZone: string) =>
+  format(new TZDate(iso, timeZone), "yyyy-MM-dd'T'HH:mm");
 
 /** `2026-11-12 17:30:05` in `timeZone`. */
-export function formatDateTime(iso: string, timeZone: string): string {
-  const instant = new Date(iso).getTime();
-  return new Date(instant + offsetAt(instant, timeZone)).toISOString().slice(0, 19).replace('T', ' ');
+export const formatDateTime = (iso: string, timeZone: string) =>
+  format(new TZDate(iso, timeZone), 'yyyy-MM-dd HH:mm:ss');
+
+/** The zone's offset at that instant: `UTC+08:00`, `UTC−05:00`, or `UTC`. */
+export function formatOffset(iso: string, timeZone: string): string {
+  const offset = format(new TZDate(iso, timeZone), 'xxx');
+  return offset === '+00:00' ? 'UTC' : `UTC${offset.replace('-', '−')}`;
+}
+
+/** UTC ISO form (`…Z`) of an instant; a TZDate's own toISOString() writes its zone's offset. */
+const toUtcIso = (date: Date) => new Date(date.getTime()).toISOString();
+
+/** Default window of a new contest: five hours from the next full local hour, a day from now. */
+export function defaultContestWindow(timeZone: string, now: number = Date.now()) {
+  const start = addDays(startOfHour(addHours(TZDate.tz(timeZone, now), 1)), 1);
+  return { startAt: toUtcIso(start), endAt: toUtcIso(addHours(start, 5)) };
+}
+
+/** Default window of a new training scoreboard: a year from the current local hour. */
+export function defaultBoardWindow(timeZone: string, now: number = Date.now()) {
+  const start = startOfHour(TZDate.tz(timeZone, now));
+  return { startAt: toUtcIso(start), endAt: toUtcIso(addYears(start, 1)) };
 }
 
 export function formatDuration(totalSeconds: number): string {

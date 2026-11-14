@@ -45,7 +45,7 @@ export function BoardForm({
                 required
               />
             </Field>
-            <Field label="Until">
+            <Field label="Until" hint="Not included: submissions count up to this moment.">
               <input
                 type="datetime-local"
                 name="endAt"

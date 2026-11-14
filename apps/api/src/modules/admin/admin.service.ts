@@ -11,12 +11,16 @@ import { UserRepository } from '../user/user.repository.js';
 const LANGUAGES = new Set<string>(Object.values(Language));
 const isLanguage = (id: string): id is Language => LANGUAGES.has(id);
 
-function toJudge(row: JudgeRow) {
+/** A judge polls about once a second; silence for this long means it is gone. */
+export const JUDGE_ONLINE_WITHIN_MS = 30_000;
+
+function toJudge(row: JudgeRow, now = new Date()) {
   return {
     id: row.id,
     name: row.name,
     enabled: row.enabled,
     languages: row.languages.filter(isLanguage),
+    online: row.lastSeenAt !== null && now.getTime() - row.lastSeenAt.getTime() < JUDGE_ONLINE_WITHIN_MS,
     lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };
@@ -90,7 +94,8 @@ export class AdminService {
 
   async listJudges(actor: Actor) {
     requireAdmin(actor);
-    return (await this.judges.list()).map(toJudge);
+    const now = new Date();
+    return (await this.judges.list()).map((row) => toJudge(row, now));
   }
 
   async createJudge(actor: Actor, name: string) {

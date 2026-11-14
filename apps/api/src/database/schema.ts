@@ -13,7 +13,13 @@ import {
 } from 'drizzle-orm/pg-core';
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
-const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow();
+/**
+ * Timestamps come from the application's clock, like every other time the
+ * API compares (submissions, judge claims, sessions); the database default
+ * is only a fallback for rows written by hand.
+ */
+const now = () => new Date();
+const createdAt = () => timestamp({ withTimezone: true }).notNull().defaultNow().$defaultFn(now);
 
 export const users = pgTable(
   'users',
@@ -61,7 +67,7 @@ export const problems = pgTable('problems', {
   scoreMode: varchar({ length: 16 }).notNull().default('average'),
   scoreGroups: jsonb().$type<[number, number][]>().notNull().default([]),
   createdAt: createdAt(),
-  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow().$defaultFn(now),
 });
 
 export const testcases = pgTable(

@@ -3,6 +3,8 @@ import { redirect } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
 import { api, load, submit } from '~/lib/api.server';
 import { parseContestForm } from '~/lib/contest-form.server';
+import { SITE_TIMEZONE } from '~/lib/site.server';
+import { defaultContestWindow } from '~/lib/time';
 import { Measure, PageHeader } from '~/ui';
 import type { Route } from './+types/contest-new';
 
@@ -10,9 +12,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const me = await load(request, (o) => api.auth.me(undefined, o));
   if (!me) throw redirect('/login?next=/contests/new');
   if (me.level < UserLevel.ADMIN) throw new Response('Administrator permission required', { status: 403 });
-  // Default to a five-hour contest starting at the next full hour, tomorrow.
-  const start = new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 86_400_000);
-  return { startAt: start.toISOString(), endAt: new Date(start.getTime() + 5 * 3_600_000).toISOString() };
+  return defaultContestWindow(SITE_TIMEZONE);
 }
 
 export async function action({ request }: Route.ActionArgs) {

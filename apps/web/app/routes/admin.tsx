@@ -37,9 +37,6 @@ const LEVELS: { level: UserLevel; label: string }[] = [
   { level: UserLevel.ROOT, label: 'Site owner' },
 ];
 
-/** A judge polls every second or so; silence for this long means it is gone. */
-const JUDGE_ONLINE_WITHIN_MS = 30_000;
-
 const levelOf = (value: string) => LEVELS.find((l) => String(l.level) === value)?.level;
 
 function usersInput(params: URLSearchParams) {
@@ -74,7 +71,7 @@ function Judges({ actionData }: { actionData: Route.ComponentProps['actionData']
   const queryClient = useQueryClient();
   const options = orpc.admin.listJudges.queryOptions();
   // Refresh often enough for the online indicator to mean something.
-  const { data: judges = [], dataUpdatedAt } = useQuery({ ...options, refetchInterval: 10_000 });
+  const { data: judges = [] } = useQuery({ ...options, refetchInterval: 10_000 });
   const refresh = () => queryClient.invalidateQueries({ queryKey: options.queryKey });
   const toggle = useMutation(orpc.admin.setJudgeEnabled.mutationOptions({ onSuccess: refresh }));
   const remove = useMutation(orpc.admin.deleteJudge.mutationOptions({ onSuccess: refresh }));
@@ -87,8 +84,8 @@ function Judges({ actionData }: { actionData: Route.ComponentProps['actionData']
       header: 'Status',
       cell: (j) => {
         if (!j.enabled) return <Badge>Disabled</Badge>;
-        const online = j.lastSeenAt !== null && dataUpdatedAt - Date.parse(j.lastSeenAt) < JUDGE_ONLINE_WITHIN_MS;
-        return online ? <Badge tone="success">Online</Badge> : <Badge tone="warning">Offline</Badge>;
+        // Decided by the API, on its own clock: the browser's may be off.
+        return j.online ? <Badge tone="success">Online</Badge> : <Badge tone="warning">Offline</Badge>;
       },
     },
     {

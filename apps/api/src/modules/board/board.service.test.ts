@@ -30,21 +30,23 @@ const input = {
   title: 'Class',
   announce: '',
   startAt: '2026-01-01T00:00:00Z',
-  endAt: '2026-01-01T00:00:00Z',
+  endAt: '2026-02-01T00:00:00Z',
   allowJoin: false,
   userIds: [1, 2],
   problems: [{ problemId: 1, note: '' }],
 };
 
 describe('BoardService.create', () => {
-  it('accepts a window that starts and ends at the same moment', async () => {
+  it('stores the members and problems', async () => {
     const { service: boards, created } = service();
     await expect(boards.create(admin, input)).resolves.toEqual({ id: 4 });
     expect(created[0]?.[1]).toEqual({ userIds: [1, 2], problems: input.problems });
   });
 
-  it('rejects an end before the start, duplicates and unknown members', async () => {
+  it('rejects an empty or backwards window, duplicates and unknown members', async () => {
     const boards = service().service;
+    // Submissions count in [start, end): a window ending when it starts is empty.
+    await expect(boards.create(admin, { ...input, endAt: input.startAt })).rejects.toThrow(BadRequestError);
     await expect(boards.create(admin, { ...input, endAt: '2025-12-31T00:00:00Z' })).rejects.toThrow(BadRequestError);
     await expect(boards.create(admin, { ...input, userIds: [1, 1] })).rejects.toThrow(/listed twice/);
     await expect(boards.create(admin, { ...input, userIds: [1, 404] })).rejects.toThrow(/User 404/);

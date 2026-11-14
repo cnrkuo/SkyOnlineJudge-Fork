@@ -7,6 +7,7 @@ import {
   PageInputSchema,
   PasswordSchema,
   SubmitInputSchema,
+  TimestampSchema,
   UpdateProfileInputSchema,
 } from './schemas.js';
 
@@ -67,5 +68,33 @@ describe('UpdateProfileInputSchema', () => {
     });
     expect(ok(UpdateProfileInputSchema({ introduction: null }))).toEqual({ introduction: null });
     rejects(UpdateProfileInputSchema({ introduction: 'x'.repeat(INTRODUCTION_MAX_LENGTH + 1) }));
+  });
+});
+
+describe('TimestampSchema', () => {
+  it('accepts instants with a UTC offset', () => {
+    for (const value of [
+      '2026-03-01T08:00:00Z',
+      '2026-03-01T08:00:00.000Z',
+      '2026-03-01T16:00+08:00',
+      '2024-02-29T00:00:00Z',
+    ]) {
+      expect(ok(TimestampSchema(value))).toBe(value);
+    }
+  });
+
+  it('refuses times without an offset, whose meaning would depend on the server', () => {
+    for (const value of ['2026-03-01T08:00', '2026-03-01T08:00:00', '2026-03-01']) rejects(TimestampSchema(value));
+  });
+
+  it('refuses dates and times that do not exist', () => {
+    for (const value of [
+      '2026-02-30T08:00:00Z',
+      '2025-02-29T00:00:00Z',
+      '2026-03-01T24:00:00Z',
+      '2026-13-01T00:00:00Z',
+    ]) {
+      rejects(TimestampSchema(value));
+    }
   });
 });

@@ -1,6 +1,6 @@
 import { ContestProblemState, ContestStyle, RegisterType } from '@skyoj/contract';
 import { SITE_TIMEZONE } from './site.server';
-import { localInputToIso } from './time';
+import { parseLocalInput } from './time';
 
 const STATE_WORDS: Record<string, ContestProblemState> = {
   normal: ContestProblemState.NORMAL,
@@ -30,9 +30,12 @@ function parseProblems(text: string) {
 /** Reads the fields of `<ContestForm>` into a contest create/update input. */
 export function parseContestForm(form: FormData) {
   const text = (name: string) => String(form.get(name) ?? '');
-  const startAt = localInputToIso(text('startAt'), SITE_TIMEZONE);
-  const endAt = localInputToIso(text('endAt'), SITE_TIMEZONE);
-  if (!startAt || !endAt) return { ok: false as const, error: 'Enter both a start and an end time' };
+  const start = parseLocalInput(text('startAt'), SITE_TIMEZONE);
+  if (!start.ok) return { ok: false as const, error: `Start: ${start.error}` };
+  const end = parseLocalInput(text('endAt'), SITE_TIMEZONE);
+  if (!end.ok) return { ok: false as const, error: `End: ${end.error}` };
+  const startAt = start.iso;
+  const endAt = end.iso;
 
   const problems = parseProblems(text('problems'));
   if (!problems) {

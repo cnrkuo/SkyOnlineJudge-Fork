@@ -120,7 +120,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         title={board.title}
         meta={
           <>
-            Submissions from <Time value={board.startAt} /> to <Time value={board.endAt} /> · by{' '}
+            Submissions from <Time value={board.startAt} withZone /> to <Time value={board.endAt} withZone /> · by{' '}
             <UserLink user={board.owner} />
           </>
         }

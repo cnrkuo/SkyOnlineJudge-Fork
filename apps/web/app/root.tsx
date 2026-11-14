@@ -17,6 +17,7 @@ import {
 import type { Route } from './+types/root';
 import { api, as } from './lib/api.server';
 import { SITE_NAME, SITE_TIMEZONE } from './lib/site.server';
+import { formatOffset } from './lib/time';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/400-italic.css';
 import '@fontsource/ibm-plex-mono/600.css';
@@ -48,7 +49,12 @@ export const middleware: Route.MiddlewareFunction[] = [
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await api.auth.me(undefined, await as(request));
-  return { user, siteName: SITE_NAME, timeZone: SITE_TIMEZONE };
+  return {
+    user,
+    siteName: SITE_NAME,
+    timeZone: SITE_TIMEZONE,
+    offset: formatOffset(new Date().toISOString(), SITE_TIMEZONE),
+  };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: loaderData?.siteName ?? 'Online Judge' }];
@@ -175,7 +181,9 @@ export default function App({ loaderData }: Route.ComponentProps) {
               <Outlet />
             </Hydrated>
           </main>
-          <footer className={shell.footer}>{siteName}</footer>
+          <footer className={shell.footer}>
+            {siteName} · All times are {loaderData.timeZone} ({loaderData.offset})
+          </footer>
         </div>
       </TooltipProvider>
     </QueryClientProvider>

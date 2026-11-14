@@ -41,8 +41,43 @@ export const ContestPhaseSchema = valuesOf(ContestPhase);
  * requests (file uploads) transport every field as a string.
  */
 export const IdSchema = type('string.integer.parse | number.integer').to('number.integer > 0');
-/** ISO-8601 timestamp. Dates always travel as strings over the wire. */
-export const TimestampSchema = type('string.date.iso');
+/** `2026-03-01T08:00:00Z`, `2026-03-01T16:00:00.000+08:00`: date, time and a UTC offset. */
+const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/** Whether the written date and time exist on the calendar (no 30 February, no 24:00). */
+function isRealDateTime(value: string): boolean {
+  const [, year, month, day, hour, minute, second = '0'] = ISO_INSTANT.exec(value) ?? [];
+  const parts = [year, month, day, hour, minute, second].map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const [y, mo, d, h, mi, s] = parts;
+  const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === mo - 1 &&
+    date.getUTCDate() === d &&
+    date.getUTCHours() === h &&
+    date.getUTCMinutes() === mi &&
+    date.getUTCSeconds() === s
+  );
+}
+
+/**
+ * An instant, as ISO 8601 with an explicit UTC offset. Dates always travel
+ * as strings over the wire. A timestamp without an offset is refused: the
+ * server would otherwise read it in its own time zone, so the same input
+ * would mean different moments on different machines.
+ */
+export const TimestampSchema = type('string').narrow(
+  (value, ctx) =>
+    (ISO_INSTANT.test(value) && isRealDateTime(value)) ||
+    ctx.mustBe('a valid date and time with a UTC offset, like 2026-03-01T08:00:00Z'),
+);
 /** An uploaded or downloaded file. */
 export const FileSchema = type('File');
 
@@ -444,6 +479,8 @@ export const JudgeMachineSchema = type({
   enabled: 'boolean',
   /** Languages the judge reported working toolchains for on its last fetch. */
   languages: LanguageSchema.array(),
+  /** Whether the judge polled recently, by the API's clock. */
+  online: 'boolean',
   lastSeenAt: TimestampSchema.or('null'),
   createdAt: TimestampSchema,
 });

@@ -132,6 +132,33 @@ SQL migrations to `apps/api/migrations`, which the API applies on startup.
 Files live under `DATA_DIR`: testdata is content-addressed
 (`problems/<id>/testdata/<sha256>`), attachments keep their names.
 
+### Time
+
+- **Instants everywhere.** Columns are `timestamptz`; services work with
+  `Date`; the wire carries ISO 8601 in UTC (`2026-03-01T08:00:00.000Z`).
+  `TimestampSchema` refuses a timestamp without a UTC offset (the API would
+  otherwise read it in its own time zone) and dates that do not exist.
+- **One clock: the API's.** Every timestamp the API stores or compares comes
+  from its own clock — submissions, judge claims, sessions, `createdAt`
+  (`$defaultFn` in `schema.ts`; the database default is only a fallback).
+  Whether a judge is online is decided by the API too, not by the browser,
+  whose clock may be off. The judge sends no timestamps at all and measures
+  time with a monotonic clock.
+- **Windows are half-open, `[start, end)`.** A contest runs from `startAt`
+  up to, not including, `endAt`; submitting needs `now < endAt`; scoreboards
+  count submissions in `[startAt, endAt)`, or `[startAt, freezeAt)` while
+  frozen. A window must therefore end after it starts.
+- **One display zone.** `SITE_TIMEZONE` (default `Asia/Taipei`) for every
+  time shown or entered. `<Time>` carries the zone and offset in its tooltip
+  and, for contest and scoreboard windows, prints the offset; the footer
+  names the zone. Form input is wall-clock time in that zone, converted with
+  date-fns and `@date-fns/tz` (`lib/time.ts`): a time the clocks skip when
+  daylight-saving time starts is refused, and a time that happens twice
+  when it ends means its first occurrence. Defaults ("next full hour") are
+  computed on the local calendar, so they work in zones such as UTC+05:30.
+- **Pages follow the clock.** A contest page reloads its data when the
+  contest starts or ends (`useRefreshAt`); the server decides the phase.
+
 ### The write queue
 
 Most writes are rare (editing a problem, registering). Two are not: creating

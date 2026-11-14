@@ -19,9 +19,9 @@ export interface BoardInput {
   problems: { problemId: number; note: string }[];
 }
 
-/** Unlike a contest, a scoreboard may start and end at the same moment. */
+/** Submissions count from `startAt` up to, but not including, `endAt`. */
 function checkWindow({ startAt, endAt }: TimeWindow): void {
-  if (endAt < startAt) throw new BadRequestError('The end must not be before the start');
+  if (endAt <= startAt) throw new BadRequestError('The scoreboard must end after it starts');
 }
 
 /**

@@ -166,17 +166,19 @@ Verdicts have a palette of their own, one colour per kind of outcome
 | Colour | Verdicts | Value |
 | --- | --- | --- |
 | Emerald | AC | `#31d78c` |
-| Magenta | WA, PE | `#f983f7` |
+| Rose red | WA, PE | `#fe93a1` |
 | Violet | TLE, MLE, OLE | `#c9a1ff` |
-| Indigo | RE | `#9fb3fe` |
+| Blue | RE | `#7cbdff` |
 | Gold | CE | `#e5ae0d` |
-| Pink | RF | `#ff8fb7` |
+| Pink | RF | `#ff88d6` |
 | White | Waiting, Judging, JE, SE | `#b7b7b7` |
 
 All seven have the same OKLCH lightness (0.78), so none looks brighter or
 louder than another; only hue and saturation differ. That is why "white" is
 a light grey: pure white would be the brightest thing in the list. To change
-a colour, keep its lightness — `styles/verdict-colours.test.ts` fails if the
+a colour, keep its lightness (at this lightness sRGB cannot make red or blue
+very saturated, which is why rose red and blue are softer than gold; pink
+leans towards magenta to stay apart from rose red) — `styles/verdict-colours.test.ts` fails if the
 seven drift more than 0.01 apart, and `contrast.test.ts` checks each on every
 surface (all above 7 : 1).
 

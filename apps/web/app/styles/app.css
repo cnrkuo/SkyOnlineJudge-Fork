@@ -40,11 +40,11 @@
      lightness (0.78) so none looks brighter than another; only hue and
      chroma differ. `verdict-colours.test.ts` checks the lightness. */
   --oj-verdict-accepted: #31d78c; /* emerald: AC */
-  --oj-verdict-wrong: #f983f7; /* magenta: WA, PE */
+  --oj-verdict-wrong: #fe93a1; /* rose red: WA, PE */
   --oj-verdict-limit: #c9a1ff; /* violet: TLE, MLE, OLE */
-  --oj-verdict-runtime: #9fb3fe; /* indigo: RE */
+  --oj-verdict-runtime: #7cbdff; /* blue: RE */
   --oj-verdict-compile: #e5ae0d; /* gold: CE */
-  --oj-verdict-restricted: #ff8fb7; /* pink: RF */
+  --oj-verdict-restricted: #ff88d6; /* pink: RF */
   --oj-verdict-neutral: #b7b7b7; /* white at the same lightness: waiting, judging, JE, SE */
 }
 

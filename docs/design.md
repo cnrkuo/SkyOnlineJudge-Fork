@@ -56,15 +56,15 @@ wear Bootstrap's classes (`dropdown-menu`, `dropdown-item`, `nav nav-tabs`,
 Bootstrap's dark palette, whatever their system prefers, and there is no
 switch. Native controls and scrollbars follow (`color-scheme: dark`).
 
-The surfaces are darker than Bootstrap's greys, close to black. They keep
-Bootstrap's three steps, so a card or a hovered row still stands out from
-the page:
+The surfaces are a dark blue-grey like GitHub's dark theme, darker than
+Bootstrap's greys. They keep Bootstrap's three steps, so a card or a
+hovered row still stands out from the page:
 
 | Surface | Variable | Bootstrap dark | Here |
 | --- | --- | --- | --- |
-| Page | `--bs-body-bg` | `#212529` | `#0a0b0d` |
-| Raised: card and table headers, code | `--bs-tertiary-bg` | `#2b3035` | `#15171a` |
-| Hover, highlighted menu item | `--bs-secondary-bg` | `#343a40` | `#202327` |
+| Page | `--bs-body-bg` | `#212529` | `#0d1117` |
+| Raised: card and table headers, code | `--bs-tertiary-bg` | `#2b3035` | `#161b22` |
+| Hover, highlighted menu item | `--bs-secondary-bg` | `#343a40` | `#21262d` |
 
 ### Typeface
 
@@ -92,14 +92,14 @@ fixed in `app.css` (ratios measured on the page background):
 
 | Element | Bootstrap dark | Here |
 | --- | --- | --- |
-| Verdict and tone text (`text-success`, `text-danger`) | 3.4 : 1 | `*-text-emphasis` shades, ≥ 7.8 : 1 |
-| Secondary (outline) buttons | 2.8–3.3 : 1 | body text colour, 15.1 : 1 |
-| Danger (outline) buttons | 3.4 : 1 | danger emphasis, 7.8 : 1 |
+| Verdict and tone text (`text-success`, `text-danger`) | 3.4 : 1 | `*-text-emphasis` shades, ≥ 7.5 : 1 |
+| Secondary (outline) buttons | 2.8–3.3 : 1 | body text colour, 14.5 : 1 |
+| Danger (outline) buttons | 3.4 : 1 | danger emphasis, 7.5 : 1 |
 | Primary button label | 4.5 : 1 (bare minimum) | button one shade darker, 5.2 : 1 |
 | Menu section headers | 3.3 : 1 | secondary text colour |
-| Input and checkbox borders | 1.9 : 1 | grey-600, 4.2 : 1 |
+| Input and checkbox borders | 1.9 : 1 | grey-600, 4.0 : 1 |
 | TeX error messages (Temml) | 2.3 : 1 | danger emphasis |
-| Code comments | — | 7.8 : 1 on code blocks; every syntax colour ≥ 4.5 : 1 |
+| Code comments | — | 7.5 : 1 on code blocks; every syntax colour ≥ 4.5 : 1 |
 
 Two checks keep it that way:
 

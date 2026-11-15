@@ -412,8 +412,14 @@ export const ScoreboardSchema = type({
     solved: 'number.integer',
     /** ICPC penalty in minutes. */
     penalty: 'number.integer',
-    /** Tie-breaks, over the counted submissions: seconds from the start summed, run time, memory. */
+    /**
+     * Tie-breaks, in order: seconds from the start to each counted
+     * submission, summed; problems solved first; attempts other than AC;
+     * run time and memory of the counted submissions.
+     */
     solveSeconds: 'number.integer',
+    firstBloods: 'number.integer',
+    rejected: 'number.integer',
     runTimeMs: 'number.integer',
     memoryKb: 'number.integer',
     score: 'number',

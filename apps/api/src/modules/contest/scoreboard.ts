@@ -58,6 +58,10 @@ export interface ScoreboardRow {
   score: number;
   /** Seconds from the contest start to each counted submission, summed. */
   solveSeconds: number;
+  /** Problems this row solved first. */
+  firstBloods: number;
+  /** Attempts with a verdict other than AC (compile and system errors are not attempts). */
+  rejected: number;
   /** CPU time and peak memory of the counted submissions, summed. */
   runTimeMs: number;
   memoryKb: number;
@@ -107,15 +111,25 @@ function compareLanguages(a: ScoreboardRow, b: ScoreboardRow): number {
 
 /**
  * Ranking order. First the contest's own measure — IOI: total score; ICPC:
- * problems solved, then penalty time (ICPC's "total time") — and among rows
- * still equal: total solving time, total run time, total memory, languages.
+ * problems solved, then penalty — and among rows still equal:
+ *
+ * 1. total solving time (less first),
+ * 2. first bloods (more first),
+ * 3. rejected attempts (fewer first),
+ * 4. total run time, 5. total memory (less first),
+ * 6. languages (C, then C++, then Python).
  */
 function compare(style: string, a: ScoreboardRow, b: ScoreboardRow): number {
-  const main =
-    style === ContestStyle.IOI
-      ? b.score - a.score || a.solveSeconds - b.solveSeconds
-      : b.solved - a.solved || a.penalty - b.penalty;
-  return main || a.runTimeMs - b.runTimeMs || a.memoryKb - b.memoryKb || compareLanguages(a, b);
+  const main = style === ContestStyle.IOI ? b.score - a.score : b.solved - a.solved || a.penalty - b.penalty;
+  return (
+    main ||
+    a.solveSeconds - b.solveSeconds ||
+    b.firstBloods - a.firstBloods ||
+    a.rejected - b.rejected ||
+    a.runTimeMs - b.runTimeMs ||
+    a.memoryKb - b.memoryKb ||
+    compareLanguages(a, b)
+  );
 }
 
 /**
@@ -168,6 +182,8 @@ function emptyRow(user: ScoreboardUser, problemCount: number): ScoreboardRow {
     penalty: 0,
     score: 0,
     solveSeconds: 0,
+    firstBloods: 0,
+    rejected: 0,
     runTimeMs: 0,
     memoryKb: 0,
     cells: Array.from({ length: problemCount }, () => ({
@@ -219,6 +235,8 @@ function summarize(row: ScoreboardRow): void {
   row.cells.forEach((cell, index) => {
     const counted = row.counted[index];
     row.score += cell.score;
+    row.rejected += cell.attempts - (cell.accepted ? 1 : 0);
+    if (cell.firstBlood) row.firstBloods++;
     if (!counted) return;
     cell.submissionId = counted.submissionId;
     cell.solvedSeconds = counted.seconds;

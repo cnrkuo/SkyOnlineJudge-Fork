@@ -125,6 +125,18 @@ describe('buildScoreboard: ties', () => {
   const order = (board: ReturnType<typeof buildScoreboard>) =>
     board.rows.map((r) => [r.user.nickname, r.rank] as const);
 
+  it('ICPC: equal solved and penalty rank by total solving time, to the second', () => {
+    const board = buildScoreboard(icpc, problems, users.slice(0, 2), [
+      { ...sub(1, 10, Verdict.AC, 5), createdAt: new Date(at(5).getTime() + 40_000) },
+      { ...sub(2, 10, Verdict.AC, 5), createdAt: new Date(at(5).getTime() + 10_000) },
+    ]);
+    expect(board.rows.map((r) => r.penalty)).toEqual([5, 5]);
+    expect(order(board)).toEqual([
+      ['bob', 1],
+      ['alice', 2],
+    ]);
+  });
+
   it('IOI: equal scores rank by total solving time', () => {
     const board = buildScoreboard(ioi, problems, users.slice(0, 2), [
       sub(1, 10, Verdict.AC, 30),
@@ -136,10 +148,45 @@ describe('buildScoreboard: ties', () => {
     ]);
   });
 
+  it('then by first solves (more first)', () => {
+    // Both solve A and B at the same times; bob was first on both.
+    const board = buildScoreboard(icpc, problems, users.slice(0, 2), [
+      sub(2, 10, Verdict.AC, 5),
+      sub(1, 10, Verdict.AC, 5),
+      sub(2, 20, Verdict.AC, 9),
+      sub(1, 20, Verdict.AC, 9),
+    ]);
+    expect(board.rows.map((r) => [r.user.nickname, r.firstBloods])).toEqual([
+      ['bob', 2],
+      ['alice', 0],
+    ]);
+    expect(order(board)[1]).toEqual(['alice', 2]);
+  });
+
+  it('then by rejected attempts (fewer first)', () => {
+    // IOI, so earlier attempts cost no penalty: both reach 100 at minute 5 on
+    // a problem first solved by carol; alice got there with one more try.
+    const board = buildScoreboard(ioi, problems, users, [
+      sub(3, 10, Verdict.AC, 1),
+      sub(1, 10, Verdict.WA, 2, 50),
+      sub(1, 10, Verdict.TLE, 3, 0),
+      sub(2, 10, Verdict.WA, 4, 0),
+      sub(1, 10, Verdict.AC, 5),
+      sub(2, 10, Verdict.AC, 5),
+    ]);
+    expect(board.rows.map((r) => [r.user.nickname, r.rejected])).toEqual([
+      ['carol', 0],
+      ['bob', 1],
+      ['alice', 2],
+    ]);
+    expect(order(board).map(([, rank]) => rank)).toEqual([1, 2, 3]);
+  });
+
   it('then by total run time, then total memory', () => {
+    // Different problems, so each row has one first solve.
     const byTime = buildScoreboard(icpc, problems, users.slice(0, 2), [
       sub(1, 10, Verdict.AC, 5, 0, { timeMs: 50 }),
-      sub(2, 10, Verdict.AC, 5, 0, { timeMs: 40 }),
+      sub(2, 20, Verdict.AC, 5, 0, { timeMs: 40 }),
     ]);
     expect(order(byTime)).toEqual([
       ['bob', 1],
@@ -147,7 +194,7 @@ describe('buildScoreboard: ties', () => {
     ]);
     const byMemory = buildScoreboard(icpc, problems, users.slice(0, 2), [
       sub(1, 10, Verdict.AC, 5, 0, { memoryKb: 900 }),
-      sub(2, 10, Verdict.AC, 5, 0, { memoryKb: 2000 }),
+      sub(2, 20, Verdict.AC, 5, 0, { memoryKb: 2000 }),
     ]);
     expect(order(byMemory)).toEqual([
       ['alice', 1],
@@ -156,10 +203,12 @@ describe('buildScoreboard: ties', () => {
   });
 
   it('then by language: C before C++ before Python', () => {
-    const board = buildScoreboard(icpc, problems, users, [
+    // A third problem so that each row has one first solve.
+    const three = [...problems, { problemId: 30, tag: 'C' }];
+    const board = buildScoreboard(icpc, three, users, [
       sub(1, 10, Verdict.AC, 5, 0, { language: Language.PYTHON3 }),
-      sub(2, 10, Verdict.AC, 5, 0, { language: Language.CLANG_CPP23 }),
-      sub(3, 10, Verdict.AC, 5, 0, { language: Language.C }),
+      sub(2, 20, Verdict.AC, 5, 0, { language: Language.CLANG_CPP23 }),
+      sub(3, 30, Verdict.AC, 5, 0, { language: Language.C }),
     ]);
     expect(order(board)).toEqual([
       ['carol', 1],
@@ -171,7 +220,7 @@ describe('buildScoreboard: ties', () => {
   it('shares a rank only when every criterion is equal', () => {
     const board = buildScoreboard(icpc, problems, users.slice(0, 2), [
       sub(1, 10, Verdict.AC, 5),
-      sub(2, 10, Verdict.AC, 5),
+      sub(2, 20, Verdict.AC, 5),
     ]);
     expect(order(board)).toEqual([
       ['alice', 1],

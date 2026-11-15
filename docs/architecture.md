@@ -152,8 +152,10 @@ Files live under `DATA_DIR`: testdata is content-addressed
   seconds to the submission it counts (ICPC: the accepted one; IOI: the
   first to reach the best score); ICPC penalty is still whole minutes. Rows
   rank by the contest's measure (IOI: score; ICPC: solved, penalty), then
-  total solving time, total run time, total memory, and languages
-  (C before C++ before Python), all in `contest/scoreboard.ts`.
+  1. total solving time (to the second), 2. first solves (more first),
+  3. rejected attempts — counted verdicts other than AC (fewer first),
+  4. total run time, 5. total memory, 6. languages (C before C++ before
+  Python), all in `contest/scoreboard.ts`.
 - **One display zone.** `SITE_TIMEZONE` (default `Asia/Taipei`) for every
   time shown or entered. `<Time>` carries the zone and offset in its tooltip
   and, for contest and scoreboard windows, prints the offset; the footer

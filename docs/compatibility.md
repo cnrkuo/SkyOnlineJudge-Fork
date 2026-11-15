@@ -74,7 +74,7 @@ purpose, and what was not carried over.
 | Peak memory of a submission | summed over testcases and over rejudges (a bug) | maximum over testcases | Correctness |
 | Who may submit | everyone, even when closed (`isAllowSubmit` was a TODO returning `true`) | logged-in users, and only when open or through a running contest | The setting now does what it says |
 | Scoreboard attempts | every submission, including compile errors and ones still judging | compile / judge / score errors and pending runs are not attempts | ICPC convention |
-| Scoreboard ties | ICPC: solved, penalty; IOI: score only | then total solving time (IOI), total run time, total memory, and languages of the counted solutions (more in C, then C++, then Python) | Fewer shared ranks |
+| Scoreboard ties | ICPC: solved, penalty; IOI: score only | then total solving time (to the second), first solves, rejected attempts, total run time, total memory, and languages of the counted solutions (more in C, then C++, then Python) | Fewer shared ranks |
 | Scoreboard cells | first solver starred, AC minute | first solver's value in brackets; every result shows `h:mm` since the start and links to its submission, whose result (not code) contest participants may open | Traceable standings |
 | Other users' code | owner and administrators (`codeview_access` was stored but ignored) | same, plus everyone when the problem sets code view to "Everyone" | The setting now has an effect |
 | Submissions of hidden problems | listed for everyone | listed for the author and for those who can see the problem | Do not leak hidden contests |

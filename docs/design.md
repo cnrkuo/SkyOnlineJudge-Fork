@@ -208,7 +208,8 @@ Scoreboards are ordinary `DataTable`s whose cells take a `*-subtle` fill.
 A scored cell shows its value over the time since the contest started
 (`h:mm`; `h:mm:ss` in its tooltip) and links to the submission it counts;
 the first to solve a problem has the value in brackets, `[100]` or `[+1]`.
-Run time and memory, the later tie-breaks, are in the **Columns** menu.
+The other tie-breaks — first solves, rejected attempts, run time, memory
+(and the solving time on ICPC boards) — are in the **Columns** menu.
 
 ## Rules
 

@@ -22,7 +22,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     'nickname',
     ...board.problems.map((p) => p.tag),
     ioi ? 'score' : 'solved',
-    ioi ? 'time' : 'penalty',
+    ...(ioi ? [] : ['penalty']),
+    'time',
+    'first_solves',
+    'rejected',
     'run_time_ms',
     'memory_kb',
   ];
@@ -39,7 +42,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
             : '',
     ),
     ioi ? row.score : row.solved,
-    ioi ? formatElapsed(row.solveSeconds, true) : row.penalty,
+    ...(ioi ? [] : [row.penalty]),
+    formatElapsed(row.solveSeconds, true),
+    row.firstBloods,
+    row.rejected,
     row.runTimeMs,
     row.memoryKb,
   ]);

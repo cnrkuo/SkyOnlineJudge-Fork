@@ -124,23 +124,43 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
             sortValue: (r) => r.solved,
             cell: (r) => <strong>{r.solved}</strong>,
           },
-      // The first tie-break: ICPC's penalty time, IOI's total solving time.
-      ioi
-        ? {
-            id: 'time',
-            header: 'Time',
-            align: 'right',
-            sortValue: (r) => r.solveSeconds,
-            cell: (r) => formatElapsed(r.solveSeconds, true),
-          }
-        : {
-            id: 'penalty',
-            header: 'Penalty',
-            align: 'right',
-            sortValue: (r) => r.penalty,
-            cell: (r) => r.penalty,
-          },
-      // Later tie-breaks, in the column menu.
+      ...(ioi
+        ? []
+        : [
+            {
+              id: 'penalty',
+              header: 'Penalty',
+              align: 'right',
+              sortValue: (r) => r.penalty,
+              cell: (r) => r.penalty,
+            } satisfies Column<Row>,
+          ]),
+      // The tie-breaks, in order; all but the solving time are in the column menu.
+      {
+        id: 'time',
+        header: 'Time',
+        align: 'right',
+        hidden: !ioi,
+        sortValue: (r) => r.solveSeconds,
+        cell: (r) => formatElapsed(r.solveSeconds, true),
+      },
+      {
+        id: 'firstBloods',
+        header: 'First solves',
+        align: 'right',
+        hidden: true,
+        descFirst: true,
+        sortValue: (r) => r.firstBloods,
+        cell: (r) => r.firstBloods,
+      },
+      {
+        id: 'rejected',
+        header: 'Rejected',
+        align: 'right',
+        hidden: true,
+        sortValue: (r) => r.rejected,
+        cell: (r) => r.rejected,
+      },
       {
         id: 'runTime',
         header: 'Run time',

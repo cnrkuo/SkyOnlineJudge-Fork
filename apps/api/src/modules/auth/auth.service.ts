@@ -16,15 +16,15 @@ export class AuthService {
     private readonly sessions: SessionRepository,
   ) {}
 
-  async register(input: { email: string; nickname: string; password: string }) {
-    const taken = await this.users.registrationClash(input.email, input.nickname);
+  async register(input: { email: string; username: string; password: string }) {
+    const taken = await this.users.registrationClash(input.email, input.username);
     if (taken) throw new ConflictError(`This ${taken} is already registered`);
 
     // The very first account becomes the site owner.
     const level = (await this.users.count()) === 0 ? UserLevel.ROOT : UserLevel.USER;
     const user = await this.users.create({
       email: input.email,
-      nickname: input.nickname,
+      username: input.username,
       passwordHash: await hashPassword(input.password),
       level,
     });

@@ -39,9 +39,9 @@ describe('load', () => {
 describe('submit', () => {
   it('returns contract errors for the form instead of throwing', async () => {
     const result = await submit(request, async () => {
-      throw new ORPCError('CONFLICT', { message: 'This nickname is already taken' });
+      throw new ORPCError('CONFLICT', { message: 'This username is already taken' });
     });
-    expect(result).toEqual({ ok: false, error: 'This nickname is already taken' });
+    expect(result).toEqual({ ok: false, error: 'This username is already taken' });
   });
 
   it('joins validation issues into one sentence', async () => {

@@ -12,7 +12,7 @@ const board = { id: 1, title: 'Class', announce: '', allowJoin: true, startAt: n
 function service(repo: Partial<Record<keyof BoardRepository, unknown>> = {}) {
   const created: unknown[][] = [];
   const boards = fake<BoardRepository>({
-    findById: async () => ({ board, owner: { id: admin.id, nickname: admin.nickname } }),
+    findById: async () => ({ board, owner: { id: admin.id, username: admin.username } }),
     create: async (...args: unknown[]) => {
       created.push(args);
       return 4;
@@ -59,9 +59,9 @@ describe('BoardService.get', () => {
   it('ranks members by score, then solved problems, then id', async () => {
     const boards = service({
       listUsers: async () => [
-        { id: 1, nickname: 'a' },
-        { id: 2, nickname: 'b' },
-        { id: 3, nickname: 'c' },
+        { id: 1, username: 'a' },
+        { id: 2, username: 'b' },
+        { id: 3, username: 'c' },
       ],
       listProblems: async () => [
         { problemId: 10, note: '' },

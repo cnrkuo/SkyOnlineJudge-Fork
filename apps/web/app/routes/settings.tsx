@@ -7,7 +7,7 @@ import type { Route } from './+types/settings';
 export async function loader({ request }: Route.LoaderArgs) {
   const me = await load(request, (o) => api.auth.me(undefined, o));
   if (!me) throw redirect('/login?next=/settings');
-  return { me, profile: await load(request, (o) => api.user.get({ id: me.id }, o)) };
+  return { me, profile: await load(request, (o) => api.user.get({ username: me.username }, o)) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -30,8 +30,8 @@ export async function action({ request }: Route.ActionArgs) {
   const result = await submit(request, (o) =>
     api.user.updateProfile(
       {
-        nickname: text('nickname'),
-        realname: text('realname') || null,
+        username: text('username'),
+        nickname: text('nickname') || null,
         introduction: text('introduction') || null,
         avatarUrl: text('avatarUrl') || null,
       },
@@ -59,11 +59,11 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
               <Field label="E-mail">
                 <input value={me.email} disabled />
               </Field>
-              <Field label="Nickname">
-                <input name="nickname" defaultValue={profile.nickname} minLength={2} maxLength={32} required />
+              <Field label="Username">
+                <input name="username" defaultValue={profile.username} minLength={2} maxLength={32} required />
               </Field>
-              <Field label="Real name" hint="Optional.">
-                <input name="realname" defaultValue={profile.realname ?? ''} maxLength={30} />
+              <Field label="Nickname" hint="Optional.">
+                <input name="nickname" defaultValue={profile.nickname ?? ''} maxLength={30} />
               </Field>
               <Field label="Avatar URL" hint="Optional link to an image. Without one, your Gravatar is shown.">
                 <input name="avatarUrl" type="url" defaultValue={ownAvatar} maxLength={500} />

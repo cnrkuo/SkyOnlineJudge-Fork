@@ -17,7 +17,7 @@
  *
  * Environment:
  *   BASE_URL          site to test (default http://localhost:3000)
- *   E2E_USER          administrator's e-mail or nickname (optional)
+ *   E2E_USER          administrator's e-mail or username (optional)
  *   E2E_PASSWORD
  *   E2E_TIMEOUT_MS    longest wait for one verdict (default 60000)
  */
@@ -70,10 +70,10 @@ async function signIn(page) {
     await page.fill('[name=password]', process.env.E2E_PASSWORD ?? '');
     await page.click('button:has-text("Log in")');
   } else {
-    const nickname = `e2e${Date.now() % 1_000_000}`;
+    const username = `e2e${Date.now() % 1_000_000}`;
     await page.goto(`${BASE_URL}/register`);
-    await page.fill('[name=email]', `${nickname}@example.com`);
-    await page.fill('[name=nickname]', nickname);
+    await page.fill('[name=email]', `${username}@example.com`);
+    await page.fill('[name=username]', username);
     await page.fill('[name=password]', 'e2e-password');
     await page.fill('[name=repeat]', 'e2e-password');
     await page.click('button:has-text("Register")');

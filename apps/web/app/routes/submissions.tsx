@@ -33,7 +33,7 @@ function listInput(params: URLSearchParams) {
   return {
     ...paging(params),
     problemId: positive(params.get('problem')),
-    userId: positive(params.get('user')),
+    username: params.get('user') || undefined,
     verdict: verdicts.find((verdict) => String(verdict) === params.get('verdict')),
     contestId: positive(params.get('contest')),
   };
@@ -101,7 +101,7 @@ export default function Submissions({ loaderData }: Route.ComponentProps) {
     refetchInterval: (current) => (current.state.data?.items.some((s) => isPending(s.verdict)) ? 2000 : false),
   });
   const list = query.data;
-  const filtered = input.problemId !== undefined || input.userId !== undefined || input.verdict !== undefined;
+  const filtered = input.problemId !== undefined || input.username !== undefined || input.verdict !== undefined;
   // In a contest, filtering and clearing stay within it.
   const clearTo = contest ? `/submissions${inContest(contest)}` : '/submissions';
 
@@ -130,13 +130,8 @@ export default function Submissions({ loaderData }: Route.ComponentProps) {
                     defaultValue={input.problemId ?? ''}
                   />
                 </Field>
-                <Field label="User #">
-                  <input
-                    className={css.inputWidth.xs}
-                    name="user"
-                    inputMode="numeric"
-                    defaultValue={input.userId ?? ''}
-                  />
+                <Field label="Username">
+                  <input className={css.inputWidth.sm} name="user" defaultValue={input.username ?? ''} />
                 </Field>
                 <Field label="Verdict">
                   <select className={css.inputWidth.auto} name="verdict" defaultValue={input.verdict ?? ''}>

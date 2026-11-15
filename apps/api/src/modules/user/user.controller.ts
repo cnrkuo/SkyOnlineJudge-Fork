@@ -15,7 +15,7 @@ export class UserController {
   @Implement(contract.user)
   routes(@CurrentActor() actor: Actor) {
     return {
-      get: os.get.handler(({ input }) => this.users.getProfile(input.id)),
+      get: os.get.handler(({ input }) => this.users.getProfile(input.username)),
       updateProfile: os.updateProfile.handler(({ input }) => this.users.updateProfile(actor, input)),
       changePassword: os.changePassword.handler(async ({ input }) => {
         await this.users.changePassword(actor, input.oldPassword, input.newPassword);

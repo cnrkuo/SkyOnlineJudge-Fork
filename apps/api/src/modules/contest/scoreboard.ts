@@ -6,7 +6,7 @@ export interface ScoreboardProblem {
 }
 export interface ScoreboardUser {
   id: number;
-  nickname: string;
+  username: string;
   state: number;
 }
 export interface ScoreboardSubmission {
@@ -50,7 +50,7 @@ interface Counted {
 }
 export interface ScoreboardRow {
   rank: number;
-  user: { id: number; nickname: string };
+  user: { id: number; username: string };
   state: number;
   solved: number;
   /** ICPC: minutes to each accepted submission plus the penalty for earlier rejected ones. */
@@ -176,7 +176,7 @@ export function buildScoreboard(
 function emptyRow(user: ScoreboardUser, problemCount: number): ScoreboardRow {
   return {
     rank: 0,
-    user: { id: user.id, nickname: user.nickname },
+    user: { id: user.id, username: user.username },
     state: user.state,
     solved: 0,
     penalty: 0,

@@ -41,7 +41,7 @@ export class ContestRepository {
 
   async findById(id: number) {
     const [row] = await this.db
-      .select({ contest: contests, owner: { id: users.id, nickname: users.nickname } })
+      .select({ contest: contests, owner: { id: users.id, username: users.username } })
       .from(contests)
       .innerJoin(users, eq(users.id, contests.ownerId))
       .where(eq(contests.id, id));
@@ -113,7 +113,7 @@ export class ContestRepository {
     return this.db
       .select({
         userId: users.id,
-        nickname: users.nickname,
+        username: users.username,
         state: contestUsers.state,
         note: contestUsers.note,
         createdAt: contestUsers.createdAt,

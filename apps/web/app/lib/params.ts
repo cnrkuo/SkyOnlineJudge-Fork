@@ -7,6 +7,9 @@ export function idParam(value: string | undefined | null): number {
   return id;
 }
 
+/** A user's profile address: users are addressed by username, never by id. */
+export const userPath = (username: string) => `/users/${encodeURIComponent(username)}`;
+
 /** Positive integer from a query string, or `undefined`. */
 export function positive(value: string | null): number | undefined {
   const number = Number(value);

@@ -13,7 +13,7 @@ export class CodepadRepository {
 
   async findByHash(hash: string) {
     const [row] = await this.db
-      .select({ pad: codepads, owner: { id: users.id, nickname: users.nickname } })
+      .select({ pad: codepads, owner: { id: users.id, username: users.username } })
       .from(codepads)
       .leftJoin(users, eq(users.id, codepads.ownerId))
       .where(eq(codepads.hash, hash));

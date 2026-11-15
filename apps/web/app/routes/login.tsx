@@ -43,7 +43,7 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
             <Stack>
               <input type="hidden" name="next" value={loaderData.next} />
               <Notice result={actionData} />
-              <Field label="E-mail or nickname">
+              <Field label="E-mail or username">
                 <input name="identifier" autoComplete="username" required />
               </Field>
               <Field label="Password">

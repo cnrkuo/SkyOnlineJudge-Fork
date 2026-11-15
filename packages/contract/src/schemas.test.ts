@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { CODE_MAX_LENGTH, INTRODUCTION_MAX_LENGTH, Language } from './enums.js';
 import {
   IdSchema,
-  NicknameSchema,
   PageInputSchema,
   PasswordSchema,
   SubmitInputSchema,
   TimestampSchema,
   UpdateProfileInputSchema,
+  UsernameSchema,
 } from './schemas.js';
 
 const ok = <T>(result: T | InstanceType<typeof type.errors>) => {
@@ -37,8 +37,13 @@ describe('PageInputSchema', () => {
 });
 
 describe('account fields', () => {
-  it('trims nicknames before checking them', () => {
-    expect(ok(NicknameSchema('  alice  '))).toBe('alice');
+  it('trims usernames before checking them', () => {
+    expect(ok(UsernameSchema('  alice  '))).toBe('alice');
+  });
+
+  it('keeps usernames usable in a profile address', () => {
+    for (const name of ['al ice', 'a/b', 'what?', 'a#1', '100%', '..', '.', 'x']) rejects(UsernameSchema(name));
+    for (const name of ['alice_42', 'Bob.Lin', '小明', 'a..b']) expect(ok(UsernameSchema(name))).toBe(name);
   });
 
   it('needs passwords of at least six characters', () => {

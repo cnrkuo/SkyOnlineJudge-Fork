@@ -9,9 +9,9 @@ const problems = [
   { problemId: 20, tag: 'B' },
 ];
 const users = [
-  { id: 1, nickname: 'alice', state: TeamState.ACCEPTED },
-  { id: 2, nickname: 'bob', state: TeamState.ACCEPTED },
-  { id: 3, nickname: 'carol', state: TeamState.ACCEPTED },
+  { id: 1, username: 'alice', state: TeamState.ACCEPTED },
+  { id: 2, username: 'bob', state: TeamState.ACCEPTED },
+  { id: 3, username: 'carol', state: TeamState.ACCEPTED },
 ];
 let nextId = 1;
 const sub = (
@@ -48,7 +48,7 @@ describe('buildScoreboard (ICPC)', () => {
   const [first, second, third] = board.rows;
 
   it('ranks by solved count, then penalty', () => {
-    expect(board.rows.map((r) => r.user.nickname)).toEqual(['alice', 'bob', 'carol']);
+    expect(board.rows.map((r) => r.user.username)).toEqual(['alice', 'bob', 'carol']);
     expect(board.rows.map((r) => r.rank)).toEqual([1, 2, 3]);
     expect(first).toMatchObject({ solved: 2, penalty: 10 + 20 + 30 });
     expect(second).toMatchObject({ solved: 1, penalty: 7 });
@@ -86,17 +86,17 @@ describe('buildScoreboard (IOI)', () => {
     const more = buildScoreboard(
       contest,
       problems,
-      [...users, { id: 4, nickname: 'dave', state: TeamState.ACCEPTED }],
+      [...users, { id: 4, username: 'dave', state: TeamState.ACCEPTED }],
       [sub(1, 10, Verdict.WA, 1, 40), sub(2, 10, Verdict.WA, 3, 40), sub(4, 10, Verdict.WA, 4, 10)],
     );
     // With equal scores, whoever reached them sooner ranks first.
-    expect(more.rows.map((r) => [r.user.nickname, r.rank])).toEqual([
+    expect(more.rows.map((r) => [r.user.username, r.rank])).toEqual([
       ['alice', 1],
       ['bob', 2],
       ['dave', 3],
       ['carol', 4],
     ]);
-    expect(board.rows.map((r) => [r.user.nickname, r.score, r.rank])).toEqual([
+    expect(board.rows.map((r) => [r.user.username, r.score, r.rank])).toEqual([
       ['carol', 120, 1],
       ['alice', 40, 2],
       ['bob', 40, 3],
@@ -123,7 +123,7 @@ describe('buildScoreboard: ties', () => {
   const icpc = { style: ContestStyle.ICPC, startAt, penaltySec: 1200 };
   const ioi = { style: ContestStyle.IOI, startAt, penaltySec: 0 };
   const order = (board: ReturnType<typeof buildScoreboard>) =>
-    board.rows.map((r) => [r.user.nickname, r.rank] as const);
+    board.rows.map((r) => [r.user.username, r.rank] as const);
 
   it('ICPC: equal solved and penalty rank by total solving time, to the second', () => {
     const board = buildScoreboard(icpc, problems, users.slice(0, 2), [
@@ -156,7 +156,7 @@ describe('buildScoreboard: ties', () => {
       sub(2, 20, Verdict.AC, 9),
       sub(1, 20, Verdict.AC, 9),
     ]);
-    expect(board.rows.map((r) => [r.user.nickname, r.firstBloods])).toEqual([
+    expect(board.rows.map((r) => [r.user.username, r.firstBloods])).toEqual([
       ['bob', 2],
       ['alice', 0],
     ]);
@@ -174,7 +174,7 @@ describe('buildScoreboard: ties', () => {
       sub(1, 10, Verdict.AC, 5),
       sub(2, 10, Verdict.AC, 5),
     ]);
-    expect(board.rows.map((r) => [r.user.nickname, r.rejected])).toEqual([
+    expect(board.rows.map((r) => [r.user.username, r.rejected])).toEqual([
       ['carol', 0],
       ['bob', 1],
       ['alice', 2],

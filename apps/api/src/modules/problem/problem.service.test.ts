@@ -8,7 +8,7 @@ import type { SubmissionRepository } from '../submission/submission.repository.j
 import type { ProblemRepository } from './problem.repository.js';
 import { ProblemService } from './problem.service.js';
 
-const owner = { id: admin.id, nickname: admin.nickname, level: admin.level };
+const owner = { id: admin.id, username: admin.username, level: admin.level };
 const problem = (contentAccess: number, submitOpen: boolean) => ({ id: 7, contentAccess, submitOpen });
 const running: ContestEntry = { endAt: new Date(Date.now() + 3_600_000), problemState: ContestProblemState.NORMAL };
 

@@ -44,7 +44,7 @@ export function ContestNav({ contest, current }: { contest: ContestNavData; curr
               </ButtonLink>
             )}
             {user && (
-              <ButtonLink size="sm" to={`/submissions?contest=${contest.id}&user=${user.id}`}>
+              <ButtonLink size="sm" to={`/submissions?contest=${contest.id}&user=${encodeURIComponent(user.username)}`}>
                 My submissions
               </ButtonLink>
             )}

@@ -16,6 +16,7 @@ import {
 } from 'react-router';
 import type { Route } from './+types/root';
 import { api, as } from './lib/api.server';
+import { userPath } from './lib/params';
 import { SITE_NAME, SITE_TIMEZONE } from './lib/site.server';
 import { formatOffset } from './lib/time';
 import '@fontsource/ibm-plex-mono/400.css';
@@ -151,8 +152,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
               <div className={shell.navEnd}>
                 {user ? (
                   <>
-                    <NavLink to={`/users/${user.id}`} className={navLinkClass}>
-                      {user.nickname}
+                    <NavLink to={userPath(user.username)} className={navLinkClass}>
+                      {user.username}
                     </NavLink>
                     <NavLink to="/settings" className={navLinkClass}>
                       Settings

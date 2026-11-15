@@ -8,7 +8,7 @@ import type { JudgeRepository } from '../judge/judge.repository.js';
 import type { UserRepository } from '../user/user.repository.js';
 import { AdminService } from './admin.service.js';
 
-const target: { id: number; nickname: string; level: number } = { id: 50, nickname: 'target', level: UserLevel.USER };
+const target: { id: number; username: string; level: number } = { id: 50, username: 'target', level: UserLevel.USER };
 
 function service(stored = target, repo: Partial<Record<keyof UserRepository, unknown>> = {}) {
   const updates: unknown[][] = [];
@@ -18,7 +18,7 @@ function service(stored = target, repo: Partial<Record<keyof UserRepository, unk
     fake<UserRepository>({
       findById: async (id: number) => (id === stored.id ? stored : undefined),
       update: async (...args: unknown[]) => void updates.push(args),
-      nicknameTaken: async () => false,
+      usernameTaken: async () => false,
       ...repo,
     }),
     fake<SessionRepository>({ deleteByUser: async (id: number) => void loggedOut.push(id) }),
@@ -64,15 +64,15 @@ describe('AdminService.updateUser', () => {
     expect(loggedOut).toEqual([target.id]);
   });
 
-  it('refuses a nickname in use and accounts of the same rank', async () => {
-    const taken = service(target, { nicknameTaken: async () => true }).admin;
-    await expect(taken.updateUser(admin, { userId: target.id, nickname: 'other' })).rejects.toThrow(ConflictError);
+  it('refuses a username in use and accounts of the same rank', async () => {
+    const taken = service(target, { usernameTaken: async () => true }).admin;
+    await expect(taken.updateUser(admin, { userId: target.id, username: 'other' })).rejects.toThrow(ConflictError);
     const peer = { ...target, level: UserLevel.ADMIN };
-    await expect(service(peer).admin.updateUser(admin, { userId: peer.id, realname: 'x' })).rejects.toThrow(
+    await expect(service(peer).admin.updateUser(admin, { userId: peer.id, nickname: 'x' })).rejects.toThrow(
       ForbiddenError,
     );
     const self = { ...target, id: admin.id, level: admin.level };
-    await expect(service(self).admin.updateUser(admin, { userId: admin.id, realname: 'me' })).resolves.toBeUndefined();
+    await expect(service(self).admin.updateUser(admin, { userId: admin.id, nickname: 'me' })).resolves.toBeUndefined();
   });
 });
 

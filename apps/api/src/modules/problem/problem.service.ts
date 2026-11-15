@@ -76,7 +76,7 @@ export class ProblemService {
     const { problem, owner, canEdit, canSubmit } = await this.access(actor, id);
     return {
       id: problem.id,
-      owner: { id: owner.id, nickname: owner.nickname },
+      owner: { id: owner.id, username: owner.username },
       title: problem.title,
       content: problem.content,
       contentAccess: problem.contentAccess as AccessLevel,
@@ -125,7 +125,7 @@ export class ProblemService {
       verdicts: verdicts.map((row) => ({ verdict: row.verdict as Verdict, count: row.count })),
       fastest: fastest.map((row) => ({
         submissionId: row.id,
-        user: { id: row.userId, nickname: row.nickname },
+        user: { id: row.userId, username: row.username },
         timeMs: row.timeMs,
         memoryKb: row.memoryKb,
         language: row.language as Language,

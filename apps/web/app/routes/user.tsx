@@ -3,18 +3,17 @@ import { Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
 import { api, load } from '~/lib/api.server';
 import { renderMarkdown } from '~/lib/markdown.server';
-import { idParam } from '~/lib/params';
 import { Badge, ButtonLink, Card, Cluster, css, Empty, Grid, PageHeader, Stack, Stats, Time } from '~/ui';
 import type { Route } from './+types/user';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const user = await load(request, (o) => api.user.get({ id: idParam(params.id) }, o));
+  const user = await load(request, (o) => api.user.get({ username: params.username }, o));
   // The Markdown source stays on the server; the page only needs the HTML.
   const introduction = user.introduction ? await renderMarkdown(user.introduction) : null;
   return { ...user, introduction };
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: loaderData?.nickname ?? 'User' }];
+export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: loaderData?.username ?? 'User' }];
 
 function role(level: UserLevel): string | null {
   if (level >= UserLevel.ROOT) return 'Site owner';
@@ -44,11 +43,11 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
       <Cluster gap="md">
         {user.avatarUrl && <img src={user.avatarUrl} alt="" className={css.avatar} />}
         <PageHeader
-          title={user.nickname}
+          title={user.username}
           meta={
             <Cluster>
               {badge && <Badge tone="primary">{badge}</Badge>}
-              {user.realname && <span>{user.realname}</span>}
+              {user.nickname && <span>{user.nickname}</span>}
               <span>
                 Joined <Time value={user.createdAt} />
               </span>
@@ -81,7 +80,7 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
         </Card>
       </Grid>
       <p>
-        <Link to={`/submissions?user=${user.id}`}>All submissions by {user.nickname} →</Link>
+        <Link to={`/submissions?user=${encodeURIComponent(user.username)}`}>All submissions by {user.username} →</Link>
       </p>
     </Stack>
   );

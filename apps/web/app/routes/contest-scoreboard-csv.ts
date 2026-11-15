@@ -19,7 +19,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   const header = [
     'rank',
-    'nickname',
+    'username',
     ...board.problems.map((p) => p.tag),
     ioi ? 'score' : 'solved',
     ...(ioi ? [] : ['penalty']),
@@ -31,7 +31,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   ];
   const lines = board.rows.map((row) => [
     row.rank,
-    row.user.nickname,
+    row.user.username,
     ...row.cells.map((cell) =>
       ioi
         ? cell.score

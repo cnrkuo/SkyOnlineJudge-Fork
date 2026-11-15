@@ -27,7 +27,8 @@ const auth = {
 };
 
 const user = {
-  get: base.input(byId).output(s.UserProfileSchema),
+  /** By username, so profile addresses do not reveal how many users there are. */
+  get: base.input(type({ username: '1 <= string <= 64' })).output(s.UserProfileSchema),
   updateProfile: base.input(s.UpdateProfileInputSchema).output(s.SessionUserSchema),
   changePassword: base.input(s.ChangePasswordInputSchema).output(s.OkSchema),
 };

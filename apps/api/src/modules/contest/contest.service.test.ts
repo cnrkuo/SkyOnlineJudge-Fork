@@ -29,7 +29,7 @@ function service(contest = contestRow(), repo: Partial<Record<keyof ContestRepos
     forScoreboard: [],
   };
   const contests = fake<ContestRepository>({
-    findById: async () => ({ contest, owner: { id: admin.id, nickname: admin.nickname } }),
+    findById: async () => ({ contest, owner: { id: admin.id, username: admin.username } }),
     stateOf: async () => undefined,
     setParticipant: async (...args: unknown[]) => void calls.setParticipant.push(args),
     create: async (...args: unknown[]) => {
@@ -127,9 +127,9 @@ describe('ContestService.scoreboard', () => {
     { problemId: 2, tag: 'B', state: ContestProblemState.HIDDEN, title: 'B' },
   ];
   const participants = [
-    { userId: user.id, nickname: 'me', state: TeamState.ACCEPTED, note: '', createdAt: now },
-    { userId: 20, nickname: 'hidden team', state: TeamState.HIDDEN, note: '', createdAt: now },
-    { userId: 21, nickname: 'pending', state: TeamState.PENDING, note: '', createdAt: now },
+    { userId: user.id, username: 'me', state: TeamState.ACCEPTED, note: '', createdAt: now },
+    { userId: 20, username: 'hidden team', state: TeamState.HIDDEN, note: '', createdAt: now },
+    { userId: 21, username: 'pending', state: TeamState.PENDING, note: '', createdAt: now },
   ];
   const boardOf = (contest = contestRow()) =>
     service(contest, { listProblems: async () => problems, listParticipants: async () => participants });
@@ -143,9 +143,9 @@ describe('ContestService.scoreboard', () => {
   it('lists visible problems and participating teams; hidden teams only for managers', async () => {
     const forUser = await boardOf().service.scoreboard(user, 1);
     expect(forUser.problems.map((p) => p.tag)).toEqual(['A']);
-    expect(forUser.rows.map((r) => r.user.nickname)).toEqual(['me']);
+    expect(forUser.rows.map((r) => r.user.username)).toEqual(['me']);
     const forAdmin = await boardOf().service.scoreboard(admin, 1);
-    expect(forAdmin.rows.map((r) => r.user.nickname).sort()).toEqual(['hidden team', 'me']);
+    expect(forAdmin.rows.map((r) => r.user.username).sort()).toEqual(['hidden team', 'me']);
   });
 
   it('freezes the board for everyone but managers during the last freezeSec seconds', async () => {

@@ -14,8 +14,8 @@ purpose, and what was not carried over.
 | `/contest/list`, `view`, `modify`, `register`, `scoreboard`, `scoreboard_download` | `/contests`, `/contests/:id`, `/contests/:id/edit`, `/contests/:id/scoreboard`, `/contests/:id/scoreboard.csv` |
 | `/rank/list`, `view`, `modify`, `api/join` | `/scoreboards`, `/scoreboards/:id`, `/scoreboards/:id/edit`, "Join" button |
 | `/code/codepad`, `/code/view/:hash` | `/codepad`, `/codepad/:hash` |
-| `/user/view/:uid`, settings sub-pages | `/users/:id`, `/settings` |
-| `/admin` (user list, judge profiles) | `/admin`, `/admin/users/:id` |
+| `/user/view/:uid`, settings sub-pages | `/users/:username`, `/settings` |
+| `/admin` (user list, judge profiles) | `/admin`, `/admin/users/:username` |
 | `judge_profile` + HypeX bridge | `judge/` daemon, registered under Admin → Judge machines |
 | judging inside the submit request (`problem_api_submit`) | submissions and results pass through RabbitMQ; see architecture.md |
 
@@ -25,7 +25,7 @@ purpose, and what was not carried over.
   (`owner || higher rank || level > required`) keep their numeric values and
   semantics. Problems are `Open`, `Admin` or `Hidden`; submitting is `Open` or
   `Closed`; new problems start hidden and closed.
-- **Accounts.** Log in with e-mail or nickname. Password hashes written by
+- **Accounts.** Log in with e-mail or username (the old nickname). Password hashes written by
   PHP (`password_hash(..., PASSWORD_BCRYPT)`, `$2y$…`) are accepted and
   upgraded on first login, so imported accounts keep their passwords.
   Administrators can edit another account, including its password, without
@@ -76,6 +76,8 @@ purpose, and what was not carried over.
 | Scoreboard attempts | every submission, including compile errors and ones still judging | compile / judge / score errors and pending runs are not attempts | ICPC convention |
 | Scoreboard ties | ICPC: solved, penalty; IOI: score only | then total solving time (to the second), first solves, rejected attempts, total run time, total memory, and languages of the counted solutions (more in C, then C++, then Python) | Fewer shared ranks |
 | Scoreboard cells | first solver starred, AC minute | first solver's value in brackets; every result shows `h:mm` since the start and links to its submission, whose result (not code) contest participants may open | Traceable standings |
+| Account names | unique `nickname` and optional `realname` | unique **username** (the handle; case-insensitive) and optional **nickname** (a display name, at most 30 characters); existing values were carried over in place | Clearer names |
+| Profile address | `/user/view/:uid` (sequential id) | `/users/:username`; submission filters take a username too | Does not reveal how many accounts there are |
 | Other users' code | owner and administrators (`codeview_access` was stored but ignored) | same, plus everyone when the problem sets code view to "Everyone" | The setting now has an effect |
 | Submissions of hidden problems | listed for everyone | listed for the author and for those who can see the problem | Do not leak hidden contests |
 | Contest page after the end | "contest over" page | problems stay visible to participants | Upsolving |

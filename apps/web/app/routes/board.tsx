@@ -55,7 +55,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
         id: 'user',
         header: 'User',
         fixed: true,
-        sortValue: (r) => r.user.nickname.toLowerCase(),
+        sortValue: (r) => r.user.username.toLowerCase(),
         cell: (r) => <UserLink user={r.user} />,
       },
       {
@@ -101,7 +101,7 @@ export default function Board({ loaderData }: Route.ComponentProps) {
             if (!cell || cell.verdict === null) return <Muted>·</Muted>;
             return (
               <Tip label={VERDICT_LABEL[cell.verdict]}>
-                <Link to={`/submissions?user=${r.user.id}&problem=${problem.problemId}`}>
+                <Link to={`/submissions?user=${encodeURIComponent(r.user.username)}&problem=${problem.problemId}`}>
                   <strong>{VERDICT_SHORT[cell.verdict]}</strong>
                   <span className={table.scoreCellSub}>{round(cell.score)}</span>
                 </Link>

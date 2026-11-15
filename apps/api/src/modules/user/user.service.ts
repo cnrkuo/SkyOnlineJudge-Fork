@@ -13,18 +13,21 @@ export class UserService {
     private readonly submissions: SubmissionRepository,
   ) {}
 
-  async getProfile(id: number) {
-    const user = await this.users.findById(id);
+  async getProfile(username: string) {
+    const user = await this.users.findByUsername(username);
     if (!user) throw new NotFoundError('User');
-    const [totals, best] = await Promise.all([this.submissions.totalsOfUser(id), this.submissions.bestVerdicts(id)]);
+    const [totals, best] = await Promise.all([
+      this.submissions.totalsOfUser(user.id),
+      this.submissions.bestVerdicts(user.id),
+    ]);
     const byId = (a: number, b: number) => a - b;
     const solved = [...best].filter(([, verdict]) => verdict === Verdict.AC).map(([problemId]) => problemId);
     const tried = [...best].filter(([, verdict]) => verdict !== Verdict.AC).map(([problemId]) => problemId);
     return {
       id: user.id,
-      nickname: user.nickname,
+      username: user.username,
       level: user.level as UserLevel,
-      realname: user.realname,
+      nickname: user.nickname,
       introduction: user.introduction,
       // Like the legacy site, fall back to the e-mail's Gravatar.
       avatarUrl:
@@ -34,11 +37,11 @@ export class UserService {
     };
   }
 
-  async updateProfile(actor: Actor, patch: Pick<UserPatch, 'nickname' | 'realname' | 'introduction' | 'avatarUrl'>) {
+  async updateProfile(actor: Actor, patch: Pick<UserPatch, 'username' | 'nickname' | 'introduction' | 'avatarUrl'>) {
     requireLogin(actor);
-    if (patch.nickname && patch.nickname !== actor.nickname) {
-      if (await this.users.nicknameTaken(patch.nickname, actor.id)) {
-        throw new ConflictError('This nickname is already taken');
+    if (patch.username && patch.username !== actor.username) {
+      if (await this.users.usernameTaken(patch.username, actor.id)) {
+        throw new ConflictError('This username is already taken');
       }
     }
     const user = await this.users.update(actor.id, patch);

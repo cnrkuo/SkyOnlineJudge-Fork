@@ -39,10 +39,10 @@ export class AdminService {
     const { rows, total } = await this.users.list(input, input.search);
     const items = rows.map((user) => ({
       id: user.id,
-      nickname: user.nickname,
+      username: user.username,
       email: user.email,
       level: user.level as UserLevel,
-      realname: user.realname,
+      nickname: user.nickname,
       createdAt: user.createdAt.toISOString(),
     }));
     return pageOf(items, total, input);
@@ -71,7 +71,7 @@ export class AdminService {
    */
   async updateUser(
     actor: Actor,
-    input: { userId: number; nickname?: string; realname?: string | null; newPassword?: string },
+    input: { userId: number; username?: string; nickname?: string | null; newPassword?: string },
   ): Promise<void> {
     requireAdmin(actor);
     const target = await this.users.findById(input.userId);
@@ -79,14 +79,14 @@ export class AdminService {
     if (target.id !== actor.id && target.level >= actor.level) {
       throw new ForbiddenError('You may not edit this user');
     }
-    if (input.nickname && input.nickname !== target.nickname) {
-      if (await this.users.nicknameTaken(input.nickname, target.id)) {
-        throw new ConflictError('This nickname is already taken');
+    if (input.username && input.username !== target.username) {
+      if (await this.users.usernameTaken(input.username, target.id)) {
+        throw new ConflictError('This username is already taken');
       }
     }
     await this.users.update(target.id, {
+      ...(input.username === undefined ? {} : { username: input.username }),
       ...(input.nickname === undefined ? {} : { nickname: input.nickname }),
-      ...(input.realname === undefined ? {} : { realname: input.realname }),
       ...(input.newPassword === undefined ? {} : { passwordHash: await hashPassword(input.newPassword) }),
     });
     if (input.newPassword !== undefined) await this.sessions.deleteByUser(target.id);

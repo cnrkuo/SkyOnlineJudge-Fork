@@ -6,7 +6,7 @@ import { type Actor, GUEST } from '../common/actor.js';
 export const actor = (id: number, level: UserLevel = UserLevel.USER): Actor => ({
   id,
   level,
-  nickname: `user${id}`,
+  username: `user${id}`,
   email: `user${id}@example.com`,
 });
 

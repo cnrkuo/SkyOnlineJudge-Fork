@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { type Actor, GUEST, requireAdmin, requireUser, satisfies } from './actor.js';
 import { ForbiddenError, UnauthorizedError } from './errors.js';
 
-const actor = (id: number, level: UserLevel): Actor => ({ id, level, nickname: `u${id}`, email: '' });
+const actor = (id: number, level: UserLevel): Actor => ({ id, level, username: `u${id}`, email: '' });
 const user = actor(1, UserLevel.USER);
 const admin = actor(2, UserLevel.ADMIN);
 const otherAdmin = actor(3, UserLevel.ADMIN);

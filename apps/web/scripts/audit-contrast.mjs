@@ -12,7 +12,7 @@
  *
  * Environment:
  *   BASE_URL        site to audit (default http://localhost:3000)
- *   AUDIT_USER      e-mail or nickname to log in with (optional)
+ *   AUDIT_USER      e-mail or username to log in with (optional)
  *   AUDIT_PASSWORD
  *   AUDIT_MAX_PAGES crawl limit per session (default 60)
  *

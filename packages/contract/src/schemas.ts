@@ -98,17 +98,25 @@ export const OkSchema = type({ ok: 'true' });
 
 // ---------------------------------------------------------------------- user
 
-export const NicknameSchema = type('string.trim')
+/**
+ * The unique handle: shown on scoreboards and lists, and the address of the
+ * profile (`/users/:username`), so it avoids characters with a meaning in a
+ * URL or in HTML. Unique without regard to case.
+ */
+export const UsernameSchema = type('string.trim')
   .to('2 <= string <= 32')
   .narrow(
     (value, ctx) =>
-      /^[^\s@<>&"'\\/]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ /'),
-  );
+      /^[^\s@<>&"'\\/?#%]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ / ? # %'),
+  )
+  .narrow((value, ctx) => !/^\.+$/.test(value) || ctx.mustBe('more than dots'));
+/** The optional display name, which need not be unique. */
+export const NicknameSchema = type('string.trim').to('string <= 30');
 export const PasswordSchema = type('6 <= string <= 128');
 
 export const UserRefSchema = type({
   id: 'number.integer',
-  nickname: 'string',
+  username: 'string',
 });
 
 export const SessionUserSchema = UserRefSchema.merge({
@@ -118,7 +126,7 @@ export const SessionUserSchema = UserRefSchema.merge({
 
 export const UserProfileSchema = UserRefSchema.merge({
   level: UserLevelSchema,
-  realname: 'string | null',
+  nickname: 'string | null',
   /** Self-introduction in Markdown (with TeX math), as written. */
   introduction: 'string | null',
   /** The user's own picture, or their Gravatar when none is set. */
@@ -133,18 +141,18 @@ export const UserProfileSchema = UserRefSchema.merge({
 });
 
 export const AdminUserSchema = SessionUserSchema.merge({
-  realname: 'string | null',
+  nickname: 'string | null',
   createdAt: TimestampSchema,
 });
 
 export const RegisterInputSchema = type({
   email: 'string.email <= 64',
-  nickname: NicknameSchema,
+  username: UsernameSchema,
   password: PasswordSchema,
 });
 
 export const LoginInputSchema = type({
-  /** E-mail address or nickname. */
+  /** E-mail address or username. */
   identifier: '1 <= string <= 64',
   password: '1 <= string <= 128',
 });
@@ -156,8 +164,8 @@ export const AuthResultSchema = type({
 });
 
 export const UpdateProfileInputSchema = type({
-  'nickname?': NicknameSchema,
-  'realname?': 'string <= 30 | null',
+  'username?': UsernameSchema,
+  'nickname?': NicknameSchema.or('null'),
   'introduction?': `string <= ${INTRODUCTION_MAX_LENGTH} | null`,
   'avatarUrl?': 'string.url <= 500 | null',
 });
@@ -165,8 +173,8 @@ export const UpdateProfileInputSchema = type({
 /** Administrators editing someone else's account; no old password needed. */
 export const AdminUpdateUserInputSchema = type({
   userId: IdSchema,
-  'nickname?': NicknameSchema,
-  'realname?': 'string <= 30 | null',
+  'username?': UsernameSchema,
+  'nickname?': NicknameSchema.or('null'),
   'newPassword?': PasswordSchema,
 });
 
@@ -296,7 +304,8 @@ export const SubmitInputSchema = type({
 
 export const SubmissionListInputSchema = PageInputSchema.merge({
   'problemId?': IdSchema,
-  'userId?': IdSchema,
+  /** Only this user's submissions (case-insensitive, as usernames are unique). */
+  'username?': '1 <= string <= 64',
   'verdict?': VerdictSchema,
   /**
    * Only submissions that count for this contest: to one of its problems,

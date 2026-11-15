@@ -38,7 +38,7 @@ export class BoardRepository {
 
   async findById(id: number) {
     const [row] = await this.db
-      .select({ board: boards, owner: { id: users.id, nickname: users.nickname } })
+      .select({ board: boards, owner: { id: users.id, username: users.username } })
       .from(boards)
       .innerJoin(users, eq(users.id, boards.ownerId))
       .where(eq(boards.id, id));
@@ -83,7 +83,7 @@ export class BoardRepository {
 
   listUsers(boardId: number) {
     return this.db
-      .select({ id: users.id, nickname: users.nickname })
+      .select({ id: users.id, username: users.username })
       .from(boardUsers)
       .innerJoin(users, eq(users.id, boardUsers.userId))
       .where(eq(boardUsers.boardId, boardId))

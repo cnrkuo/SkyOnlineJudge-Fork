@@ -10,7 +10,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (password !== form.get('repeat')) return { ok: false as const, error: 'The two passwords do not match' };
   const result = await submit(request, (o) =>
     api.auth.register(
-      { email: String(form.get('email') ?? ''), nickname: String(form.get('nickname') ?? ''), password },
+      { email: String(form.get('email') ?? ''), username: String(form.get('username') ?? ''), password },
       o,
     ),
   );
@@ -33,8 +33,10 @@ export default function Register({ actionData }: Route.ComponentProps) {
               <Field label="E-mail">
                 <input name="email" type="email" autoComplete="email" maxLength={64} required />
               </Field>
-              <Field label="Nickname" hint="2–32 characters; shown on scoreboards.">
-                <input name="nickname" autoComplete="nickname" minLength={2} maxLength={32} required />
+              <Field
+                label="Username"
+                hint="Your unique handle: 2–32 characters, no spaces. Shown on scoreboards and in your profile's address.">
+                <input name="username" autoComplete="username" minLength={2} maxLength={32} required />
               </Field>
               <Field label="Password" hint="At least 6 characters.">
                 <input name="password" type="password" autoComplete="new-password" minLength={6} required />

@@ -36,6 +36,13 @@
       "when": 1794665442221,
       "tag": "0004_self_introduction",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794724000000,
+      "tag": "0005_username",
+      "breakpoints": true
     }
   ]
 }

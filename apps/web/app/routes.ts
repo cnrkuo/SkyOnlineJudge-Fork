@@ -7,7 +7,7 @@ export default [
   route('register', 'routes/register.tsx'),
   route('logout', 'routes/logout.ts'),
   route('settings', 'routes/settings.tsx'),
-  route('users/:id', 'routes/user.tsx'),
+  route('users/:username', 'routes/user.tsx'),
 
   ...prefix('problems', [
     index('routes/problems.tsx'),
@@ -37,7 +37,7 @@ export default [
   ...prefix('codepad', [index('routes/codepad.tsx'), route(':hash', 'routes/codepad-view.tsx')]),
 
   route('admin', 'routes/admin.tsx'),
-  route('admin/users/:id', 'routes/admin-user.tsx'),
+  route('admin/users/:username', 'routes/admin-user.tsx'),
 
   // Gateway for the browser's oRPC client.
   route('rpc/*', 'routes/rpc.ts'),

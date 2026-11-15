@@ -26,16 +26,16 @@ export const users = pgTable(
   {
     id: id(),
     email: varchar({ length: 64 }).notNull(),
-    nickname: varchar({ length: 64 }).notNull(),
+    username: varchar({ length: 64 }).notNull(),
     passwordHash: text().notNull(),
-    realname: varchar({ length: 30 }),
+    nickname: varchar({ length: 30 }),
     level: integer().notNull(),
     /** Self-introduction in Markdown, shown on the profile. */
     introduction: text(),
     avatarUrl: text(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('users_email_key').on(t.email), uniqueIndex('users_nickname_key').on(t.nickname)],
+  (t) => [uniqueIndex('users_email_key').on(t.email), uniqueIndex('users_username_key').on(t.username)],
 );
 
 export const sessions = pgTable(

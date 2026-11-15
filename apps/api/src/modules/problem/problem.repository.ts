@@ -13,7 +13,7 @@ export type AttachmentRow = typeof attachments.$inferSelect;
 
 export interface ProblemWithOwner {
   problem: ProblemRow;
-  owner: { id: number; nickname: string; level: number };
+  owner: { id: number; username: string; level: number };
 }
 
 /**
@@ -42,7 +42,7 @@ export class ProblemRepository {
 
   async findById(id: number): Promise<ProblemWithOwner | undefined> {
     const [row] = await this.db
-      .select({ problem: problems, owner: { id: users.id, nickname: users.nickname, level: users.level } })
+      .select({ problem: problems, owner: { id: users.id, username: users.username, level: users.level } })
       .from(problems)
       .innerJoin(users, eq(users.id, problems.ownerId))
       .where(eq(problems.id, id));

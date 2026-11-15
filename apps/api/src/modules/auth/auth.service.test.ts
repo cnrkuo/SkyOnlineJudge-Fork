@@ -14,7 +14,7 @@ const LEGACY_SECRET = '$2y$10$92n.WHfZxBLEGhGmEcsOGOK4cUsxFRu4gGfFKrxhYd6o8NuoGy
 const stored = (passwordHash: string, level: number = UserLevel.USER) => ({
   id: 7,
   email: 'ann@example.com',
-  nickname: 'ann',
+  username: 'ann',
   level,
   passwordHash,
 });
@@ -34,7 +34,7 @@ function service(users: Partial<Record<keyof UserRepository, unknown>>) {
 }
 
 describe('AuthService.register', () => {
-  const input = { email: 'ann@example.com', nickname: 'ann', password: 'hunter22' };
+  const input = { email: 'ann@example.com', username: 'ann', password: 'hunter22' };
   const creating = (count: number) => ({
     registrationClash: async () => null,
     count: async () => count,
@@ -56,8 +56,8 @@ describe('AuthService.register', () => {
   });
 
   it('names the identifier that is already taken', async () => {
-    const { auth } = service({ registrationClash: async () => 'nickname' });
-    await expect(auth.register(input)).rejects.toThrow(new ConflictError('This nickname is already registered'));
+    const { auth } = service({ registrationClash: async () => 'username' });
+    await expect(auth.register(input)).rejects.toThrow(new ConflictError('This username is already registered'));
   });
 });
 

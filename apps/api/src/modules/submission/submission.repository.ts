@@ -15,7 +15,7 @@ const summaryColumns = {
   problemId: submissions.problemId,
   problemTitle: problems.title,
   userId: submissions.userId,
-  nickname: users.nickname,
+  username: users.username,
   language: submissions.language,
   verdict: submissions.verdict,
   score: submissions.score,
@@ -26,7 +26,8 @@ const summaryColumns = {
 
 export interface SubmissionFilter {
   problemId?: number;
-  userId?: number;
+  /** The author's username, case-insensitive. */
+  username?: string;
   verdict?: number;
   /** Submissions to these problems made in `[from, to)`: those that count for a contest. */
   within?: { problemIds: number[]; from: Date; to: Date };
@@ -76,7 +77,7 @@ export class SubmissionRepository {
   async list(actor: Actor, filter: SubmissionFilter, page: PageInput) {
     const where = and(
       filter.problemId ? eq(submissions.problemId, filter.problemId) : undefined,
-      filter.userId ? eq(submissions.userId, filter.userId) : undefined,
+      filter.username ? this.byAuthor(filter.username) : undefined,
       filter.verdict !== undefined ? eq(submissions.verdict, filter.verdict) : undefined,
       filter.within ? this.madeWithin(filter.within) : undefined,
       or(eq(submissions.userId, actor.id), this.problemVisibleTo(actor)),
@@ -92,13 +93,17 @@ export class SubmissionRepository {
     return { rows, total: total?.n ?? 0 };
   }
 
-  /** Submissions with their problem's title and their author's nickname (`summaryColumns`). */
+  /** Submissions with their problem's title and their author's username (`summaryColumns`). */
   private selectSummaries() {
     return this.db
       .select(summaryColumns)
       .from(submissions)
       .innerJoin(problems, eq(problems.id, submissions.problemId))
       .innerJoin(users, eq(users.id, submissions.userId));
+  }
+
+  private byAuthor(username: string): SQL {
+    return sql`${submissions.userId} = (select ${users.id} from ${users} where lower(${users.username}) = ${username.toLowerCase()})`;
   }
 
   private madeWithin({ problemIds, from, to }: NonNullable<SubmissionFilter['within']>): SQL {

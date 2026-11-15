@@ -16,7 +16,7 @@ function toSummary(row: SummaryRow) {
   return {
     id: row.id,
     problem: { id: row.problemId, title: row.problemTitle },
-    user: { id: row.userId, nickname: row.nickname },
+    user: { id: row.userId, username: row.username },
     language: row.language as Language,
     verdict: row.verdict as Verdict,
     score: row.score,

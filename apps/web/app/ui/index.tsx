@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Link, useRouteLoaderData } from 'react-router';
+import { userPath } from '~/lib/params';
 import { formatDateTime, formatOffset } from '~/lib/time';
 import type { loader as rootLoader } from '~/root';
 import { type ButtonVariant, css, type Tone, type VerdictKind } from './classes';
@@ -285,8 +286,8 @@ export function useRoot() {
   return data;
 }
 
-export function UserLink({ user }: { user: { id: number; nickname: string } }) {
-  return <Link to={`/users/${user.id}`}>{user.nickname}</Link>;
+export function UserLink({ user }: { user: { id: number; username: string } }) {
+  return <Link to={userPath(user.username)}>{user.username}</Link>;
 }
 
 /**

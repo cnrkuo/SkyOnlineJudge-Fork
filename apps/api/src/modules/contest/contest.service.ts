@@ -191,7 +191,7 @@ export class ContestService {
     await this.load(id);
     const rows = await this.contests.listParticipants(id);
     return rows.map((row) => ({
-      user: { id: row.userId, nickname: row.nickname },
+      user: { id: row.userId, username: row.username },
       state: row.state as TeamState,
       note: row.note,
       registeredAt: row.createdAt.toISOString(),
@@ -236,7 +236,7 @@ export class ContestService {
     const users = participantRows
       .filter((p) => isParticipating(p.state))
       .filter((p) => p.state !== TeamState.HIDDEN || canManage || p.userId === actor.id)
-      .map((p) => ({ id: p.userId, nickname: p.nickname, state: p.state }));
+      .map((p) => ({ id: p.userId, username: p.username, state: p.state }));
     const submissions = await this.submissions.forScoreboard(
       problems.map((p) => p.problemId),
       users.map((u) => u.id),

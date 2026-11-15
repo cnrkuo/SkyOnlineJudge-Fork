@@ -73,7 +73,7 @@ const participantColumns: Column<Participant>[] = [
   {
     id: 'user',
     header: 'User',
-    sortValue: (p) => p.user.nickname.toLowerCase(),
+    sortValue: (p) => p.user.username.toLowerCase(),
     cell: (p) => (
       <Cluster>
         <UserLink user={p.user} /> <Muted small>#{p.user.id}</Muted>
@@ -104,7 +104,7 @@ const participantColumns: Column<Participant>[] = [
             className={`${css.select} ${css.inputWidth.auto}`}
             name="state"
             defaultValue={p.state}
-            aria-label={`State of ${p.user.nickname}`}>
+            aria-label={`State of ${p.user.username}`}>
             {TEAM_STATES.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}

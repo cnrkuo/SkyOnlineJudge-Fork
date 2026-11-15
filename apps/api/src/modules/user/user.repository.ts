@@ -5,9 +5,9 @@ import { type Database, DB } from '../../database/database.module.js';
 import { users } from '../../database/schema.js';
 
 export type UserRow = typeof users.$inferSelect;
-export type NewUser = Pick<UserRow, 'email' | 'nickname' | 'passwordHash' | 'level'>;
+export type NewUser = Pick<UserRow, 'email' | 'username' | 'passwordHash' | 'level'>;
 export type UserPatch = Partial<
-  Pick<UserRow, 'nickname' | 'realname' | 'introduction' | 'avatarUrl' | 'passwordHash' | 'level'>
+  Pick<UserRow, 'username' | 'nickname' | 'introduction' | 'avatarUrl' | 'passwordHash' | 'level'>
 >;
 
 @Injectable()
@@ -19,43 +19,52 @@ export class UserRepository {
     return row;
   }
 
+  /** Usernames are unique without regard to case, so the lookup ignores it. */
+  async findByUsername(username: string): Promise<UserRow | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(users)
+      .where(eq(sql`lower(${users.username})`, username.toLowerCase()));
+    return row;
+  }
+
   async findByIds(ids: number[]): Promise<UserRow[]> {
     if (ids.length === 0) return [];
     return this.db.select().from(users).where(inArray(users.id, ids));
   }
 
-  /** Looks a user up by e-mail or nickname (both case-insensitive). */
+  /** Looks a user up by e-mail or username (both case-insensitive). */
   async findByIdentifier(identifier: string): Promise<UserRow | undefined> {
     const needle = identifier.toLowerCase();
     const [row] = await this.db
       .select()
       .from(users)
-      .where(or(eq(sql`lower(${users.email})`, needle), eq(sql`lower(${users.nickname})`, needle)));
+      .where(or(eq(sql`lower(${users.email})`, needle), eq(sql`lower(${users.username})`, needle)));
     return row;
   }
 
   /** Which of a new account's identifiers is already in use, if any (case-insensitive). */
-  async registrationClash(email: string, nickname: string): Promise<'email' | 'nickname' | null> {
+  async registrationClash(email: string, username: string): Promise<'email' | 'username' | null> {
     const [clash] = await this.db
       .select({ email: users.email })
       .from(users)
       .where(
         or(
           eq(sql`lower(${users.email})`, email.toLowerCase()),
-          eq(sql`lower(${users.nickname})`, nickname.toLowerCase()),
+          eq(sql`lower(${users.username})`, username.toLowerCase()),
         ),
       )
       .limit(1);
     if (!clash) return null;
-    return clash.email.toLowerCase() === email.toLowerCase() ? 'email' : 'nickname';
+    return clash.email.toLowerCase() === email.toLowerCase() ? 'email' : 'username';
   }
 
-  /** Whether another account than `exceptUserId` already uses `nickname` (case-insensitive). */
-  async nicknameTaken(nickname: string, exceptUserId: number): Promise<boolean> {
+  /** Whether another account than `exceptUserId` already uses `username` (case-insensitive). */
+  async usernameTaken(username: string, exceptUserId: number): Promise<boolean> {
     const [row] = await this.db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(sql`lower(${users.nickname})`, nickname.toLowerCase()), ne(users.id, exceptUserId)))
+      .where(and(eq(sql`lower(${users.username})`, username.toLowerCase()), ne(users.id, exceptUserId)))
       .limit(1);
     return row !== undefined;
   }
@@ -76,7 +85,7 @@ export class UserRepository {
   }
 
   async list(page: PageInput, search?: string): Promise<{ rows: UserRow[]; total: number }> {
-    const where = search ? or(ilike(users.nickname, `%${search}%`), ilike(users.email, `%${search}%`)) : undefined;
+    const where = search ? or(ilike(users.username, `%${search}%`), ilike(users.email, `%${search}%`)) : undefined;
     const [rows, [total]] = await Promise.all([
       this.db.select().from(users).where(where).orderBy(users.id).limit(page.pageSize).offset(offsetOf(page)),
       this.db.select({ n: count() }).from(users).where(where),

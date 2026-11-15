@@ -10,13 +10,13 @@ import type { ProblemService } from '../problem/problem.service.js';
 import type { SubmissionFilter, SubmissionRepository } from './submission.repository.js';
 import { SubmissionService } from './submission.service.js';
 
-const owner = { id: admin.id, nickname: admin.nickname, level: admin.level };
+const owner = { id: admin.id, username: admin.username, level: admin.level };
 const summary = {
   id: 5,
   problemId: 3,
   problemTitle: 'A + B',
   userId: user.id,
-  nickname: user.nickname,
+  username: user.username,
   language: Language.CPP,
   verdict: Verdict.AC,
   score: 100,
@@ -142,8 +142,10 @@ describe('SubmissionService.rejudgeProblem', () => {
 describe('SubmissionService.list', () => {
   it('narrows to a contest: its problems, while it ran — like its scoreboard', async () => {
     const { submissions, filters } = service(publicCode);
-    await submissions.list(user, { page: 1, pageSize: 20, userId: user.id, contestId: 9 });
-    expect(filters).toEqual([{ userId: user.id, within: { problemIds: [3, 4], from: contestStart, to: contestEnd } }]);
+    await submissions.list(user, { page: 1, pageSize: 20, username: 'alice', contestId: 9 });
+    expect(filters).toEqual([
+      { username: 'alice', within: { problemIds: [3, 4], from: contestStart, to: contestEnd } },
+    ]);
   });
 
   it('lists without a contest filter as before, and reports an unknown contest', async () => {

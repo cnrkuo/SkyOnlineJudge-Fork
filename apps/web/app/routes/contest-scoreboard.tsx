@@ -98,7 +98,7 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
         id: 'user',
         header: 'Participant',
         fixed: true,
-        sortValue: (r) => r.user.nickname.toLowerCase(),
+        sortValue: (r) => r.user.username.toLowerCase(),
         cell: (r) => (
           <Cluster>
             <UserLink user={r.user} />

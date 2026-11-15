@@ -177,14 +177,14 @@ function Users() {
     () => [
       { id: 'id', header: '#', fixed: true, sortValue: (u) => u.id, cell: (u) => <Muted>{u.id}</Muted> },
       {
-        id: 'nickname',
-        header: 'Nickname',
+        id: 'username',
+        header: 'Username',
         fixed: true,
-        sortValue: (u) => u.nickname.toLowerCase(),
+        sortValue: (u) => u.username.toLowerCase(),
         cell: (u) => <UserLink user={u} />,
       },
       { id: 'email', header: 'E-mail', sortValue: (u) => u.email, cell: (u) => <Muted>{u.email}</Muted> },
-      { id: 'realname', header: 'Real name', hidden: true, cell: (u) => u.realname },
+      { id: 'nickname', header: 'Nickname', hidden: true, cell: (u) => u.nickname },
       {
         id: 'joined',
         header: 'Joined',
@@ -205,7 +205,7 @@ function Users() {
           return (
             <SelectBox
               size="sm"
-              label={`Level of ${u.nickname}`}
+              label={`Level of ${u.username}`}
               value={String(u.level)}
               options={LEVELS.filter((l) => l.level < myLevel).map(({ level, label }) => ({
                 value: String(level),
@@ -223,7 +223,10 @@ function Users() {
         id: 'edit',
         header: 'Account',
         align: 'right',
-        cell: (u) => (u.id === me?.id || u.level < myLevel ? <Link to={`/admin/users/${u.id}`}>Edit</Link> : null),
+        cell: (u) =>
+          u.id === me?.id || u.level < myLevel ? (
+            <Link to={`/admin/users/${encodeURIComponent(u.username)}`}>Edit</Link>
+          ) : null,
       },
     ],
     [me?.id, myLevel, setLevel],
@@ -252,7 +255,7 @@ function Users() {
                   type="search"
                   name="q"
                   defaultValue={input.search ?? ''}
-                  placeholder="Nickname or e-mail"
+                  placeholder="Username or e-mail"
                   aria-label="Search users"
                 />
               </Control>

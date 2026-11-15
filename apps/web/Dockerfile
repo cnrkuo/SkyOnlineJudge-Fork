@@ -3,9 +3,10 @@
 # (`compose.prod.yaml` does this for you.)
 
 # Built with a current Node on Debian 13 (trixie); served by a distroless
-# Node 24 LTS image on the same Debian, which has no shell or package manager.
+# Node 26 image on the same Debian, which has no shell or package manager,
+# for x86-64 hosts, running as its unprivileged `nonroot` user (uid 65532).
 ARG BUILD_IMAGE=docker.io/library/node:26-trixie-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian13
+ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs26-debian13:nonroot-amd64
 
 FROM ${BUILD_IMAGE} AS build
 ENV PNPM_HOME=/pnpm CI=true
@@ -37,7 +38,6 @@ FROM ${RUNTIME_IMAGE}
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 COPY --from=build /out ./
-USER 1000:1000
 EXPOSE 3000
 # The image's entrypoint is node itself (/nodejs/bin/node).
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \

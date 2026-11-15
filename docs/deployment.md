@@ -7,7 +7,7 @@ different jobs:
 | --- | --- | --- |
 | Start | `pnpm docker:dev` (`docker compose up --build`) | `pnpm docker:prod` (`sh docker/prod.sh`) |
 | Project / volumes | `skyoj-dev` | `skyoj` (separate data; both can exist side by side) |
-| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `skyoj/api`, `skyoj/web` with production dependencies only, on a distroless base, running as uid 1000 |
+| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `skyoj/api`, `skyoj/web` with production dependencies only, on a distroless base, running as the unprivileged `nonroot` user (uid 65532) |
 | Judge | `judge/Dockerfile`, same as production | `skyoj/judge` |
 | Secrets | Fixed, well-known development values | Generated into `.env.production` on first run; Compose refuses to start without them |
 | Published ports | Web 3000, API 3001, PostgreSQL 5432, RabbitMQ 5672 + console 15672, all on 127.0.0.1 | Web on `WEB_BIND:WEB_PORT` (default 0.0.0.0:3000), API on `API_BIND:API_PORT` (default 127.0.0.1:3001); databases not published |
@@ -18,14 +18,15 @@ Minimum versions: Node.js 24, PostgreSQL 18, RabbitMQ 4. The images:
 
 | Service | Development | Production |
 | --- | --- | --- |
-| API, web | `node:24-trixie-slim` | built on `node:26-trixie-slim`, served by `gcr.io/distroless/nodejs24-debian13` (Node 24 LTS on Debian 13, no shell or package manager) |
+| API, web | `node:26-trixie` | built on `node:26-trixie-slim`, served by `gcr.io/distroless/nodejs26-debian13:nonroot-amd64` (Node 26 on Debian 13 for x86-64, no shell or package manager) |
 | Judge | `debian:trixie` (GCC 14, Clang 19 with libc++, Python 3.13) | the same |
-| PostgreSQL | `postgres:18-alpine` | `postgres:18-alpine` |
+| PostgreSQL | `postgres:18` | `postgres:18-alpine` |
 | RabbitMQ | `rabbitmq:4-management-alpine` (with the web console) | `rabbitmq:4-alpine` |
 
 Each base is a build argument (`BUILD_IMAGE` and `RUNTIME_IMAGE` for the
 Node images, `DEBIAN_IMAGE` for the judge), so it can point at a mirror or a
-digest. Pin the judge's to a digest during a contest season: its packages
+digest; on an ARM host, set `RUNTIME_IMAGE` to the `nonroot-arm64` variant.
+Pin the judge's to a digest during a contest season: its packages
 decide the compiler versions contestants get. The distroless images have no
 shell, so `docker compose exec api sh` does not work; use
 `docker compose run --rm --entrypoint /nodejs/bin/node api -e '…'` or a
@@ -156,9 +157,13 @@ pnpm docker:prod
 # 3. Once the site looks right: docker volume rm skyoj_postgres
 ```
 
-RabbitMQ 4 upgrades its 3.13 volume in place. The API and web images now run
-as uid 1000, the same as the old `node` user, so `skyoj_api_data` stays
-writable.
+RabbitMQ 4 upgrades its 3.13 volume in place. The API image now runs as
+uid 65532 instead of the old `node` user (1000), so hand the existing data
+volume over to it once, before step 2's `pnpm docker:prod`:
+
+```sh
+docker run --rm -v skyoj_api_data:/data alpine chown -R 65532:65532 /data
+```
 
 Put a reverse proxy that terminates TLS (Caddy, nginx, Traefik) in front of
 port 3000 and keep `COOKIE_SECURE=true`. Uploads go through the web server to

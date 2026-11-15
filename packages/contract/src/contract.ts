@@ -98,12 +98,6 @@ const board = {
   join: base.input(byId).output(s.OkSchema),
 };
 
-const codepad = {
-  create: base.input(s.CodepadCreateInputSchema).output(type({ hash: 'string' })),
-  get: base.input(type({ hash: 'string <= 32' })).output(s.CodepadSchema),
-  mine: base.output(s.CodepadSchema.omit('content', 'owner').array()),
-};
-
 const admin = {
   listUsers: base.input(s.PageInputSchema.merge({ 'search?': 'string <= 100' })).output(s.paged(s.AdminUserSchema)),
   setUserLevel: base.input(type({ userId: s.IdSchema, level: s.UserLevelSchema })).output(s.OkSchema),
@@ -147,7 +141,6 @@ export const contract = populateContractRouterPaths({
   submission,
   contest,
   board,
-  codepad,
   admin,
   judge,
 });

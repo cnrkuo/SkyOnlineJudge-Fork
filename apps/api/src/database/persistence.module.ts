@@ -1,7 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { SessionRepository } from '../modules/auth/session.repository.js';
 import { BoardRepository } from '../modules/board/board.repository.js';
-import { CodepadRepository } from '../modules/codepad/codepad.repository.js';
 import { ContestRepository } from '../modules/contest/contest.repository.js';
 import { JudgeRepository } from '../modules/judge/judge.repository.js';
 import { ProblemRepository } from '../modules/problem/problem.repository.js';
@@ -15,7 +14,6 @@ const repositories = [
   SubmissionRepository,
   ContestRepository,
   BoardRepository,
-  CodepadRepository,
   JudgeRepository,
 ];
 

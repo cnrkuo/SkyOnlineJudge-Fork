@@ -213,19 +213,6 @@ export const contestUsers = pgTable(
   (t) => [primaryKey({ columns: [t.contestId, t.userId] }), index('contest_users_user_idx').on(t.userId)],
 );
 
-export const codepads = pgTable(
-  'codepads',
-  {
-    id: id(),
-    hash: varchar({ length: 32 }).notNull(),
-    ownerId: integer().references(() => users.id, { onDelete: 'set null' }),
-    language: varchar({ length: 16 }).notNull(),
-    content: text().notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [uniqueIndex('codepads_hash_key').on(t.hash), index('codepads_owner_idx').on(t.ownerId)],
-);
-
 export const judges = pgTable(
   'judges',
   {

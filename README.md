@@ -2,7 +2,7 @@ Sky Online Judge
 ================
 
 An open source online judge: problems, automatic judging, contests with live
-scoreboards, and a codepad.
+scoreboards, and training scoreboards.
 
 This is a ground-up rewrite of the original PHP system as a TypeScript
 monorepo with a C++ judge machine.
@@ -167,7 +167,8 @@ page to its new place and lists what behaves the same, what changed on
 purpose and what was not carried over.
 
 In short: levels and permissions, verdict codes, both score modes, contest
-rules and scoreboards, training scoreboards and the codepad work as before,
+rules and scoreboards and training scoreboards work as before (the codepad
+was removed),
 and password hashes from the PHP database are still accepted. There is no
 data importer from MySQL yet, and scoreboards no longer pull results from
 other online judges.

@@ -24,8 +24,8 @@
 ## The contract
 
 `packages/contract/src/contract.ts` groups procedures into namespaces
-(`auth`, `user`, `problem`, `submission`, `contest`, `board`, `codepad`,
-`admin`, `judge`). `populateContractRouterPaths` exposes each one as
+(`auth`, `user`, `problem`, `submission`, `contest`, `board`, `admin`,
+`judge`). `populateContractRouterPaths` exposes each one as
 `POST /<namespace>/<procedure>` with a JSON body (multipart when the input
 contains a file). Timestamps travel as ISO-8601 strings; enums
 (`packages/contract/src/enums.ts`) keep the numeric values of the legacy
@@ -258,7 +258,7 @@ rules. All times are shown in one site-wide zone (`SITE_TIMEZONE`).
 ### Code highlighting
 
 Shiki highlights source code **on the server** (`app/lib/highlight.server.ts`):
-submissions and codepads in their loaders, fenced code blocks inside the
+submissions in their loaders, fenced code blocks inside the
 Markdown pipeline. The browser receives coloured markup; no highlighter or
 grammar is in the client bundle. The theme consists of CSS variables defined
 in `styles/app.css`, each checked for contrast on the code background. Shiki runs on its

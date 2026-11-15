@@ -9,7 +9,6 @@ import { MessagingModule } from './messaging/messaging.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BoardModule } from './modules/board/board.module.js';
-import { CodepadModule } from './modules/codepad/codepad.module.js';
 import { ContestModule } from './modules/contest/contest.module.js';
 import { JudgeModule } from './modules/judge/judge.module.js';
 import { ProblemModule } from './modules/problem/problem.module.js';
@@ -34,7 +33,6 @@ import { StorageModule } from './storage/storage.module.js';
     SubmissionModule,
     ContestModule,
     BoardModule,
-    CodepadModule,
     AdminModule,
     JudgeModule,
   ],

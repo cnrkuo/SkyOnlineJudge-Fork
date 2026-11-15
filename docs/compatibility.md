@@ -13,7 +13,6 @@ purpose, and what was not carried over.
 | `/chal/list`, `/chal/result/:cid` | `/submissions`, `/submissions/:id` |
 | `/contest/list`, `view`, `modify`, `register`, `scoreboard`, `scoreboard_download` | `/contests`, `/contests/:id`, `/contests/:id/edit`, `/contests/:id/scoreboard`, `/contests/:id/scoreboard.csv` |
 | `/rank/list`, `view`, `modify`, `api/join` | `/scoreboards`, `/scoreboards/:id`, `/scoreboards/:id/edit`, "Join" button |
-| `/code/codepad`, `/code/view/:hash` | `/codepad`, `/codepad/:hash` |
 | `/user/view/:uid`, settings sub-pages | `/users/:username`, `/settings` |
 | `/admin` (user list, judge profiles) | `/admin`, `/admin/users/:username` |
 | `judge_profile` + HypeX bridge | `judge/` daemon, registered under Admin → Judge machines |
@@ -61,8 +60,6 @@ purpose, and what was not carried over.
 - **Training scoreboards** (`rank`): users × problems inside a date range,
   best score and best verdict per cell, sorted by total score, with an
   announcement and optional self-join.
-- **Codepad.** Logged-in users save snippets (15 000 characters) behind an
-  unguessable link that anyone can open.
 
 ## Deliberate differences
 
@@ -92,9 +89,11 @@ purpose, and what was not carried over.
 
 ## Not carried over
 
+- **Codepad** (`/code/codepad`, `/code/view/:hash`): removed, with no
+  replacement or redirect; old links are not found.
 - **Data.** There is no importer from the MySQL schema yet. The new schema
   keeps the old concepts (accounts, problems, challenges → submissions,
-  contests and their problems/users, scoreboards, codepads), and old password
+  contests and their problems/users, scoreboards), and old password
   hashes verify, so an importer is a mapping exercise — but it has not been
   written or tested.
 - **Other online judges on scoreboards** (TOJ / UVa capture, linked OJ

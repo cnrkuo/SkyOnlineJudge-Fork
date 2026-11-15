@@ -34,8 +34,6 @@ export default [
     route(':id/edit', 'routes/board-edit.tsx'),
   ]),
 
-  ...prefix('codepad', [index('routes/codepad.tsx'), route(':hash', 'routes/codepad-view.tsx')]),
-
   route('admin', 'routes/admin.tsx'),
   route('admin/users/:username', 'routes/admin-user.tsx'),
 

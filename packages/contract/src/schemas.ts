@@ -493,21 +493,6 @@ export const BoardCreateInputSchema = type({
 });
 export const BoardUpdateInputSchema = BoardCreateInputSchema.partial().merge({ id: IdSchema });
 
-// ------------------------------------------------------------------- codepad
-
-export const CodepadSchema = type({
-  hash: 'string',
-  owner: UserRefSchema.or('null'),
-  language: LanguageSchema,
-  content: 'string',
-  createdAt: TimestampSchema,
-});
-
-export const CodepadCreateInputSchema = type({
-  language: LanguageSchema,
-  content: '1 <= string <= 15000',
-});
-
 // --------------------------------------------------------------------- judge
 
 export const JudgeMachineSchema = type({

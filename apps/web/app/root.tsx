@@ -112,7 +112,6 @@ const navLinks = [
   { to: '/submissions', label: 'Submissions' },
   { to: '/contests', label: 'Contests' },
   { to: '/scoreboards', label: 'Scoreboards' },
-  { to: '/codepad', label: 'Codepad' },
 ];
 
 export default function App({ loaderData }: Route.ComponentProps) {

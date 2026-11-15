@@ -43,6 +43,7 @@ export default function User({ loaderData: user }: Route.ComponentProps) {
       <Cluster gap="md">
         {user.avatarUrl && <img src={user.avatarUrl} alt="" className={css.avatar} />}
         <PageHeader
+          tight
           title={user.username}
           meta={
             <Cluster>

@@ -88,6 +88,8 @@ export const css = {
 
   // ---- page header
   pageHeader: 'd-flex flex-wrap justify-content-between align-items-end gap-3 mb-4',
+  /** A page header beside an image (a profile's avatar), which sets the spacing below. */
+  pageHeaderTight: 'd-flex flex-wrap justify-content-between align-items-end gap-3 mb-2',
   /** A bar above the page header that places the page in a larger context (a contest). */
   contextBar: 'd-block mb-4',
   pageTitle: 'h2 mb-0',

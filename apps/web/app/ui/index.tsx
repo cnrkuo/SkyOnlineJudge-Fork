@@ -64,9 +64,20 @@ export function Measure({ size, children }: BoxProps & { size: 'form' | 'page' }
 
 // ------------------------------------------------------------- page, card
 
-export function PageHeader({ title, meta, actions }: { title: ReactNode; meta?: ReactNode; actions?: ReactNode }) {
+/** `tight`: less space below, for a header beside an image (a profile's avatar). */
+export function PageHeader({
+  title,
+  meta,
+  actions,
+  tight = false,
+}: {
+  title: ReactNode;
+  meta?: ReactNode;
+  actions?: ReactNode;
+  tight?: boolean;
+}) {
   return (
-    <header className={css.pageHeader}>
+    <header className={tight ? css.pageHeaderTight : css.pageHeader}>
       <div className={css.grow}>
         <h1 className={css.pageTitle}>{title}</h1>
         {meta && <div className={css.pageMeta}>{meta}</div>}

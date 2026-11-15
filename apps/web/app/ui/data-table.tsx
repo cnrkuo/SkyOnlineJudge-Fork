@@ -225,7 +225,6 @@ export function Pager({
   };
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
-  const secondary = kit.button({ variant: 'secondary', size: 'sm' });
 
   return (
     <nav aria-label="Pagination" className={css.footer}>
@@ -246,25 +245,23 @@ export function Pager({
           }}
         />
       )}
-      <span>
+      <span className={css.pager}>
         {page > 1 ? (
-          <Link role="button" className={secondary} to={to(page - 1)} rel="prev" preventScrollReset>
+          <Link className={css.pagerLink} to={to(page - 1)} rel="prev" preventScrollReset>
             ← Previous
           </Link>
         ) : (
-          <span aria-disabled="true" className={`${secondary} disabled`}>
-            ← Previous
-          </span>
-        )}{' '}
-        Page {page} of {pages}{' '}
+          <span aria-disabled="true">← Previous</span>
+        )}
+        <span>
+          Page {page} of {pages}
+        </span>
         {page < pages ? (
-          <Link role="button" className={secondary} to={to(page + 1)} rel="next" preventScrollReset>
+          <Link className={css.pagerLink} to={to(page + 1)} rel="next" preventScrollReset>
             Next →
           </Link>
         ) : (
-          <span aria-disabled="true" className={`${secondary} disabled`}>
-            Next →
-          </span>
+          <span aria-disabled="true">Next →</span>
         )}
       </span>
     </nav>

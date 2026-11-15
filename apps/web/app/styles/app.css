@@ -231,6 +231,16 @@ blockquote {
 .oj-table > tbody > tr:last-child > * {
   border-bottom-width: 0;
 }
+/* A table's previous / next page links: the link colour, underlined on hover. */
+.oj-pager-link {
+  color: var(--bs-link-color);
+  text-decoration: none;
+}
+.oj-pager-link:hover,
+.oj-pager-link:focus-visible {
+  color: var(--bs-link-hover-color);
+  text-decoration: underline;
+}
 /* Links in dense tables are underlined on hover only. */
 .oj-table a {
   text-decoration: none;

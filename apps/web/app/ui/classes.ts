@@ -167,6 +167,9 @@ export const table = {
   toolbar: 'd-flex flex-wrap justify-content-between align-items-end gap-3 p-3 border-bottom',
   footer:
     'd-flex flex-wrap justify-content-between align-items-center gap-3 px-3 py-2 border-top small text-body-secondary',
+  /** Previous / next page: plain links, underlined on hover; at either end, plain text. */
+  pager: 'd-inline-flex flex-wrap align-items-baseline gap-3',
+  pagerLink: 'oj-pager-link',
   /** Dims the body while newer data is on its way. */
   stale: 'opacity-50',
 };

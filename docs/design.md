@@ -203,7 +203,8 @@ Every table is the same `DataTable` component. You describe columns; it
 provides the compact hover table, small uppercase headers, right-aligned
 tabular numbers, sortable columns (with `aria-sort`), an optional **Columns**
 menu, horizontal scrolling inside the card, an empty state, dimmed rows
-while a new page loads, and a `Pager` whose page lives in the URL.
+while a new page loads, and a `Pager` whose page lives in the URL (its
+"← Previous" and "Next →" are plain links, plain text at either end).
 Scoreboards are ordinary `DataTable`s whose cells take a `*-subtle` fill.
 A scored cell shows its value over the time since the contest started
 (`h:mm`; `h:mm:ss` in its tooltip) and links to the submission it counts;

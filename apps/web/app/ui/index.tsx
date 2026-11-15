@@ -252,13 +252,26 @@ const VERDICT_KIND: Record<Verdict, VerdictKind> = {
 
 export const verdictKind = (verdict: Verdict): VerdictKind => VERDICT_KIND[verdict];
 
+/**
+ * A verdict in its colour: the short code ("MLE") with the name as a
+ * tooltip, or with `long` the name ("Memory Limit Exceeded"), which wraps
+ * where it does not fit — except on narrow screens, which get the code.
+ */
 export function VerdictBadge({ verdict, long = false }: { verdict: Verdict; long?: boolean }) {
-  const label = (
-    <span className={cx(css.verdictText[verdictKind(verdict)], css.nowrap)}>
-      {long ? VERDICT_LABEL[verdict] : VERDICT_SHORT[verdict]}
-    </span>
+  const tone = cx(css.verdictText[verdictKind(verdict)], css.nowrap);
+  const short = (
+    <Tip label={VERDICT_LABEL[verdict]}>
+      <span className={long ? cx(tone, css.narrowOnly) : tone}>{VERDICT_SHORT[verdict]}</span>
+    </Tip>
   );
-  return long ? label : <Tip label={VERDICT_LABEL[verdict]}>{label}</Tip>;
+  if (!long) return short;
+  // The name may wrap: even on a wide screen it can be wider than a tile.
+  return (
+    <>
+      <span className={cx(css.verdictText[verdictKind(verdict)], css.wideOnly)}>{VERDICT_LABEL[verdict]}</span>
+      {short}
+    </>
+  );
 }
 
 export function PhaseBadge({ phase }: { phase: ContestPhase }) {

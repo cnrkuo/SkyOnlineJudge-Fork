@@ -106,7 +106,8 @@ export const css = {
   checkInput: 'form-check-input oj-control',
   checkLabel: 'form-check-label',
   /** Controls that should not stretch (filters, short numbers). */
-  inputWidth: { xs: 'oj-w-xs', sm: 'oj-w-sm', md: 'oj-w-md', auto: 'w-auto' },
+  /** `auto` fits the content, but never beyond its container (long option labels on a phone). */
+  inputWidth: { xs: 'oj-w-xs', sm: 'oj-w-sm', md: 'oj-w-md', auto: 'w-auto mw-100' },
   monoInput: 'font-monospace oj-code-size',
 
   // ---- tones
@@ -144,6 +145,9 @@ export const css = {
   muted: 'text-body-secondary',
   small: 'small',
   nowrap: 'text-nowrap',
+  /** Shown only from the `md` breakpoint up, and only below it. */
+  wideOnly: 'd-none d-md-inline',
+  narrowOnly: 'd-md-none',
   numeric: 'oj-num',
   truncate: 'text-truncate',
   grow: 'oj-grow',

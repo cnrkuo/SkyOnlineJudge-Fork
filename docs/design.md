@@ -195,7 +195,9 @@ Tone text always uses Bootstrap's `*-text-emphasis` shade, which is the
 readable one on the dark background.
 
 Colour is never the only signal: a verdict always shows its code or name and
-a scoreboard cell always shows its numbers.
+a scoreboard cell always shows its numbers. Where a verdict is written out
+("Memory Limit Exceeded"), it wraps to fit, and below the `md` breakpoint
+(768px) it is shortened to its code ("MLE"), with the name as a tooltip.
 
 ### Tables
 

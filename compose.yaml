@@ -98,19 +98,21 @@ services:
       api: { condition: service_healthy }
 
   postgres:
-    image: docker.io/library/postgres:16
+    image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: skyoj
       POSTGRES_PASSWORD: skyoj
       POSTGRES_DB: skyoj
     ports: ['127.0.0.1:5432:5432']
-    volumes: [postgres:/var/lib/postgresql/data]
+    # PostgreSQL 18 keeps its data under /var/lib/postgresql/18/; a new
+    # volume name, so a PostgreSQL 16 volume is never opened by 18.
+    volumes: [postgres18:/var/lib/postgresql]
     healthcheck:
       test: ['CMD', 'pg_isready', '-U', 'skyoj']
       interval: 2s
 
   rabbitmq:
-    image: docker.io/library/rabbitmq:3.13-management
+    image: docker.io/library/rabbitmq:4-management-alpine
     hostname: rabbitmq
     ports: ['127.0.0.1:5672:5672', '127.0.0.1:15672:15672']
     volumes: [rabbitmq:/var/lib/rabbitmq]
@@ -127,5 +129,5 @@ volumes:
   api_node_modules:
   web_node_modules:
   judge_work:
-  postgres:
+  postgres18:
   rabbitmq:

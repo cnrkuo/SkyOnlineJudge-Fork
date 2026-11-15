@@ -6,9 +6,9 @@
 # namespaces (security_opt seccomp, apparmor and systempaths=unconfined):
 # every submission runs in its own nsjail jail. The compose files do this.
 
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:24.04
+ARG DEBIAN_IMAGE=docker.io/library/debian:trixie
 
-FROM ${UBUNTU_IMAGE} AS build
+FROM ${DEBIAN_IMAGE} AS build
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
       ca-certificates cmake g++ make git pkg-config libssl-dev \
       bison flex protobuf-compiler libprotobuf-dev libnl-route-3-dev
@@ -23,9 +23,10 @@ COPY judge/src judge/src
 COPY judge/tests judge/tests
 RUN cmake -S judge -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j"$(nproc)"
 
-FROM ${UBUNTU_IMAGE}
+FROM ${DEBIAN_IMAGE}
 # Toolchains offered to contestants (see judge/src/config.cpp) and the
-# runtime libraries of nsjail and the judge.
+# runtime libraries of nsjail and the judge. On Debian 13: GCC 14, Clang 19
+# with libc++, Python 3.13. Pin DEBIAN_IMAGE to a digest to keep them fixed.
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
       gcc g++ libc6-dev clang libc++-dev libc++abi-dev python3 \
       libprotobuf32t64 libnl-route-3-200 libssl3t64 ca-certificates \

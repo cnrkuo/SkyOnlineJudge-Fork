@@ -2,17 +2,25 @@
 #   docker build -f apps/api/Dockerfile -t skyoj/api .
 # (`compose.prod.yaml` does this for you.)
 
-ARG NODE_IMAGE=docker.io/library/node:22-bookworm-slim
+# Built with a current Node on Debian 13 (trixie); served by a distroless
+# Node 24 LTS image on the same Debian, which has no shell or package manager.
+ARG BUILD_IMAGE=docker.io/library/node:26-trixie-slim
+ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian13
 
-FROM ${NODE_IMAGE} AS build
-ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-RUN corepack enable
+FROM ${BUILD_IMAGE} AS build
+ENV PNPM_HOME=/pnpm CI=true
 WORKDIR /src
+# Node 25 and later no longer ship corepack: install the pnpm version that
+# package.json pins with npm.
+COPY package.json ./
+# Behind a TLS-intercepting proxy, pass its CA: --secret id=ca,src=ca.pem
+RUN --mount=type=secret,id=ca \
+    if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
+    npm install --global --no-fund --no-audit "$(node -p "require('./package.json').packageManager")"
 # Manifests first, so the dependency layer is reused until they change.
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/contract/package.json packages/contract/
 COPY apps/api/package.json apps/api/
-# Behind a TLS-intercepting proxy, pass its CA: --secret id=ca,src=ca.pem
 RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
     pnpm install --frozen-lockfile --filter '@skyoj/api...'
@@ -26,16 +34,21 @@ RUN pnpm --filter '@skyoj/api...' run build
 # A self-contained copy: production dependencies plus the built contract.
 RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
-    pnpm --filter @skyoj/api deploy --prod --legacy /out && rm -rf /out/src
+    pnpm --filter @skyoj/api deploy --prod --legacy /out && rm -rf /out/src && \
+    mkdir -p /data
 
-FROM ${NODE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001 DATA_DIR=/var/lib/skyoj/data
 WORKDIR /app
 COPY --from=build /out ./
-RUN mkdir -p /var/lib/skyoj/data && chown -R node:node /var/lib/skyoj
-USER node
+# The image has no shell to mkdir with: copy an empty directory, owned by the
+# runtime user, so a new data volume starts out writable.
+COPY --from=build --chown=1000:1000 /data /var/lib/skyoj/data
+# uid 1000, as the earlier images' `node` user: existing volumes stay writable.
+USER 1000:1000
 EXPOSE 3001
+# The image's entrypoint is node itself (/nodejs/bin/node).
 # `auth.me` answers guests with null: a cheap request that exercises the whole stack.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=60s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:3001/auth/me',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
-CMD ["node", "dist/main.js"]
+  CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3001/auth/me',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+CMD ["dist/main.js"]

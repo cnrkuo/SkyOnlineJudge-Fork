@@ -1,6 +1,6 @@
 # Node toolchain for the development stack (compose.yaml). The source is
 # bind-mounted at /workspace; dependencies live in named volumes.
-ARG NODE_IMAGE=docker.io/library/node:22-bookworm-slim
+ARG NODE_IMAGE=docker.io/library/node:24-trixie-slim
 FROM ${NODE_IMAGE}
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     COREPACK_HOME=/opt/corepack \

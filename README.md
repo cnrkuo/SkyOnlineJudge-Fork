@@ -60,9 +60,9 @@ Running without Docker
 
 Requirements:
 
-- Node.js 22.22+ and pnpm 10
-- PostgreSQL 14+
-- RabbitMQ 3.12+
+- Node.js 24+ and pnpm 10
+- PostgreSQL 18+
+- RabbitMQ 4+
 - For the judge: Linux with user namespaces enabled, CMake 3.20+, a C++20
   compiler, [nsjail](https://github.com/google/nsjail) (built by
   `judge/scripts/install-nsjail.sh`), plus the toolchains you want to offer

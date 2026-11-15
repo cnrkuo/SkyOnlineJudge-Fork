@@ -7,12 +7,29 @@ different jobs:
 | --- | --- | --- |
 | Start | `pnpm docker:dev` (`docker compose up --build`) | `pnpm docker:prod` (`sh docker/prod.sh`) |
 | Project / volumes | `skyoj-dev` | `skyoj` (separate data; both can exist side by side) |
-| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `skyoj/api`, `skyoj/web` with production dependencies only, running as `node` |
+| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `skyoj/api`, `skyoj/web` with production dependencies only, on a distroless base, running as uid 1000 |
 | Judge | `judge/Dockerfile`, same as production | `skyoj/judge` |
 | Secrets | Fixed, well-known development values | Generated into `.env.production` on first run; Compose refuses to start without them |
 | Published ports | Web 3000, API 3001, PostgreSQL 5432, RabbitMQ 5672 + console 15672, all on 127.0.0.1 | Web on `WEB_BIND:WEB_PORT` (default 0.0.0.0:3000), API on `API_BIND:API_PORT` (default 127.0.0.1:3001); databases not published |
 | Restarts | None (you are watching it) | `unless-stopped`, health checks on every service |
 | Session cookie | Plain HTTP (`COOKIE_SECURE=false`) | `Secure` (`COOKIE_SECURE=true`) |
+
+Minimum versions: Node.js 24, PostgreSQL 18, RabbitMQ 4. The images:
+
+| Service | Development | Production |
+| --- | --- | --- |
+| API, web | `node:24-trixie-slim` | built on `node:26-trixie-slim`, served by `gcr.io/distroless/nodejs24-debian13` (Node 24 LTS on Debian 13, no shell or package manager) |
+| Judge | `debian:trixie` (GCC 14, Clang 19 with libc++, Python 3.13) | the same |
+| PostgreSQL | `postgres:18-alpine` | `postgres:18-alpine` |
+| RabbitMQ | `rabbitmq:4-management-alpine` (with the web console) | `rabbitmq:4-alpine` |
+
+Each base is a build argument (`BUILD_IMAGE` and `RUNTIME_IMAGE` for the
+Node images, `DEBIAN_IMAGE` for the judge), so it can point at a mirror or a
+digest. Pin the judge's to a digest during a contest season: its packages
+decide the compiler versions contestants get. The distroless images have no
+shell, so `docker compose exec api sh` does not work; use
+`docker compose run --rm --entrypoint /nodejs/bin/node api -e '…'` or a
+debug sidecar instead.
 
 ```
                  ┌──────────── compose network ─────────────┐
@@ -115,6 +132,33 @@ Day to day (`dc` = `docker compose -f compose.prod.yaml --env-file .env.producti
 | Stop (keeps data) | `pnpm docker:prod:down` |
 | Database backup | `dc exec postgres pg_dump -U skyoj skyoj > skyoj.sql` |
 | Testdata and attachments | volume `skyoj_api_data` (`/var/lib/skyoj/data` in the API container) |
+
+### Upgrading from PostgreSQL 16 and RabbitMQ 3.13
+
+Earlier versions of these files ran PostgreSQL 16 and RabbitMQ 3.13.
+PostgreSQL cannot open another major version's data, so the database now
+lives in a new volume, `skyoj_postgres18`; the old `skyoj_postgres` is left
+untouched. Move the data with a dump:
+
+```sh
+# 1. Before pulling the new version: back up with the old stack, and let
+#    RabbitMQ enable every feature flag (4.x requires them).
+dc exec postgres pg_dump -U skyoj skyoj > skyoj.sql
+dc exec rabbitmq rabbitmqctl enable_feature_flag all
+dc down
+
+# 2. Pull, start the new PostgreSQL alone, load the dump, then everything.
+git pull
+dc up -d --wait postgres
+dc exec -T postgres psql -q -U skyoj -d skyoj < skyoj.sql
+pnpm docker:prod
+
+# 3. Once the site looks right: docker volume rm skyoj_postgres
+```
+
+RabbitMQ 4 upgrades its 3.13 volume in place. The API and web images now run
+as uid 1000, the same as the old `node` user, so `skyoj_api_data` stays
+writable.
 
 Put a reverse proxy that terminates TLS (Caddy, nginx, Traefik) in front of
 port 3000 and keep `COOKIE_SECURE=true`. Uploads go through the web server to

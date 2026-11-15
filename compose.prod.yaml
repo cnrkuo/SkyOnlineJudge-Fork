@@ -17,19 +17,21 @@ x-restart: &restart
 services:
   postgres:
     <<: *restart
-    image: docker.io/library/postgres:16
+    image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: skyoj
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run docker/prod.sh to create .env.production}
       POSTGRES_DB: skyoj
-    volumes: [postgres:/var/lib/postgresql/data]
+    # PostgreSQL 18 keeps its data under /var/lib/postgresql/18/; a new
+    # volume name, so a PostgreSQL 16 volume is never opened by 18.
+    volumes: [postgres18:/var/lib/postgresql]
     healthcheck:
       test: ['CMD', 'pg_isready', '-U', 'skyoj']
       interval: 5s
 
   rabbitmq:
     <<: *restart
-    image: docker.io/library/rabbitmq:3.13-alpine
+    image: docker.io/library/rabbitmq:4-alpine
     # RabbitMQ keys its data directory by host name; keep it fixed.
     hostname: rabbitmq
     environment:
@@ -111,7 +113,7 @@ secrets:
     environment: BUILD_CA_CERT
 
 volumes:
-  postgres:
+  postgres18:
   rabbitmq:
   api_data:
   judge_work:

@@ -182,6 +182,12 @@
   --bs-btn-disabled-color: var(--bs-secondary-color);
   --bs-btn-disabled-border-color: var(--bs-border-color);
 }
+/* "You are here" in a row of links shaped like buttons (the contest bar). */
+.oj-btn-secondary[aria-current="page"] {
+  color: var(--bs-btn-active-color);
+  background-color: var(--bs-btn-active-bg);
+  border-color: var(--bs-btn-active-border-color);
+}
 .oj-btn-danger {
   --bs-btn-color: var(--bs-danger-text-emphasis);
   --bs-btn-hover-color: var(--bs-white);

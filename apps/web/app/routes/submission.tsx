@@ -1,7 +1,9 @@
 import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Form, Link } from 'react-router';
+import { ContestNav, inContest } from '~/components/contest-nav';
 import { api, load, seed, submit } from '~/lib/api.server';
+import { contestNav } from '~/lib/contest-nav.server';
 import { highlight } from '~/lib/highlight.server';
 import { orpc } from '~/lib/orpc';
 import { idParam } from '~/lib/params';
@@ -30,9 +32,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const id = idParam(params.id);
   // Arriving straight from the submit form: the insert may still be queued.
   const awaitCreation = new URL(request.url).searchParams.has('new');
-  const submission = await load(request, (o) => api.submission.get({ id }, o), { awaitCreation });
+  const [submission, contest] = await Promise.all([
+    load(request, (o) => api.submission.get({ id }, o), { awaitCreation }),
+    contestNav(request),
+  ]);
   return {
     id,
+    contest,
     // Highlighted once here; the source never changes while the page polls.
     codeHtml: submission.code === null ? null : await highlight(submission.code, submission.language),
     dehydrated: seed([[orpc.submission.get.queryKey({ input: { id } }), submission]]),
@@ -70,7 +76,7 @@ const resultColumns: Column<Result>[] = [
 ];
 
 export default function Submission({ loaderData, actionData }: Route.ComponentProps) {
-  const { id, codeHtml } = loaderData;
+  const { id, codeHtml, contest } = loaderData;
   const queryClient = useQueryClient();
   const options = orpc.submission.get.queryOptions({ input: { id } });
   // Poll while the judge is working; stops as soon as a verdict arrives.
@@ -128,12 +134,13 @@ export default function Submission({ loaderData, actionData }: Route.ComponentPr
 
   return (
     <>
+      {contest && <ContestNav contest={contest} current={submission.problem.id} />}
       <PageHeader
         title={`Submission #${submission.id}`}
         meta={
           <>
             <UserLink user={submission.user} /> on{' '}
-            <Link to={`/problems/${submission.problem.id}`}>
+            <Link to={`/problems/${submission.problem.id}${inContest(contest)}`}>
               {submission.problem.id}. {submission.problem.title}
             </Link>{' '}
             · <Time value={submission.createdAt} />

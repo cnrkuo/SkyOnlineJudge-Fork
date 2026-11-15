@@ -1,12 +1,13 @@
 import { AccessLevel, Language, Verdict } from '@skyoj/contract';
 import { describe, expect, it } from 'vitest';
-import { ForbiddenError, UnauthorizedError } from '../../common/errors.js';
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../common/errors.js';
 import type { MessageBroker } from '../../messaging/message-broker.js';
 import { Queue } from '../../messaging/message-broker.js';
 import { actor, admin, fake, guest, user } from '../../testing/fixtures.js';
+import type { ContestRepository } from '../contest/contest.repository.js';
 import type { ProblemRepository } from '../problem/problem.repository.js';
 import type { ProblemService } from '../problem/problem.service.js';
-import type { SubmissionRepository } from './submission.repository.js';
+import type { SubmissionFilter, SubmissionRepository } from './submission.repository.js';
 import { SubmissionService } from './submission.service.js';
 
 const owner = { id: admin.id, nickname: admin.nickname, level: admin.level };
@@ -32,20 +33,33 @@ const row = {
   judgedAt: null,
 };
 
+const contestStart = new Date('2026-12-01T00:00:00Z');
+const contestEnd = new Date('2026-12-01T05:00:00Z');
+
 function service(problem: { contentAccess: number; codeviewAccess: number }, canSubmit = true) {
   const published: [string, unknown][] = [];
+  const filters: SubmissionFilter[] = [];
   const submissions = new SubmissionService(
     fake<SubmissionRepository>({
       findSummary: async () => summary,
       findById: async () => row,
       reserveId: async () => 77,
       requeue: async () => [5, 6],
+      list: async (_actor: unknown, filter: SubmissionFilter) => {
+        filters.push(filter);
+        return { rows: [summary], total: 1 };
+      },
     }),
     fake<ProblemRepository>({ findById: async () => ({ problem, owner }) }),
     fake<ProblemService>({ access: async () => ({ canSubmit }) }),
+    fake<ContestRepository>({
+      findById: async (id: number) =>
+        id === 9 ? { contest: { startAt: contestStart, endAt: contestEnd } } : undefined,
+      listProblems: async () => [{ problemId: 3 }, { problemId: 4 }],
+    }),
     fake<MessageBroker>({ publish: async (queue: string, message: unknown) => void published.push([queue, message]) }),
   );
-  return { submissions, published };
+  return { submissions, published, filters };
 }
 const publicCode = { contentAccess: AccessLevel.OPEN, codeviewAccess: AccessLevel.OPEN };
 const privateCode = { contentAccess: AccessLevel.OPEN, codeviewAccess: AccessLevel.HIDDEN };
@@ -103,5 +117,20 @@ describe('SubmissionService.rejudgeProblem', () => {
       [Queue.JUDGE, { submissionId: 6 }],
     ]);
     await expect(submissions.rejudgeProblem(user, 3)).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe('SubmissionService.list', () => {
+  it('narrows to a contest: its problems, while it ran — like its scoreboard', async () => {
+    const { submissions, filters } = service(publicCode);
+    await submissions.list(user, { page: 1, pageSize: 20, userId: user.id, contestId: 9 });
+    expect(filters).toEqual([{ userId: user.id, within: { problemIds: [3, 4], from: contestStart, to: contestEnd } }]);
+  });
+
+  it('lists without a contest filter as before, and reports an unknown contest', async () => {
+    const { submissions, filters } = service(publicCode);
+    await submissions.list(user, { page: 1, pageSize: 20, problemId: 3 });
+    expect(filters).toEqual([{ problemId: 3, within: undefined }]);
+    await expect(submissions.list(user, { page: 1, pageSize: 20, contestId: 404 })).rejects.toThrow(NotFoundError);
   });
 });

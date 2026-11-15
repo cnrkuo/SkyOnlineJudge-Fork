@@ -5,6 +5,7 @@ import { ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { type PageInput, pageOf } from '../../common/pagination.js';
 import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
 import { MessageBroker, Queue } from '../../messaging/message-broker.js';
+import { ContestRepository } from '../contest/contest.repository.js';
 import { ProblemRepository } from '../problem/problem.repository.js';
 import { ProblemService } from '../problem/problem.service.js';
 import { type SubmissionFilter, SubmissionRepository } from './submission.repository.js';
@@ -31,6 +32,7 @@ export class SubmissionService {
     private readonly submissions: SubmissionRepository,
     private readonly problems: ProblemRepository,
     private readonly problemService: ProblemService,
+    private readonly contests: ContestRepository,
     private readonly broker: MessageBroker,
   ) {}
 
@@ -52,9 +54,19 @@ export class SubmissionService {
     return { id };
   }
 
-  async list(actor: Actor, input: PageInput & SubmissionFilter) {
-    const { rows, total } = await this.submissions.list(actor, input, input);
-    return pageOf(rows.map(toSummary), total, input);
+  async list(actor: Actor, input: PageInput & Omit<SubmissionFilter, 'within'> & { contestId?: number }) {
+    const { contestId, page, pageSize, ...filter } = input;
+    const within = contestId === undefined ? undefined : await this.contestWindow(contestId);
+    const { rows, total } = await this.submissions.list(actor, { ...filter, within }, { page, pageSize });
+    return pageOf(rows.map(toSummary), total, { page, pageSize });
+  }
+
+  /** What counts for a contest: its problems, during `[startAt, endAt)`, as on its scoreboard. */
+  private async contestWindow(contestId: number): Promise<NonNullable<SubmissionFilter['within']>> {
+    const found = await this.contests.findById(contestId);
+    if (!found) throw new NotFoundError('Contest');
+    const problems = await this.contests.listProblems(contestId);
+    return { problemIds: problems.map((p) => p.problemId), from: found.contest.startAt, to: found.contest.endAt };
   }
 
   async get(actor: Actor, id: number) {

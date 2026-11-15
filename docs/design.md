@@ -131,10 +131,19 @@ Two checks keep it that way:
 | Any table | `DataTable`, `Pager` | `table table-hover table-sm`, `table-responsive` |
 | Menu, select, tooltip, confirm, tabs | `Menu`, `SelectBox`, `Tip`, `Confirm`, `Tabs` | dropdown / form-select / nav-tabs classes on Radix |
 | Source code | `CodeView`, `CodeInput` | `oj-code` (Shiki output) |
+| A page inside a contest | `ContestNav` | a `card` of small secondary buttons; the current problem has `aria-current="page"` |
 
 `Field` takes a native `<input>`, `<select>` or `<textarea>` and gives it
 the Bootstrap control class itself, so forms stay ordinary HTML that works
 without JavaScript.
+
+**Contest context.** Problem, submission and submission-list pages opened
+from a contest carry `?contest=<id>` and show `ContestNav` above the header:
+the contest's problems by tag, its scoreboard, and the viewer's submissions
+in it (the contest's problems, made while it ran, as on the scoreboard).
+Submitting keeps the parameter, so the submission page has the same bar. The
+bar appears only for a contest the viewer may enter that contains the
+problem; any other `?contest=` is ignored.
 
 ### Buttons
 

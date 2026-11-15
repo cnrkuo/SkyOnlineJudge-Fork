@@ -95,9 +95,14 @@ function Registration({ contest, loggedIn }: { contest: Contest; loggedIn: boole
   );
 }
 
-const problemColumns: Column<Contest['problems'][number]>[] = [
+/** The contest's problems; titles open them inside the contest. */
+const problemColumns = (contestId: number): Column<Contest['problems'][number]>[] => [
   { id: 'tag', header: '#', cell: (p) => <strong>{p.tag}</strong> },
-  { id: 'title', header: 'Title', cell: (p) => <Link to={`/problems/${p.problemId}`}>{p.title}</Link> },
+  {
+    id: 'title',
+    header: 'Title',
+    cell: (p) => <Link to={`/problems/${p.problemId}?contest=${contestId}`}>{p.title}</Link>,
+  },
   {
     id: 'state',
     header: 'Status',
@@ -145,7 +150,9 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
         actions={
           <>
             {boardVisible && <ButtonLink to="scoreboard">Scoreboard</ButtonLink>}
-            {user && contest.canEnter && <ButtonLink to={`/submissions?user=${user.id}`}>My submissions</ButtonLink>}
+            {user && contest.canEnter && (
+              <ButtonLink to={`/submissions?contest=${contest.id}&user=${user.id}`}>My submissions</ButtonLink>
+            )}
             {contest.canManage && <ButtonLink to="edit">Edit</ButtonLink>}
           </>
         }
@@ -167,7 +174,7 @@ export default function Contest({ loaderData: contest, actionData }: Route.Compo
           <Card flush title="Problems">
             <DataTable
               data={contest.problems}
-              columns={problemColumns}
+              columns={problemColumns(contest.id)}
               rowKey={(p) => p.problemId}
               empty={<Empty>This contest has no problems yet.</Empty>}
             />

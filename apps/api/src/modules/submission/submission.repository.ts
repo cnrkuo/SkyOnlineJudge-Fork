@@ -28,6 +28,8 @@ export interface SubmissionFilter {
   problemId?: number;
   userId?: number;
   verdict?: number;
+  /** Submissions to these problems made in `[from, to)`: those that count for a contest. */
+  within?: { problemIds: number[]; from: Date; to: Date };
 }
 
 export interface JudgedResult {
@@ -76,6 +78,7 @@ export class SubmissionRepository {
       filter.problemId ? eq(submissions.problemId, filter.problemId) : undefined,
       filter.userId ? eq(submissions.userId, filter.userId) : undefined,
       filter.verdict !== undefined ? eq(submissions.verdict, filter.verdict) : undefined,
+      filter.within ? this.madeWithin(filter.within) : undefined,
       or(eq(submissions.userId, actor.id), this.problemVisibleTo(actor)),
     );
     const [rows, [total]] = await Promise.all([
@@ -96,6 +99,15 @@ export class SubmissionRepository {
       .from(submissions)
       .innerJoin(problems, eq(problems.id, submissions.problemId))
       .innerJoin(users, eq(users.id, submissions.userId));
+  }
+
+  private madeWithin({ problemIds, from, to }: NonNullable<SubmissionFilter['within']>): SQL {
+    if (problemIds.length === 0) return sql`false`;
+    return and(
+      inArray(submissions.problemId, problemIds),
+      gte(submissions.createdAt, from),
+      lt(submissions.createdAt, to),
+    ) as SQL;
   }
 
   /** `visibleTo` needs the problem owner's level, which is not joined here. */

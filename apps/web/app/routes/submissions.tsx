@@ -1,7 +1,9 @@
 import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Form, Link, useSearchParams } from 'react-router';
+import { ContestNav, inContest } from '~/components/contest-nav';
 import { type api, prefetch } from '~/lib/api.server';
+import { contestNav } from '~/lib/contest-nav.server';
 import { orpc } from '~/lib/orpc';
 import { paging, positive } from '~/lib/params';
 import { unlessOnlySearchChanged } from '~/lib/revalidate';
@@ -33,12 +35,17 @@ function listInput(params: URLSearchParams) {
     problemId: positive(params.get('problem')),
     userId: positive(params.get('user')),
     verdict: verdicts.find((verdict) => String(verdict) === params.get('verdict')),
+    contestId: positive(params.get('contest')),
   };
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
   const input = listInput(new URL(request.url).searchParams);
-  return { dehydrated: await prefetch(request, (context) => [orpc.submission.list.queryOptions({ input, context })]) };
+  const [dehydrated, contest] = await Promise.all([
+    prefetch(request, (context) => [orpc.submission.list.queryOptions({ input, context })]),
+    contestNav(request),
+  ]);
+  return { dehydrated, contest };
 }
 
 export const shouldRevalidate = unlessOnlySearchChanged;
@@ -83,7 +90,8 @@ const columns: Column<Submission>[] = [
   { id: 'language', header: 'Language', cell: (s) => <Muted>{languageName(s.language)}</Muted> },
 ];
 
-export default function Submissions() {
+export default function Submissions({ loaderData }: Route.ComponentProps) {
+  const { contest } = loaderData;
   const [params] = useSearchParams();
   const input = listInput(params);
   const query = useQuery({
@@ -94,10 +102,13 @@ export default function Submissions() {
   });
   const list = query.data;
   const filtered = input.problemId !== undefined || input.userId !== undefined || input.verdict !== undefined;
+  // In a contest, filtering and clearing stay within it.
+  const clearTo = contest ? `/submissions${inContest(contest)}` : '/submissions';
 
   return (
     <>
-      <PageHeader title="Submissions" />
+      {contest && <ContestNav contest={contest} />}
+      <PageHeader title={contest ? `Submissions in ${contest.title}` : 'Submissions'} />
       <Card flush>
         <DataTable
           caption="Submissions"
@@ -109,6 +120,7 @@ export default function Submissions() {
           toolbar={
             // A plain GET form: the filters live in the URL and work without JavaScript.
             <Form method="get" key={params.toString()}>
+              {input.contestId !== undefined && <input type="hidden" name="contest" value={input.contestId} />}
               <Cluster align="end" gap="md">
                 <Field label="Problem #">
                   <input
@@ -137,7 +149,7 @@ export default function Submissions() {
                   </select>
                 </Field>
                 <Button variant="secondary">Filter</Button>
-                {filtered && <ButtonLink to="/submissions">Clear</ButtonLink>}
+                {filtered && <ButtonLink to={clearTo}>Clear</ButtonLink>}
               </Cluster>
             </Form>
           }

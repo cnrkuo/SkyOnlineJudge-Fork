@@ -127,7 +127,7 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
           header: problem.tag,
           headerNode: (
             <Tip label={`${problem.accepted} solved / ${problem.attempts} attempts`}>
-              <Link to={`/problems/${problem.problemId}`}>{problem.tag}</Link>
+              <Link to={`/problems/${problem.problemId}?contest=${id}`}>{problem.tag}</Link>
             </Tip>
           ),
           align: 'center',
@@ -141,7 +141,7 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
         }),
       ),
     ];
-  }, [board, ioi]);
+  }, [board, ioi, id]);
 
   if (!board || !contest) return null;
   return (

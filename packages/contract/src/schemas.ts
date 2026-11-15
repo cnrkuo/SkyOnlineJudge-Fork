@@ -298,6 +298,11 @@ export const SubmissionListInputSchema = PageInputSchema.merge({
   'problemId?': IdSchema,
   'userId?': IdSchema,
   'verdict?': VerdictSchema,
+  /**
+   * Only submissions that count for this contest: to one of its problems,
+   * made while it ran (`[startAt, endAt)`), as on its scoreboard.
+   */
+  'contestId?': IdSchema,
 });
 
 // ------------------------------------------------------------------- contest

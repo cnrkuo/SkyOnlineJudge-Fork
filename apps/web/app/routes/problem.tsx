@@ -1,9 +1,11 @@
 import { AccessLevel, ScoreMode } from '@skyoj/contract';
 import { Form, Link, redirect, useNavigation } from 'react-router';
+import { ContestNav } from '~/components/contest-nav';
 import { Markdown } from '~/components/markdown';
 import { api, load, submit } from '~/lib/api.server';
+import { contestNav } from '~/lib/contest-nav.server';
 import { renderMarkdown } from '~/lib/markdown.server';
-import { idParam } from '~/lib/params';
+import { idParam, positive } from '~/lib/params';
 import {
   Badge,
   Button,
@@ -26,14 +28,17 @@ import type { Route } from './+types/problem';
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const id = idParam(params.id);
-  const [problem, stats, attachments] = await Promise.all([
+  const [problem, stats, attachments, nav] = await Promise.all([
     load(request, (o) => api.problem.get({ id }, o)),
     load(request, (o) => api.problem.stats({ id }, o)),
     load(request, (o) => api.problem.listAttachments({ problemId: id }, o)),
+    contestNav(request),
   ]);
+  // Only a contest that has this problem gets its bar on this page.
+  const contest = nav?.problems.some((p) => p.problemId === id) ? nav : null;
   const statement = await renderMarkdown(problem.content, { assetBase: `/problems/${problem.id}/attachments` });
   // The Markdown source stays on the server; the page only needs the HTML.
-  return { problem: { ...problem, content: undefined }, statement, stats, attachments };
+  return { problem: { ...problem, content: undefined }, statement, stats, attachments, contest };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -48,7 +53,10 @@ export async function action({ request, params }: Route.ActionArgs) {
       o,
     ),
   );
-  return result.ok ? redirect(`/submissions/${result.data.id}?new=1`) : result;
+  // Submitted from a contest: the submission page keeps the contest bar.
+  const contest = positive(new URL(request.url).searchParams.get('contest'));
+  const inContest = contest === undefined ? '' : `&contest=${contest}`;
+  return result.ok ? redirect(`/submissions/${result.data.id}?new=1${inContest}`) : result;
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [
@@ -75,7 +83,7 @@ const fastestColumns: Column<Stats['fastest'][number]>[] = [
 ];
 
 export default function Problem({ loaderData, actionData }: Route.ComponentProps) {
-  const { problem, statement, stats, attachments } = loaderData;
+  const { problem, statement, stats, attachments, contest } = loaderData;
   const { user } = useRoot();
   const busy = useNavigation().state === 'submitting';
   const total = stats.verdicts.reduce((sum, row) => sum + row.count, 0);
@@ -92,6 +100,7 @@ export default function Problem({ loaderData, actionData }: Route.ComponentProps
 
   return (
     <>
+      {contest && <ContestNav contest={contest} current={problem.id} />}
       <PageHeader
         title={
           <>

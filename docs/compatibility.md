@@ -76,7 +76,9 @@ purpose, and what was not carried over.
 | Scoreboard attempts | every submission, including compile errors and ones still judging | compile / judge / score errors and pending runs are not attempts | ICPC convention |
 | Scoreboard ties | ICPC: solved, penalty; IOI: score only | then total solving time (to the second), first solves, rejected attempts, total run time, total memory, and languages of the counted solutions (more in C, then C++, then Python) | Fewer shared ranks |
 | Scoreboard cells | first solver starred, AC minute | first solver's value in brackets; every result shows `h:mm` since the start and links to its submission, whose result (not code) contest participants may open | Traceable standings |
-| Account names | unique `nickname` and optional `realname` | unique **username** (the handle; case-insensitive) and optional **nickname** (a display name, at most 30 characters); existing values were carried over in place | Clearer names |
+| Account names | unique `nickname` and optional `realname` | unique **username** (the handle) and optional **nickname** (a display name, at most 30 characters); existing values were carried over in place | Clearer names |
+| Username rules | 2–32 characters, any but a few symbols | 2–30 of `a–z 0–9 . _` (input is lowercased), at most two dots in a row, not only digits; existing names were lowercased and otherwise keep working until changed | Clean, readable profile addresses |
+| Username changes | any time | twice in any 365 days (administrators' renames do not count); every change is kept in `username_changes` | Handles stay recognisable |
 | Profile address | `/user/view/:uid` (sequential id) | `/users/:username`; submission filters take a username too | Does not reveal how many accounts there are |
 | Other users' code | owner and administrators (`codeview_access` was stored but ignored) | same, plus everyone when the problem sets code view to "Everyone" | The setting now has an effect |
 | Submissions of hidden problems | listed for everyone | listed for the author and for those who can see the problem | Do not leak hidden contests |

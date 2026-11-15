@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { type UserLevel, Verdict } from '@skyoj/contract';
+import { USERNAME_CHANGES_IN_WORDS, USERNAME_CHANGES_PER_YEAR, type UserLevel, Verdict } from '@skyoj/contract';
 import { type Actor, requireLogin, toActor } from '../../common/actor.js';
 import { hashPassword, md5, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { SubmissionRepository } from '../submission/submission.repository.js';
 import { type UserPatch, UserRepository } from './user.repository.js';
+
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class UserService {
@@ -43,10 +45,27 @@ export class UserService {
       if (await this.users.usernameTaken(patch.username, actor.id)) {
         throw new ConflictError('This username is already taken');
       }
+      await this.checkRenameAllowed(actor.id);
     }
-    const user = await this.users.update(actor.id, patch);
+    const user = await this.users.update(actor.id, patch, actor.id);
     if (!user) throw new NotFoundError('User');
     return toActor(user);
+  }
+
+  /** Users may change their own username twice in any 365 days. */
+  private async checkRenameAllowed(userId: number): Promise<void> {
+    const now = Date.now();
+    const changes = await this.users.ownUsernameChangesSince(userId, new Date(now - YEAR_MS));
+    if (changes.length < USERNAME_CHANGES_PER_YEAR) return;
+    // The window frees up a year after the oldest change that still counts.
+    const oldest = changes[changes.length - USERNAME_CHANGES_PER_YEAR]!;
+    const next = new Date(oldest.getTime() + YEAR_MS)
+      .toISOString()
+      .replace(/:\d\d\.\d+Z$/, ' UTC')
+      .replace('T', ' ');
+    throw new ForbiddenError(
+      `You can change your username ${USERNAME_CHANGES_IN_WORDS} a year; the next change is possible from ${next}`,
+    );
   }
 
   async changePassword(actor: Actor, oldPassword: string, newPassword: string): Promise<void> {

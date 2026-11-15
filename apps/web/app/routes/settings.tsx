@@ -1,4 +1,4 @@
-import { INTRODUCTION_MAX_LENGTH } from '@skyoj/contract';
+import { INTRODUCTION_MAX_LENGTH, USERNAME_CHANGES_IN_WORDS } from '@skyoj/contract';
 import { Form, redirect } from 'react-router';
 import { api, load, submit } from '~/lib/api.server';
 import { Button, Card, css, Field, Measure, Notice, Stack } from '~/ui';
@@ -27,10 +27,15 @@ export async function action({ request }: Route.ActionArgs) {
     return { intent: 'password', ...result, message: 'Password changed.' };
   }
 
+  // Send the username only when it changed: a change counts against the
+  // yearly limit, and an old name from before the current rules stays valid.
+  const me = await load(request, (o) => api.auth.me(undefined, o));
+  const username = text('username');
+  const renamed = username.toLowerCase() !== me?.username;
   const result = await submit(request, (o) =>
     api.user.updateProfile(
       {
-        username: text('username'),
+        ...(renamed ? { username } : {}),
         nickname: text('nickname') || null,
         introduction: text('introduction') || null,
         avatarUrl: text('avatarUrl') || null,
@@ -59,8 +64,18 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
               <Field label="E-mail">
                 <input value={me.email} disabled />
               </Field>
-              <Field label="Username">
-                <input name="username" defaultValue={profile.username} minLength={2} maxLength={32} required />
+              <Field
+                label="Username"
+                hint={`2–30 lowercase letters, digits, dots and underscores; not only digits, and at most two dots in a row. You can change it ${USERNAME_CHANGES_IN_WORDS} a year.`}>
+                <input
+                  name="username"
+                  defaultValue={profile.username}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  minLength={2}
+                  maxLength={30}
+                  required
+                />
               </Field>
               <Field label="Nickname" hint="Optional.">
                 <input name="nickname" defaultValue={profile.nickname ?? ''} maxLength={30} />

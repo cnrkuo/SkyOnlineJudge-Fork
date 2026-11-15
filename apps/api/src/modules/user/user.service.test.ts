@@ -74,6 +74,42 @@ describe('UserService.updateProfile', () => {
     await expect(taken.updateProfile(user, { username: 'someone' })).rejects.toThrow(ConflictError);
     await expect(service().service.updateProfile(guest, { introduction: 'x' })).rejects.toThrow(UnauthorizedError);
   });
+
+  describe('username changes: twice in any 365 days', () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
+    const withChanges = (dates: Date[]) => {
+      const asked: Date[] = [];
+      const made = service({
+        ownUsernameChangesSince: async (_id: number, since: Date) => {
+          asked.push(since);
+          return dates.filter((date) => date >= since);
+        },
+      });
+      return { ...made, asked };
+    };
+
+    it('allows a change with fewer than two in the past year', async () => {
+      const { service: users, asked } = withChanges([daysAgo(400), daysAgo(30)]);
+      await users.updateProfile(user, { username: 'new.name' });
+      expect(Date.now() - asked[0]!.getTime()).toBeCloseTo(365 * 86_400_000, -4);
+    });
+
+    it('refuses a third, naming when the next one is possible', async () => {
+      const { service: users, patches } = withChanges([daysAgo(300), daysAgo(10)]);
+      const error = await users.updateProfile(user, { username: 'new.name' }).catch((e: Error) => e);
+      expect(error).toBeInstanceOf(ForbiddenError);
+      // The older change leaves the window 65 days from now.
+      const next = daysAgo(-65).toISOString().slice(0, 10);
+      expect((error as Error).message).toContain(next);
+      expect(patches).toEqual([]);
+    });
+
+    it('does not count keeping the same username, or other fields', async () => {
+      const { service: users, patches } = withChanges([daysAgo(1), daysAgo(2)]);
+      await users.updateProfile(user, { username: user.username, nickname: 'Al' });
+      expect(patches).toHaveLength(1);
+    });
+  });
 });
 
 describe('UserService.changePassword', () => {

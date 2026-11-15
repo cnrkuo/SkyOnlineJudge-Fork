@@ -35,8 +35,16 @@ export default function Register({ actionData }: Route.ComponentProps) {
               </Field>
               <Field
                 label="Username"
-                hint="Your unique handle: 2–32 characters, no spaces. Shown on scoreboards and in your profile's address.">
-                <input name="username" autoComplete="username" minLength={2} maxLength={32} required />
+                hint="Your unique handle, shown on scoreboards and in your profile's address: 2–30 lowercase letters, digits, dots and underscores; not only digits, and at most two dots in a row.">
+                <input
+                  name="username"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  minLength={2}
+                  maxLength={30}
+                  required
+                />
               </Field>
               <Field label="Password" hint="At least 6 characters.">
                 <input name="password" type="password" autoComplete="new-password" minLength={6} required />

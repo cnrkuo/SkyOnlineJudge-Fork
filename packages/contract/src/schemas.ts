@@ -98,17 +98,27 @@ export const OkSchema = type({ ok: 'true' });
 
 // ---------------------------------------------------------------------- user
 
+/** How often users may change their own username: twice in any 365 days. */
+export const USERNAME_CHANGES_PER_YEAR = 2;
+/** `USERNAME_CHANGES_PER_YEAR` in words, for messages: "twice". */
+export const USERNAME_CHANGES_IN_WORDS =
+  (['once', 'twice'] as const)[USERNAME_CHANGES_PER_YEAR - 1] ?? `${USERNAME_CHANGES_PER_YEAR} times`;
+
 /**
- * The unique handle: shown on scoreboards and lists, and the address of the
- * profile (`/users/:username`), so it avoids characters with a meaning in a
- * URL or in HTML. Unique without regard to case.
+ * The unique handle, shown on scoreboards and lists and used as the
+ * profile's address (`/users/:username`). Entered text is trimmed and
+ * lowercased; then it must be 2–30 characters of `a–z`, `0–9`, `.` and
+ * `_`, with no more than two dots in a row, and not only digits (which
+ * would look like an id) or only dots (which a URL path would swallow).
  */
 export const UsernameSchema = type('string.trim')
-  .to('2 <= string <= 32')
+  .to('string.lower')
+  .to('2 <= string <= 30')
   .narrow(
-    (value, ctx) =>
-      /^[^\s@<>&"'\\/?#%]+$/u.test(value) || ctx.mustBe('free of spaces and the characters @ < > & " \' \\ / ? # %'),
+    (value, ctx) => /^[a-z0-9._]+$/.test(value) || ctx.mustBe('only lowercase letters, digits, dots and underscores'),
   )
+  .narrow((value, ctx) => !value.includes('...') || ctx.mustBe('without more than two dots in a row'))
+  .narrow((value, ctx) => !/^[0-9]+$/.test(value) || ctx.mustBe('more than digits'))
   .narrow((value, ctx) => !/^\.+$/.test(value) || ctx.mustBe('more than dots'));
 /** The optional display name, which need not be unique. */
 export const NicknameSchema = type('string.trim').to('string <= 30');

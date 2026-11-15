@@ -74,6 +74,13 @@ describe('AdminService.updateUser', () => {
     const self = { ...target, id: admin.id, level: admin.level };
     await expect(service(self).admin.updateUser(admin, { userId: admin.id, nickname: 'me' })).resolves.toBeUndefined();
   });
+
+  it("renames without the yearly limit, recorded as the administrator's change", async () => {
+    // No ownUsernameChangesSince in the fake: the limit is not even looked up.
+    const { admin: service_, updates } = service();
+    await service_.updateUser(admin, { userId: target.id, username: 'renamed' });
+    expect(updates).toEqual([[target.id, { username: 'renamed' }, admin.id]]);
+  });
 });
 
 describe('AdminService.createJudge', () => {

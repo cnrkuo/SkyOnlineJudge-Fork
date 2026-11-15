@@ -18,7 +18,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     api.admin.updateUser(
       {
         userId: user.id,
-        username,
+        // Only when changed, so an old name from before the current rules stays valid.
+        ...(username.toLowerCase() !== user.username ? { username } : {}),
         nickname: String(form.get('nickname') ?? '').trim() || null,
         ...(newPassword ? { newPassword } : {}),
       },
@@ -26,7 +27,9 @@ export async function action({ request, params }: Route.ActionArgs) {
     ),
   );
   // A new username is a new address for this page.
-  if (result.ok && username !== user.username) throw redirect(`/admin/users/${encodeURIComponent(username)}`);
+  if (result.ok && username.toLowerCase() !== user.username) {
+    throw redirect(`/admin/users/${encodeURIComponent(username.toLowerCase())}`);
+  }
   return { ...result, message: newPassword ? 'Saved. The user has been logged out everywhere.' : 'Saved.' };
 }
 
@@ -43,8 +46,18 @@ export default function AdminUser({ loaderData: user, actionData }: Route.Compon
         <Form method="post">
           <Stack>
             <Notice result={actionData} />
-            <Field label="Username">
-              <input name="username" defaultValue={user.username} minLength={2} maxLength={32} required />
+            <Field
+              label="Username"
+              hint="2–30 lowercase letters, digits, dots and underscores; not only digits, and at most two dots in a row. Your changes do not count against the user's yearly limit.">
+              <input
+                name="username"
+                defaultValue={user.username}
+                autoCapitalize="none"
+                spellCheck={false}
+                minLength={2}
+                maxLength={30}
+                required
+              />
             </Field>
             <Field label="Nickname">
               <input name="nickname" defaultValue={user.nickname ?? ''} maxLength={30} />

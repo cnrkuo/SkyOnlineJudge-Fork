@@ -38,6 +38,26 @@ export const users = pgTable(
   (t) => [uniqueIndex('users_email_key').on(t.email), uniqueIndex('users_username_key').on(t.username)],
 );
 
+/**
+ * Every change of a username. A user may change their own twice in any
+ * 365 days; changes by an administrator (`changedBy` someone else) are
+ * recorded but do not count.
+ */
+export const usernameChanges = pgTable(
+  'username_changes',
+  {
+    id: id(),
+    userId: integer()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    oldUsername: varchar({ length: 64 }).notNull(),
+    newUsername: varchar({ length: 64 }).notNull(),
+    changedBy: integer().references(() => users.id, { onDelete: 'set null' }),
+    changedAt: createdAt(),
+  },
+  (t) => [index('username_changes_user_idx').on(t.userId, t.changedAt)],
+);
+
 export const sessions = pgTable(
   'sessions',
   {

@@ -41,9 +41,16 @@ describe('account fields', () => {
     expect(ok(UsernameSchema('  alice  '))).toBe('alice');
   });
 
-  it('keeps usernames usable in a profile address', () => {
-    for (const name of ['al ice', 'a/b', 'what?', 'a#1', '100%', '..', '.', 'x']) rejects(UsernameSchema(name));
-    for (const name of ['alice_42', 'Bob.Lin', '小明', 'a..b']) expect(ok(UsernameSchema(name))).toBe(name);
+  it('lowercases usernames and allows only a–z, 0–9, dots and underscores', () => {
+    expect(ok(UsernameSchema('Alice.Lin'))).toBe('alice.lin');
+    for (const name of ['bob_42', 'a.b', 'a..b', '_x_', '7up', 'x'.repeat(30)])
+      expect(ok(UsernameSchema(name))).toBe(name);
+    for (const name of ['al ice', 'a-b', 'a/b', 'what?', '小明', 'zoë', 'x', 'x'.repeat(31)])
+      rejects(UsernameSchema(name));
+  });
+
+  it('refuses more than two dots in a row, all digits and only dots', () => {
+    for (const name of ['a...b', 'abc....', '12345', '007', '..', '.']) rejects(UsernameSchema(name));
   });
 
   it('needs passwords of at least six characters', () => {

@@ -84,11 +84,16 @@ export class AdminService {
         throw new ConflictError('This username is already taken');
       }
     }
-    await this.users.update(target.id, {
-      ...(input.username === undefined ? {} : { username: input.username }),
-      ...(input.nickname === undefined ? {} : { nickname: input.nickname }),
-      ...(input.newPassword === undefined ? {} : { passwordHash: await hashPassword(input.newPassword) }),
-    });
+    // An administrator's rename is recorded, but does not count against the user's limit.
+    await this.users.update(
+      target.id,
+      {
+        ...(input.username === undefined ? {} : { username: input.username }),
+        ...(input.nickname === undefined ? {} : { nickname: input.nickname }),
+        ...(input.newPassword === undefined ? {} : { passwordHash: await hashPassword(input.newPassword) }),
+      },
+      actor.id,
+    );
     if (input.newPassword !== undefined) await this.sessions.deleteByUser(target.id);
   }
 

@@ -78,6 +78,18 @@ export function defaultBoardWindow(timeZone: string, now: number = Date.now()) {
   return { startAt: toUtcIso(start), endAt: toUtcIso(addYears(start, 1)) };
 }
 
+/**
+ * Time since the contest started, as on a scoreboard: `1:05` (h:mm), or
+ * `1:05:09` with seconds.
+ */
+export function formatElapsed(totalSeconds: number, withSeconds = false): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+  const rest = String(seconds % 60).padStart(2, '0');
+  return withSeconds ? `${hours}:${minutes}:${rest}` : `${hours}:${minutes}`;
+}
+
 export function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.round(totalSeconds));
   const days = Math.floor(seconds / 86400);

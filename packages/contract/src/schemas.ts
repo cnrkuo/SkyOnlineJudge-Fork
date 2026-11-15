@@ -386,10 +386,13 @@ export const ParticipantSchema = type({
 export const ScoreboardCellSchema = type({
   attempts: 'number.integer',
   accepted: 'boolean',
+  /** The first participant to solve the problem. */
   firstBlood: 'boolean',
-  /** Minutes from contest start to the accepted submission. */
-  acceptedMinute: 'number.integer | null',
   score: 'number',
+  /** The submission the cell counts (ICPC: accepted; IOI: first to reach its best score), or null. */
+  submissionId: 'number.integer | null',
+  /** Seconds from the contest start to that submission. */
+  solvedSeconds: 'number.integer | null',
 });
 
 export const ScoreboardSchema = type({
@@ -409,6 +412,10 @@ export const ScoreboardSchema = type({
     solved: 'number.integer',
     /** ICPC penalty in minutes. */
     penalty: 'number.integer',
+    /** Tie-breaks, over the counted submissions: seconds from the start summed, run time, memory. */
+    solveSeconds: 'number.integer',
+    runTimeMs: 'number.integer',
+    memoryKb: 'number.integer',
     score: 'number',
     /** One cell per entry of `problems`, same order. */
     cells: ScoreboardCellSchema.array(),

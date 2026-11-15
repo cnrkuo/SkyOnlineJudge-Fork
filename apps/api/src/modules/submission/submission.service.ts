@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AccessLevel, type Language, type Verdict } from '@skyoj/contract';
-import { type Actor, isAdmin, requireAdmin, requireUser, satisfies } from '../../common/actor.js';
+import { type Actor, isAdmin, requireAdmin, requireUser } from '../../common/actor.js';
 import { ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { type PageInput, pageOf } from '../../common/pagination.js';
 import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';
@@ -77,8 +77,12 @@ export class SubmissionService {
 
     const own = actor.id === row.userId;
     const admin = isAdmin(actor);
-    if (!own && !admin && !satisfies(actor, found.owner, found.problem.contentAccess)) {
-      throw new ForbiddenError('You may not view this submission');
+    // Whoever may read the problem — contest participants included — may see
+    // how others did on it (the scoreboard links here); the code has its own rule.
+    if (!own && !admin) {
+      await this.problemService.access(actor, row.problemId).catch((error: unknown) => {
+        throw error instanceof ForbiddenError ? new ForbiddenError('You may not view this submission') : error;
+      });
     }
     const canReadCode = own || admin || found.problem.codeviewAccess === AccessLevel.OPEN;
 

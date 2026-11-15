@@ -148,6 +148,12 @@ Files live under `DATA_DIR`: testdata is content-addressed
   up to, not including, `endAt`; submitting needs `now < endAt`; scoreboards
   count submissions in `[startAt, endAt)`, or `[startAt, freezeAt)` while
   frozen. A window must therefore end after it starts.
+- **Scoreboard times are seconds since the contest start.** A cell keeps the
+  seconds to the submission it counts (ICPC: the accepted one; IOI: the
+  first to reach the best score); ICPC penalty is still whole minutes. Rows
+  rank by the contest's measure (IOI: score; ICPC: solved, penalty), then
+  total solving time, total run time, total memory, and languages
+  (C before C++ before Python), all in `contest/scoreboard.ts`.
 - **One display zone.** `SITE_TIMEZONE` (default `Asia/Taipei`) for every
   time shown or entered. `<Time>` carries the zone and offset in its tooltip
   and, for contest and scoreboard windows, prints the offset; the footer

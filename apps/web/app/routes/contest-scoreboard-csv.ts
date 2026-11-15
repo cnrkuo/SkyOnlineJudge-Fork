@@ -1,6 +1,7 @@
 import { ContestStyle } from '@skyoj/contract';
 import { api, load } from '~/lib/api.server';
 import { idParam } from '~/lib/params';
+import { formatElapsed } from '~/lib/time';
 import type { Route } from './+types/contest-scoreboard-csv';
 
 /** Quotes a CSV field and defuses spreadsheet formulas in user-chosen names. */
@@ -21,7 +22,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     'nickname',
     ...board.problems.map((p) => p.tag),
     ioi ? 'score' : 'solved',
-    ...(ioi ? [] : ['penalty']),
+    ioi ? 'time' : 'penalty',
+    'run_time_ms',
+    'memory_kb',
   ];
   const lines = board.rows.map((row) => [
     row.rank,
@@ -29,14 +32,16 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     ...row.cells.map((cell) =>
       ioi
         ? cell.score
-        : cell.accepted
-          ? `${cell.attempts}/${cell.acceptedMinute}`
+        : cell.accepted && cell.solvedSeconds !== null
+          ? `${cell.attempts}/${Math.floor(cell.solvedSeconds / 60)}`
           : cell.attempts
             ? `${cell.attempts}/--`
             : '',
     ),
     ioi ? row.score : row.solved,
-    ...(ioi ? [] : [row.penalty]),
+    ioi ? formatElapsed(row.solveSeconds, true) : row.penalty,
+    row.runTimeMs,
+    row.memoryKb,
   ]);
   const csv = [header, ...lines].map((line) => line.map(field).join(',')).join('\r\n');
 

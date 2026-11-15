@@ -4,6 +4,7 @@ import {
   defaultContestWindow,
   formatDateTime,
   formatDuration,
+  formatElapsed,
   formatOffset,
   isoToLocalInput,
   parseLocalInput,
@@ -91,5 +92,14 @@ describe('formatDuration', () => {
     expect(formatDuration(90 * 60)).toBe('1h 30m');
     expect(formatDuration(2 * 86400 + 60)).toBe('2d 1m');
     expect(formatDuration(-30)).toBe('0m');
+  });
+});
+
+describe('formatElapsed', () => {
+  it('shows hours and minutes since the start, with seconds on request', () => {
+    expect(formatElapsed(0)).toBe('0:00');
+    expect(formatElapsed(65 * 60 + 9)).toBe('1:05');
+    expect(formatElapsed(65 * 60 + 9, true)).toBe('1:05:09');
+    expect(formatElapsed(26 * 3600)).toBe('26:00');
   });
 });

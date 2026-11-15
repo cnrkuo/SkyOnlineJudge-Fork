@@ -287,10 +287,14 @@ export class SubmissionRepository {
     if (problemIds.length === 0 || userIds.length === 0) return [];
     return this.db
       .select({
+        id: submissions.id,
         userId: submissions.userId,
         problemId: submissions.problemId,
         verdict: submissions.verdict,
         score: submissions.score,
+        language: submissions.language,
+        timeMs: submissions.timeMs,
+        memoryKb: submissions.memoryKb,
         createdAt: submissions.createdAt,
       })
       .from(submissions)

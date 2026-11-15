@@ -276,6 +276,17 @@ blockquote {
   color: inherit;
   text-decoration: none;
 }
+/* The whole result in a scoreboard cell links to its submission; it keeps
+   the cell's tone colour and is underlined on hover and focus. */
+.oj-score-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.oj-score-link:hover,
+.oj-score-link:focus-visible {
+  text-decoration: underline;
+}
 .oj-score-sub {
   display: block;
   font-size: 0.75rem;

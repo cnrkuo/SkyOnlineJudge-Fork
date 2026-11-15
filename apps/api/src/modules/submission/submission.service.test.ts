@@ -36,7 +36,15 @@ const row = {
 const contestStart = new Date('2026-12-01T00:00:00Z');
 const contestEnd = new Date('2026-12-01T05:00:00Z');
 
-function service(problem: { contentAccess: number; codeviewAccess: number }, canSubmit = true) {
+/**
+ * `readable`: whether the viewer may read the problem, as ProblemService
+ * decides it (the owner's rules, or a contest the viewer takes part in).
+ */
+function service(
+  problem: { contentAccess: number; codeviewAccess: number },
+  canSubmit = true,
+  readable = problem.contentAccess === AccessLevel.OPEN,
+) {
   const published: [string, unknown][] = [];
   const filters: SubmissionFilter[] = [];
   const submissions = new SubmissionService(
@@ -51,7 +59,12 @@ function service(problem: { contentAccess: number; codeviewAccess: number }, can
       },
     }),
     fake<ProblemRepository>({ findById: async () => ({ problem, owner }) }),
-    fake<ProblemService>({ access: async () => ({ canSubmit }) }),
+    fake<ProblemService>({
+      access: async () => {
+        if (!readable) throw new ForbiddenError('You may not view this problem');
+        return { canSubmit };
+      },
+    }),
     fake<ContestRepository>({
       findById: async (id: number) =>
         id === 9 ? { contest: { startAt: contestStart, endAt: contestEnd } } : undefined,
@@ -103,8 +116,14 @@ describe('SubmissionService.get', () => {
 
   it('hides submissions to problems the viewer may not see', async () => {
     const hidden = { contentAccess: AccessLevel.HIDDEN, codeviewAccess: AccessLevel.OPEN };
-    await expect(service(hidden).submissions.get(stranger, 5)).rejects.toThrow(ForbiddenError);
+    await expect(service(hidden).submissions.get(stranger, 5)).rejects.toThrow('You may not view this submission');
     await expect(service(hidden).submissions.get(admin, 5)).resolves.toMatchObject({ canRejudge: true });
+  });
+
+  it("shows contest participants each other's results (the scoreboard links them), but not the code", async () => {
+    const contestOnly = { contentAccess: AccessLevel.HIDDEN, codeviewAccess: AccessLevel.HIDDEN };
+    const seen = await service(contestOnly, true, true).submissions.get(stranger, 5);
+    expect(seen).toMatchObject({ verdict: summary.verdict, code: null, compileMessage: '' });
   });
 });
 

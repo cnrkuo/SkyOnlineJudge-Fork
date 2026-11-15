@@ -162,6 +162,8 @@ export const table = {
   /** Scoreboard cells: fixed width, two short lines. */
   scoreCell: 'oj-score-cell',
   scoreCellSub: 'oj-score-sub',
+  /** A scored cell's link to the submission it counts. */
+  scoreLink: 'oj-score-link',
   toolbar: 'd-flex flex-wrap justify-content-between align-items-end gap-3 p-3 border-bottom',
   footer:
     'd-flex flex-wrap justify-content-between align-items-center gap-3 px-3 py-2 border-top small text-body-secondary',

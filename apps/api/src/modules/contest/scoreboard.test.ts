@@ -1,4 +1,4 @@
-import { ContestStyle, TeamState, Verdict } from '@skyoj/contract';
+import { ContestStyle, Language, TeamState, Verdict } from '@skyoj/contract';
 import { describe, expect, it } from 'vitest';
 import { buildScoreboard, type ScoreboardSubmission } from './scoreboard.js';
 
@@ -13,11 +13,23 @@ const users = [
   { id: 2, nickname: 'bob', state: TeamState.ACCEPTED },
   { id: 3, nickname: 'carol', state: TeamState.ACCEPTED },
 ];
-const sub = (userId: number, problemId: number, verdict: number, minute: number, score = 0): ScoreboardSubmission => ({
+let nextId = 1;
+const sub = (
+  userId: number,
+  problemId: number,
+  verdict: number,
+  minute: number,
+  score = 0,
+  run: { timeMs?: number; memoryKb?: number; language?: string } = {},
+): ScoreboardSubmission => ({
+  id: nextId++,
   userId,
   problemId,
   verdict,
   score: verdict === Verdict.AC ? 100 : score,
+  language: run.language ?? Language.CPP,
+  timeMs: run.timeMs ?? 10,
+  memoryKb: run.memoryKb ?? 1000,
   createdAt: at(minute),
 });
 
@@ -43,11 +55,14 @@ describe('buildScoreboard (ICPC)', () => {
     expect(third).toMatchObject({ solved: 0, penalty: 0 });
   });
 
-  it('tracks attempts, accept time and first blood per cell', () => {
-    expect(first!.cells[0]).toMatchObject({ attempts: 2, accepted: true, acceptedMinute: 10, firstBlood: false });
-    expect(second!.cells[0]).toMatchObject({ attempts: 1, accepted: true, acceptedMinute: 7, firstBlood: true });
+  it('tracks attempts, the accepted submission, its time and first blood per cell', () => {
+    expect(first!.cells[0]).toMatchObject({ attempts: 2, accepted: true, solvedSeconds: 600, firstBlood: false });
+    expect(second!.cells[0]).toMatchObject({ attempts: 1, accepted: true, solvedSeconds: 420, firstBlood: true });
     expect(first!.cells[1]).toMatchObject({ firstBlood: true });
-    expect(second!.cells[1]).toMatchObject({ attempts: 1, accepted: false, acceptedMinute: null });
+    expect(second!.cells[1]).toMatchObject({ attempts: 1, accepted: false, submissionId: null, solvedSeconds: null });
+    // The cell links to the accepted submission, not to the rejected ones before it.
+    expect(first!.cells[0]!.submissionId).not.toBeNull();
+    expect(first!.cells[0]!.submissionId).not.toBe(second!.cells[0]!.submissionId);
   });
 
   it('aggregates per-problem totals', () => {
@@ -74,17 +89,93 @@ describe('buildScoreboard (IOI)', () => {
       [...users, { id: 4, nickname: 'dave', state: TeamState.ACCEPTED }],
       [sub(1, 10, Verdict.WA, 1, 40), sub(2, 10, Verdict.WA, 3, 40), sub(4, 10, Verdict.WA, 4, 10)],
     );
-    // Dense ranking: after two teams tied for first comes rank 2, not 3.
+    // With equal scores, whoever reached them sooner ranks first.
     expect(more.rows.map((r) => [r.user.nickname, r.rank])).toEqual([
       ['alice', 1],
-      ['bob', 1],
-      ['dave', 2],
-      ['carol', 3],
+      ['bob', 2],
+      ['dave', 3],
+      ['carol', 4],
     ]);
     expect(board.rows.map((r) => [r.user.nickname, r.score, r.rank])).toEqual([
       ['carol', 120, 1],
       ['alice', 40, 2],
-      ['bob', 40, 2],
+      ['bob', 40, 3],
+    ]);
+  });
+});
+
+describe('buildScoreboard: what a cell counts', () => {
+  it('IOI counts the first submission that reached the best score', () => {
+    const contest = { style: ContestStyle.IOI, startAt, penaltySec: 0 };
+    const reached = sub(1, 10, Verdict.WA, 5, 60);
+    const board = buildScoreboard(contest, problems, users, [
+      sub(1, 10, Verdict.WA, 1, 30),
+      reached,
+      sub(1, 10, Verdict.WA, 9, 60), // the same score again does not move the time
+    ]);
+    const alice = board.rows.find((r) => r.user.id === 1)!;
+    expect(alice.cells[0]).toMatchObject({ score: 60, submissionId: reached.id, solvedSeconds: 300 });
+    expect(alice).toMatchObject({ solveSeconds: 300, runTimeMs: 10, memoryKb: 1000 });
+  });
+});
+
+describe('buildScoreboard: ties', () => {
+  const icpc = { style: ContestStyle.ICPC, startAt, penaltySec: 1200 };
+  const ioi = { style: ContestStyle.IOI, startAt, penaltySec: 0 };
+  const order = (board: ReturnType<typeof buildScoreboard>) =>
+    board.rows.map((r) => [r.user.nickname, r.rank] as const);
+
+  it('IOI: equal scores rank by total solving time', () => {
+    const board = buildScoreboard(ioi, problems, users.slice(0, 2), [
+      sub(1, 10, Verdict.AC, 30),
+      sub(2, 10, Verdict.AC, 20),
+    ]);
+    expect(order(board)).toEqual([
+      ['bob', 1],
+      ['alice', 2],
+    ]);
+  });
+
+  it('then by total run time, then total memory', () => {
+    const byTime = buildScoreboard(icpc, problems, users.slice(0, 2), [
+      sub(1, 10, Verdict.AC, 5, 0, { timeMs: 50 }),
+      sub(2, 10, Verdict.AC, 5, 0, { timeMs: 40 }),
+    ]);
+    expect(order(byTime)).toEqual([
+      ['bob', 1],
+      ['alice', 2],
+    ]);
+    const byMemory = buildScoreboard(icpc, problems, users.slice(0, 2), [
+      sub(1, 10, Verdict.AC, 5, 0, { memoryKb: 900 }),
+      sub(2, 10, Verdict.AC, 5, 0, { memoryKb: 2000 }),
+    ]);
+    expect(order(byMemory)).toEqual([
+      ['alice', 1],
+      ['bob', 2],
+    ]);
+  });
+
+  it('then by language: C before C++ before Python', () => {
+    const board = buildScoreboard(icpc, problems, users, [
+      sub(1, 10, Verdict.AC, 5, 0, { language: Language.PYTHON3 }),
+      sub(2, 10, Verdict.AC, 5, 0, { language: Language.CLANG_CPP23 }),
+      sub(3, 10, Verdict.AC, 5, 0, { language: Language.C }),
+    ]);
+    expect(order(board)).toEqual([
+      ['carol', 1],
+      ['bob', 2],
+      ['alice', 3],
+    ]);
+  });
+
+  it('shares a rank only when every criterion is equal', () => {
+    const board = buildScoreboard(icpc, problems, users.slice(0, 2), [
+      sub(1, 10, Verdict.AC, 5),
+      sub(2, 10, Verdict.AC, 5),
+    ]);
+    expect(order(board)).toEqual([
+      ['alice', 1],
+      ['bob', 1],
     ]);
   });
 });

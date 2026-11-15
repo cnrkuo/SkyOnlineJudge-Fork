@@ -54,7 +54,7 @@ purpose, and what was not carried over.
   while those problems are hidden from the public.
 - **Contest scoreboard.** Public from the start of the contest. Penalty is
   minutes to AC plus `penalty` per earlier attempt; first solver is marked;
-  tied teams share a rank and the next rank follows directly (1, 1, 2). With a
+  teams equal on every tie-break share a rank and the next rank follows directly (1, 1, 2). With a
   freeze, everyone but administrators sees only submissions from before the
   last `freeze_sec` seconds, and it stays that way after the contest — set
   the freeze to 0 to publish the final standings.
@@ -74,6 +74,8 @@ purpose, and what was not carried over.
 | Peak memory of a submission | summed over testcases and over rejudges (a bug) | maximum over testcases | Correctness |
 | Who may submit | everyone, even when closed (`isAllowSubmit` was a TODO returning `true`) | logged-in users, and only when open or through a running contest | The setting now does what it says |
 | Scoreboard attempts | every submission, including compile errors and ones still judging | compile / judge / score errors and pending runs are not attempts | ICPC convention |
+| Scoreboard ties | ICPC: solved, penalty; IOI: score only | then total solving time (IOI), total run time, total memory, and languages of the counted solutions (more in C, then C++, then Python) | Fewer shared ranks |
+| Scoreboard cells | first solver starred, AC minute | first solver's value in brackets; every result shows `h:mm` since the start and links to its submission, whose result (not code) contest participants may open | Traceable standings |
 | Other users' code | owner and administrators (`codeview_access` was stored but ignored) | same, plus everyone when the problem sets code view to "Everyone" | The setting now has an effect |
 | Submissions of hidden problems | listed for everyone | listed for the author and for those who can see the problem | Do not leak hidden contests |
 | Contest page after the end | "contest over" page | problems stay visible to participants | Upsolving |

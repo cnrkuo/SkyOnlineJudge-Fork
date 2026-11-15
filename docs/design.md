@@ -205,6 +205,10 @@ tabular numbers, sortable columns (with `aria-sort`), an optional **Columns**
 menu, horizontal scrolling inside the card, an empty state, dimmed rows
 while a new page loads, and a `Pager` whose page lives in the URL.
 Scoreboards are ordinary `DataTable`s whose cells take a `*-subtle` fill.
+A scored cell shows its value over the time since the contest started
+(`h:mm`; `h:mm:ss` in its tooltip) and links to the submission it counts;
+the first to solve a problem has the value in brackets, `[100]` or `[+1]`.
+Run time and memory, the later tie-breaks, are in the **Columns** menu.
 
 ## Rules
 

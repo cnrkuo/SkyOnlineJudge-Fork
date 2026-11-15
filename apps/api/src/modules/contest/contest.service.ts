@@ -254,7 +254,7 @@ export class ContestService {
         attempts,
         accepted,
       })),
-      rows: board.rows.map(({ attemptsOnSolved: _, state, ...row }) => ({ ...row, state: state as TeamState })),
+      rows: board.rows.map(({ counted: _, state, ...row }) => ({ ...row, state: state as TeamState })),
     };
   }
 }

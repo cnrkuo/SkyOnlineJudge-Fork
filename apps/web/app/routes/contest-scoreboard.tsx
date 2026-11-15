@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { type api, prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';
 import { idParam } from '~/lib/params';
+import { formatElapsed } from '~/lib/time';
 import { Badge, Callout, Card, Cluster, css, Empty, Muted, PageHeader, Stack, UserLink, useRoot } from '~/ui';
 import { table } from '~/ui/classes';
 import { type Column, DataTable } from '~/ui/data-table';
@@ -35,33 +36,46 @@ function cellTone(cell: Cell | undefined): string | undefined {
   return cell.score > 0 ? css.toneFill.warning : css.toneFill.danger;
 }
 
-function IcpcCell({ cell }: { cell: Cell }) {
+/**
+ * A cell's counted result: its value — in brackets for the first to solve
+ * the problem — over the time since the contest started, linking to the
+ * submission it counts.
+ */
+function Result({ cell, value, contestId }: { cell: Cell; value: string; contestId: number }) {
+  const seconds = cell.solvedSeconds ?? 0;
+  const when = `${formatElapsed(seconds, true)} after the start`;
+  return (
+    <Tip label={cell.firstBlood ? `First to solve · ${when}` : when}>
+      <Link to={`/submissions/${cell.submissionId}?contest=${contestId}`} className={table.scoreLink}>
+        <strong>{cell.firstBlood ? `[${value}]` : value}</strong>
+        <span className={table.scoreCellSub}>{formatElapsed(seconds)}</span>
+      </Link>
+    </Tip>
+  );
+}
+
+function IcpcCell({ cell, contestId }: { cell: Cell; contestId: number }) {
   if (cell.attempts === 0) return <Muted>·</Muted>;
-  if (!cell.accepted)
+  if (!cell.accepted || cell.submissionId === null) {
     return (
       <Tip label={`${cell.attempts} rejected`}>
         <span>−{cell.attempts}</span>
       </Tip>
     );
-  return (
-    <Tip label={cell.firstBlood ? 'First to solve' : `Solved at minute ${cell.acceptedMinute}`}>
-      <span>
-        <strong className={css.toneText.success}>
-          {cell.firstBlood ? '★ ' : ''}+{cell.attempts > 1 ? cell.attempts - 1 : ''}
-        </strong>
-        <span className={table.scoreCellSub}>{cell.acceptedMinute}′</span>
-      </span>
-    </Tip>
-  );
+  }
+  return <Result cell={cell} value={`+${cell.attempts > 1 ? cell.attempts - 1 : ''}`} contestId={contestId} />;
 }
 
-function IoiCell({ cell }: { cell: Cell }) {
+function IoiCell({ cell, contestId }: { cell: Cell; contestId: number }) {
   if (cell.attempts === 0) return <Muted>·</Muted>;
-  return (
-    <Tip label={`${cell.attempts} submission${cell.attempts === 1 ? '' : 's'}`}>
-      <strong>{round(cell.score)}</strong>
-    </Tip>
-  );
+  if (cell.submissionId === null) {
+    return (
+      <Tip label={`${cell.attempts} submission${cell.attempts === 1 ? '' : 's'}, no points yet`}>
+        <strong>0</strong>
+      </Tip>
+    );
+  }
+  return <Result cell={cell} value={String(round(cell.score))} contestId={contestId} />;
 }
 
 export default function Scoreboard({ loaderData }: Route.ComponentProps) {
@@ -110,17 +124,39 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
             sortValue: (r) => r.solved,
             cell: (r) => <strong>{r.solved}</strong>,
           },
-      ...(ioi
-        ? []
-        : [
-            {
-              id: 'penalty',
-              header: 'Penalty',
-              align: 'right',
-              sortValue: (r) => r.penalty,
-              cell: (r) => r.penalty,
-            } satisfies Column<Row>,
-          ]),
+      // The first tie-break: ICPC's penalty time, IOI's total solving time.
+      ioi
+        ? {
+            id: 'time',
+            header: 'Time',
+            align: 'right',
+            sortValue: (r) => r.solveSeconds,
+            cell: (r) => formatElapsed(r.solveSeconds, true),
+          }
+        : {
+            id: 'penalty',
+            header: 'Penalty',
+            align: 'right',
+            sortValue: (r) => r.penalty,
+            cell: (r) => r.penalty,
+          },
+      // Later tie-breaks, in the column menu.
+      {
+        id: 'runTime',
+        header: 'Run time',
+        align: 'right',
+        hidden: true,
+        sortValue: (r) => r.runTimeMs,
+        cell: (r) => `${r.runTimeMs} ms`,
+      },
+      {
+        id: 'memory',
+        header: 'Memory',
+        align: 'right',
+        hidden: true,
+        sortValue: (r) => r.memoryKb,
+        cell: (r) => `${r.memoryKb} KB`,
+      },
       ...board.problems.map(
         (problem, index): Column<Row> => ({
           id: `p${problem.problemId}`,
@@ -136,7 +172,8 @@ export default function Scoreboard({ loaderData }: Route.ComponentProps) {
           cellClass: (r) => `${table.scoreCell} ${cellTone(r.cells[index]) ?? ''}`,
           cell: (r) => {
             const cell = r.cells[index];
-            return cell ? ioi ? <IoiCell cell={cell} /> : <IcpcCell cell={cell} /> : null;
+            if (!cell) return null;
+            return ioi ? <IoiCell cell={cell} contestId={id} /> : <IcpcCell cell={cell} contestId={id} />;
           },
         }),
       ),

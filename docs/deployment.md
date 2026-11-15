@@ -114,6 +114,7 @@ Settings in `.env.production`:
 | --- | --- | --- |
 | `WEB_BIND`, `WEB_PORT` | `0.0.0.0`, `3000` | Where the web app is published |
 | `COOKIE_SECURE` | `true` | Set `false` only to try the site over plain HTTP |
+| `TRUST_PROXY` | loopback and private addresses | Which reverse proxies' `X-Forwarded-Proto` / `-Host` the web app believes; see below |
 | `API_BIND`, `API_PORT` | `127.0.0.1`, `3001` | Where the API is published, for judges on other machines |
 | `SITE_NAME`, `SITE_TIMEZONE` | `Sky Online Judge`, `Asia/Taipei` | Shown in the interface |
 | `MAX_UPLOAD_MB`, `JUDGE_TIMEOUT_SEC` | `256`, `600` | See `apps/api/.env.example` |
@@ -165,9 +166,35 @@ volume over to it once, before step 2's `pnpm docker:prod`:
 docker run --rm -v skyoj_api_data:/data alpine chown -R 65532:65532 /data
 ```
 
+### Behind a reverse proxy
+
 Put a reverse proxy that terminates TLS (Caddy, nginx, Traefik) in front of
 port 3000 and keep `COOKIE_SECURE=true`. Uploads go through the web server to
-the API, so allow request bodies up to `MAX_UPLOAD_MB` in the proxy.
+the API, so allow request bodies up to `MAX_UPLOAD_MB` in the proxy. Set
+`WEB_BIND=127.0.0.1` when the proxy runs on the same host, so plain HTTP is
+not reachable from outside.
+
+The proxy must send `X-Forwarded-Proto` (Caddy, nginx with
+`proxy_set_header X-Forwarded-Proto $scheme;` and Traefik do). React Router
+refuses a form submission whose `Origin` (`https://…`) differs from the
+request's own origin, as protection against cross-site requests, and behind
+a proxy the server only knows the request was HTTPS from that header. It
+believes the header from loopback and private addresses — a proxy on the
+same host or in a Docker network. A proxy elsewhere needs `TRUST_PROXY` set
+to its address (or `1` for one hop); a wrong setting shows as **400 Bad
+Request** on every form, with "origin does not match" in `dc logs web`.
+
+Caddy on the same host, for example:
+
+```caddy
+judge.example.com {
+	encode zstd gzip
+	request_body {
+		max_size 256MB # MAX_UPLOAD_MB
+	}
+	reverse_proxy 127.0.0.1:3000
+}
+```
 
 ## More judge machines
 

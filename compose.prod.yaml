@@ -77,6 +77,9 @@ services:
       SITE_NAME: ${SITE_NAME:-Sky Online Judge}
       SITE_TIMEZONE: ${SITE_TIMEZONE:-Asia/Taipei}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Which reverse proxies may set X-Forwarded-*; empty = loopback and
+      # private addresses. See apps/web/server.js.
+      TRUST_PROXY: ${TRUST_PROXY:-}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
     ports: ['${WEB_BIND:-0.0.0.0}:${WEB_PORT:-3000}:3000']
     depends_on:

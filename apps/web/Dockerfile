@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=c
     pnpm install --frozen-lockfile --filter '@skyoj/web...'
 COPY packages/contract/tsconfig.json packages/contract/
 COPY packages/contract/src packages/contract/src
-COPY apps/web/tsconfig.json apps/web/react-router.config.ts apps/web/vite.config.ts apps/web/
+COPY apps/web/tsconfig.json apps/web/react-router.config.ts apps/web/vite.config.ts apps/web/server.js apps/web/
 COPY apps/web/app apps/web/app
 COPY apps/web/public apps/web/public
 RUN pnpm --filter @skyoj/contract run build && pnpm --filter @skyoj/web run build
@@ -42,4 +42,4 @@ EXPOSE 3000
 # The image's entrypoint is node itself (/nodejs/bin/node).
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
   CMD ["/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
-CMD ["node_modules/@react-router/serve/bin.cjs", "build/server/index.js"]
+CMD ["server.js"]

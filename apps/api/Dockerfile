@@ -1,5 +1,5 @@
 # Production image of the API. Build from the repository root:
-#   docker build -f apps/api/Dockerfile -t skyoj/api .
+#   docker build -f apps/api/Dockerfile -t yato/api .
 # (`compose.prod.yaml` does this for you.)
 
 # Built with a current Node on Debian 13 (trixie); served by a distroless
@@ -22,29 +22,29 @@ RUN --mount=type=secret,id=ca \
 COPY pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/contract/package.json packages/contract/
 COPY apps/api/package.json apps/api/
-RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
+RUN --mount=type=cache,id=yato-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
-    pnpm install --frozen-lockfile --filter '@skyoj/api...'
+    pnpm install --frozen-lockfile --filter '@yato/api...'
 # Only the sources are copied, never host build output or node_modules.
 COPY packages/contract/tsconfig.json packages/contract/
 COPY packages/contract/src packages/contract/src
 COPY apps/api/tsconfig.json apps/api/tsconfig.build.json apps/api/
 COPY apps/api/src apps/api/src
 COPY apps/api/migrations apps/api/migrations
-RUN pnpm --filter '@skyoj/api...' run build
+RUN pnpm --filter '@yato/api...' run build
 # A self-contained copy: production dependencies plus the built contract.
-RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
+RUN --mount=type=cache,id=yato-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
-    pnpm --filter @skyoj/api deploy --prod --legacy /out && rm -rf /out/src && \
+    pnpm --filter @yato/api deploy --prod --legacy /out && rm -rf /out/src && \
     mkdir -p /data
 
 FROM ${RUNTIME_IMAGE}
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001 DATA_DIR=/var/lib/skyoj/data
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001 DATA_DIR=/var/lib/yato/data
 WORKDIR /app
 COPY --from=build /out ./
 # The image has no shell to mkdir with: copy an empty directory, owned by the
 # runtime user, so a new data volume starts out writable.
-COPY --from=build --chown=nonroot:nonroot /data /var/lib/skyoj/data
+COPY --from=build --chown=nonroot:nonroot /data /var/lib/yato/data
 EXPOSE 3001
 # The image's entrypoint is node itself (/nodejs/bin/node).
 # `auth.me` answers guests with null: a cheap request that exercises the whole stack.

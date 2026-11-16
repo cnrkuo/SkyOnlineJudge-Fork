@@ -57,7 +57,7 @@
  * actually contains an equation.
  */
 @font-face {
-  font-family: "SkyOJ Math";
+  font-family: "YATO Math";
   src: url("@fontsource/stix-two-math/files/stix-two-math-latin-400-normal.woff2") format("woff2");
   font-display: swap;
 }
@@ -470,7 +470,7 @@ blockquote {
 /* Math is MathML laid out by the browser with a system (or fallback) math font. */
 .oj-prose math {
   /* biome-ignore lint/a11y/useGenericFontNames: `math` is the generic family (CSS Fonts 4). */
-  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "SkyOJ Math", math;
+  font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", "YATO Math", math;
   font-size: 1.1em;
 }
 .oj-prose .math-display {

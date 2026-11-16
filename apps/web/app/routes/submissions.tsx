@@ -1,5 +1,5 @@
-import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { VERDICT_LABEL, Verdict } from '@yato/contract';
 import { Form, Link, useSearchParams } from 'react-router';
 import { ContestNav, inContest } from '~/components/contest-nav';
 import { type api, prefetch } from '~/lib/api.server';

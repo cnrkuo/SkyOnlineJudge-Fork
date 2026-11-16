@@ -9,7 +9,7 @@ if (!secret && process.env.NODE_ENV === 'production') {
  * Holds the API bearer token. It is http-only and signed, so page scripts
  * can neither read nor forge it; SameSite=Lax keeps cross-site POSTs out.
  */
-const sessionCookie = createCookie('skyoj_session', {
+const sessionCookie = createCookie('yato_session', {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',

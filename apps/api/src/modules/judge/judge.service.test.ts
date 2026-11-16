@@ -1,4 +1,4 @@
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { UnauthorizedError } from '../../common/errors.js';
 import type { JudgeTaskMessage } from '../../messaging/commands.js';

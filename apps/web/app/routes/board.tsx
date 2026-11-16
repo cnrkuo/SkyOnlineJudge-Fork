@@ -1,5 +1,5 @@
-import { VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@skyoj/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@yato/contract';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { Markdown } from '~/components/markdown';

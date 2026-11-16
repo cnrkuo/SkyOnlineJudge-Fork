@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { sha256 } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError } from '../../common/errors.js';
@@ -87,7 +87,7 @@ describe('AdminService.createJudge', () => {
   it('returns the token once and stores only its hash', async () => {
     const { admin: service_, judgesCreated } = service();
     const { token, judge } = await service_.createJudge(admin, 'judge-01');
-    expect(token).toMatch(/^skyoj_judge_[\w-]{43}$/);
+    expect(token).toMatch(/^yato_judge_[\w-]{43}$/);
     expect(judgesCreated).toEqual([['judge-01', sha256(token)]]);
     expect(judge).toMatchObject({ name: 'judge-01', languages: [] });
   });

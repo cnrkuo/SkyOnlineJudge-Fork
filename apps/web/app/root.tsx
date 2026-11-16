@@ -1,5 +1,5 @@
-import { UserLevel } from '@skyoj/contract';
 import { type DehydratedState, HydrationBoundary, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { UserLevel } from '@yato/contract';
 import { type ReactNode, useState } from 'react';
 import {
   data,

@@ -1,4 +1,4 @@
-import { AccessLevel, Language, Verdict } from '@skyoj/contract';
+import { AccessLevel, Language, Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../common/errors.js';
 import type { MessageBroker } from '../../messaging/message-broker.js';

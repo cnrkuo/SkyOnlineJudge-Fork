@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ContestProblemState, PARTICIPATING_STATES } from '@skyoj/contract';
+import { ContestProblemState, PARTICIPATING_STATES } from '@yato/contract';
 import { and, asc, count, desc, eq, inArray, lte, ne, sql } from 'drizzle-orm';
 import { GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';

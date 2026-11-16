@@ -1,4 +1,4 @@
-import { ContestStyle, RegisterType, UserLevel } from '@skyoj/contract';
+import { ContestStyle, RegisterType, UserLevel } from '@yato/contract';
 import { redirect } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
 import { api, load, submit } from '~/lib/api.server';

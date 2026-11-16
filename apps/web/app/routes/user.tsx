@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
 import { api, load } from '~/lib/api.server';

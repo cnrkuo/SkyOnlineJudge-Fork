@@ -20,7 +20,7 @@ POSTGRES_PASSWORD=$(secret)
 RABBITMQ_PASSWORD=$(secret)
 SESSION_SECRET=$(secret)
 # Shared by the API and the bundled judge container.
-JUDGE_TOKEN=skyoj_judge_$(secret)
+JUDGE_TOKEN=yato_judge_$(secret)
 
 # Where the web app is published. Serve it through a TLS reverse proxy;
 # set COOKIE_SECURE=false only to try it out over plain HTTP.
@@ -31,12 +31,12 @@ COOKIE_SECURE=true
 API_BIND=127.0.0.1
 API_PORT=3001
 
-SITE_NAME=Sky Online Judge
+SITE_NAME=YATO Judge
 SITE_TIMEZONE=Asia/Taipei
 # MAX_UPLOAD_MB=256
 # JUDGE_TIMEOUT_SEC=600
-# Image tag of skyoj/api, skyoj/web and skyoj/judge.
-# SKYOJ_TAG=latest
+# Image tag of yato/api, yato/web and yato/judge.
+# YATO_TAG=latest
 # Builds behind a TLS-intercepting proxy: export BUILD_CA_CERT="$(cat proxy-ca.pem)"
 # before running docker/prod.sh.
 ENV
@@ -47,4 +47,4 @@ build=--build
 for arg in "$@"; do [ "$arg" = --no-build ] && build=; done
 docker compose -f compose.prod.yaml --env-file "$env_file" up -d $build --wait "$@"
 port=$(sed -n 's/^WEB_PORT=//p' "$env_file")
-echo "Sky Online Judge is up on port ${port:-3000}. The first account registered becomes the site owner."
+echo "YATO Judge is up on port ${port:-3000}. The first account registered becomes the site owner."

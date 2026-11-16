@@ -1,5 +1,5 @@
-import { VERDICT_LABEL, Verdict } from '@skyoj/contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { VERDICT_LABEL, Verdict } from '@yato/contract';
 import { Form, Link } from 'react-router';
 import { ContestNav, inContest } from '~/components/contest-nav';
 import { api, load, seed, submit } from '~/lib/api.server';

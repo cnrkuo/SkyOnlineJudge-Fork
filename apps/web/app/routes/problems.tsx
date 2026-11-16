@@ -1,5 +1,5 @@
-import { AccessLevel, UserLevel } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { AccessLevel, UserLevel } from '@yato/contract';
 import { Form, Link, redirect, useSearchParams } from 'react-router';
 import { api, prefetch, submit } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';

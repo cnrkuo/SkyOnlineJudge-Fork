@@ -1,5 +1,5 @@
 # Production image of the web app. Build from the repository root:
-#   docker build -f apps/web/Dockerfile -t skyoj/web .
+#   docker build -f apps/web/Dockerfile -t yato/web .
 # (`compose.prod.yaml` does this for you.)
 
 # Built with a current Node on Debian 13 (trixie); served by a distroless
@@ -21,18 +21,18 @@ RUN --mount=type=secret,id=ca \
 COPY pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/contract/package.json packages/contract/
 COPY apps/web/package.json apps/web/
-RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
+RUN --mount=type=cache,id=yato-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
-    pnpm install --frozen-lockfile --filter '@skyoj/web...'
+    pnpm install --frozen-lockfile --filter '@yato/web...'
 COPY packages/contract/tsconfig.json packages/contract/
 COPY packages/contract/src packages/contract/src
 COPY apps/web/tsconfig.json apps/web/react-router.config.ts apps/web/vite.config.ts apps/web/server.js apps/web/
 COPY apps/web/app apps/web/app
 COPY apps/web/public apps/web/public
-RUN pnpm --filter @skyoj/contract run build && pnpm --filter @skyoj/web run build
-RUN --mount=type=cache,id=skyoj-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
+RUN pnpm --filter @yato/contract run build && pnpm --filter @yato/web run build
+RUN --mount=type=cache,id=yato-pnpm,target=/pnpm/store --mount=type=secret,id=ca \
     if [ -s /run/secrets/ca ]; then export NODE_EXTRA_CA_CERTS=/run/secrets/ca; fi && \
-    pnpm --filter @skyoj/web deploy --prod --legacy /out && rm -rf /out/app /out/public
+    pnpm --filter @yato/web deploy --prod --legacy /out && rm -rf /out/app /out/public
 
 FROM ${RUNTIME_IMAGE}
 ENV NODE_ENV=production PORT=3000

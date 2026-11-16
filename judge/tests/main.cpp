@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
   // The sandbox uses this binary as the init process inside each jail.
   if (argc >= 2 && std::strcmp(argv[1], judge::sandbox::kInitFlag) == 0) return judge::sandbox::init_main(argc, argv);
 
-  std::string pattern = "/var/tmp/skyoj-judge-test-XXXXXX";
+  std::string pattern = "/var/tmp/yato-judge-test-XXXXXX";
   if (::mkdtemp(pattern.data()) == nullptr) {
     std::perror("mkdtemp");
     return 1;
@@ -61,8 +61,8 @@ int main(int argc, char** argv) {
   g_settings.nsjail = nsjail != nullptr ? nsjail : "nsjail";
   g_settings.init = fs::canonical("/proc/self/exe").string();
   // As root, the tests run with a memory cgroup like the judge does
-  // (SKYOJ_TEST_CGROUP=0 turns it off); as another user, without.
-  const char* use_cgroup = std::getenv("SKYOJ_TEST_CGROUP");
+  // (YATO_TEST_CGROUP=0 turns it off); as another user, without.
+  const char* use_cgroup = std::getenv("YATO_TEST_CGROUP");
   if (use_cgroup == nullptr || std::strcmp(use_cgroup, "0") != 0) {
     const auto prepared =
         judge::cgroup::prepare_memory_cgroup("/sys/fs/cgroup", judge::cgroup::default_instance_name());

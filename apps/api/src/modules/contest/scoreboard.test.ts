@@ -1,4 +1,4 @@
-import { ContestStyle, Language, TeamState, Verdict } from '@skyoj/contract';
+import { ContestStyle, Language, TeamState, Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { buildScoreboard, type ScoreboardSubmission } from './scoreboard.js';
 

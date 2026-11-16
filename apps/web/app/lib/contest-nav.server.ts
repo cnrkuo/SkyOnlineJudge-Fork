@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/client';
-import { ContestPhase } from '@skyoj/contract';
+import { ContestPhase } from '@yato/contract';
 import type { ContestNavData } from '~/components/contest-nav';
 import { api, as } from './api.server';
 import { positive } from './params';

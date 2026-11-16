@@ -6,9 +6,9 @@ different jobs:
 | | Development: `compose.yaml` | Production: `compose.prod.yaml` |
 | --- | --- | --- |
 | Start | `pnpm docker:dev` (`docker compose up --build`) | `pnpm docker:prod` (`sh docker/prod.sh`) |
-| Project / volumes | `skyoj-dev` | `skyoj` (separate data; both can exist side by side) |
-| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `skyoj/api`, `skyoj/web` with production dependencies only, on a distroless base, running as the unprivileged `nonroot` user (uid 65532) |
-| Judge | `judge/Dockerfile`, same as production | `skyoj/judge` |
+| Project / volumes | `yato-dev` | `yato` (separate data; both can exist side by side) |
+| API, web, contract | One Node image (`docker/dev.Dockerfile`) runs the watch scripts on the bind-mounted working copy | Built images `yato/api`, `yato/web` with production dependencies only, on a distroless base, running as the unprivileged `nonroot` user (uid 65532) |
+| Judge | `judge/Dockerfile`, same as production | `yato/judge` |
 | Secrets | Fixed, well-known development values | Generated into `.env.production` on first run; Compose refuses to start without them |
 | Published ports | Web 3000, API 3001, PostgreSQL 5432, RabbitMQ 5672 + console 15672, all on 127.0.0.1 | Web on `WEB_BIND:WEB_PORT` (default 0.0.0.0:3000), API on `API_BIND:API_PORT` (default 127.0.0.1:3001); databases not published |
 | Restarts | None (you are watching it) | `unless-stopped`, health checks on every service |
@@ -46,7 +46,7 @@ debug sidecar instead.
 A judge normally needs a token created under Admin → Judge machines. To
 make the stacks start complete, the API reads `BUNDLED_JUDGE_TOKEN` at start
 and registers (or re-keys) a judge named `bundled` with it; the judge
-container gets the same value as `SKYOJ_JUDGE_TOKEN`. In production the token
+container gets the same value as `YATO_JUDGE_TOKEN`. In production the token
 is `JUDGE_TOKEN` in `.env.production`. Administrators can still disable it
 like any other judge; a deleted bundled judge comes back at the next API
 start while the variable is set.
@@ -66,7 +66,7 @@ It gets no extra capabilities and no host devices; `privileged: true` is not
 needed.
 
 Memory limits are enforced with one cgroup per run, created inside the
-judge's own cgroup (`skyoj-judge/<container>-<pid>`). Docker mounts the
+judge's own cgroup (`yato-judge/<container>-<pid>`). Docker mounts the
 cgroup filesystem read-only, so the judge service also has
 
 ```yaml
@@ -116,9 +116,9 @@ Settings in `.env.production`:
 | `COOKIE_SECURE` | `true` | Set `false` only to try the site over plain HTTP |
 | `TRUST_PROXY` | loopback and private addresses | Which reverse proxies' `X-Forwarded-Proto` / `-Host` the web app believes; see below |
 | `API_BIND`, `API_PORT` | `127.0.0.1`, `3001` | Where the API is published, for judges on other machines |
-| `SITE_NAME`, `SITE_TIMEZONE` | `Sky Online Judge`, `Asia/Taipei` | Shown in the interface |
+| `SITE_NAME`, `SITE_TIMEZONE` | `YATO Judge`, `Asia/Taipei` | Shown in the interface |
 | `MAX_UPLOAD_MB`, `JUDGE_TIMEOUT_SEC` | `256`, `600` | See `apps/api/.env.example` |
-| `SKYOJ_TAG` | `latest` | Tag of the `skyoj/*` images |
+| `YATO_TAG` | `latest` | Tag of the `yato/*` images |
 
 The passwords are baked into the PostgreSQL and RabbitMQ volumes when those
 are first created; changing them in the file afterwards locks the API out.
@@ -132,39 +132,49 @@ Day to day (`dc` = `docker compose -f compose.prod.yaml --env-file .env.producti
 | Restart without rebuilding | `sh docker/prod.sh --no-build` |
 | Logs | `dc logs -f api judge` |
 | Stop (keeps data) | `pnpm docker:prod:down` |
-| Database backup | `dc exec postgres pg_dump -U skyoj skyoj > skyoj.sql` |
-| Testdata and attachments | volume `skyoj_api_data` (`/var/lib/skyoj/data` in the API container) |
+| Database backup | `dc exec postgres pg_dump -U yato yato > yato.sql` |
+| Testdata and attachments | volume `yato_api_data` (`/var/lib/yato/data` in the API container) |
 
-### Upgrading from PostgreSQL 16 and RabbitMQ 3.13
+### Upgrading an installation from before the rename
 
-Earlier versions of these files ran PostgreSQL 16 and RabbitMQ 3.13.
-PostgreSQL cannot open another major version's data, so the database now
-lives in a new volume, `skyoj_postgres18`; the old `skyoj_postgres` is left
-untouched. Move the data with a dump:
+The project used to be called Sky Online Judge, and everything was named
+`skyoj`: the Compose project and so its volumes (`skyoj_postgres`,
+`skyoj_api_data`, …), the database and its user, the images, the judge's
+`SKYOJ_*` variables. All of these are `yato` now, so the new stack starts
+with empty volumes next to the old ones, which are left untouched. Those
+installations also ran PostgreSQL 16, whose files PostgreSQL 18 cannot open.
+Move the data once:
 
 ```sh
-# 1. Before pulling the new version: back up with the old stack, and let
-#    RabbitMQ enable every feature flag (4.x requires them).
-dc exec postgres pg_dump -U skyoj skyoj > skyoj.sql
-dc exec rabbitmq rabbitmqctl enable_feature_flag all
-dc down
+# 1. Before pulling: dump the database with the old stack, then stop it.
+old="docker compose -p skyoj -f compose.prod.yaml --env-file .env.production"
+$old exec postgres pg_dump -U skyoj --no-owner skyoj > backup.sql
+$old down
 
-# 2. Pull, start the new PostgreSQL alone, load the dump, then everything.
+# 2. Pull. Copy testdata and attachments into the new volume, owned by the
+#    user the API image runs as now (65532; it used to be 1000).
 git pull
+docker run --rm -v skyoj_api_data:/from -v yato_api_data:/to alpine \
+  sh -c 'cp -a /from/. /to/ && chown -R 65532:65532 /to'
+
+# 3. Start the new PostgreSQL alone, load the dump, then everything.
 dc up -d --wait postgres
-dc exec -T postgres psql -q -U skyoj -d skyoj < skyoj.sql
+dc exec -T postgres psql -q -U yato -d yato < backup.sql
 pnpm docker:prod
 
-# 3. Once the site looks right: docker volume rm skyoj_postgres
+# 4. Once the site looks right, remove the old volumes:
+#    docker volume rm skyoj_postgres skyoj_rabbitmq skyoj_api_data skyoj_judge_work
 ```
 
-RabbitMQ 4 upgrades its 3.13 volume in place. The API image now runs as
-uid 65532 instead of the old `node` user (1000), so hand the existing data
-volume over to it once, before step 2's `pnpm docker:prod`:
+What else changes:
 
-```sh
-docker run --rm -v skyoj_api_data:/data alpine chown -R 65532:65532 /data
-```
+- `.env.production` keeps working as it is; set `SITE_NAME` if you want the
+  new name shown. An existing `JUDGE_TOKEN` stays valid whatever its prefix.
+- Everyone is signed out once (the session cookie has a new name).
+- RabbitMQ starts empty. Its queues only hold work in flight, so let
+  submissions finish judging before step 1.
+- Judges on other machines need the new image (`yato/judge`) and variable
+  names (`YATO_API_URL`, `YATO_JUDGE_TOKEN`); their tokens stay valid.
 
 ### Behind a reverse proxy
 
@@ -201,15 +211,15 @@ judge.example.com {
 Any machine with Docker can add judging capacity. Create a judge under
 Admin → Judge machines, publish the API where that machine can reach it
 (`API_BIND` = a private address), build the judge image (or copy
-`skyoj/judge` there) and run:
+`yato/judge` there) and run:
 
 ```sh
-docker run -d --name skyoj-judge --restart unless-stopped \
+docker run -d --name yato-judge --restart unless-stopped \
   --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
   --security-opt systempaths=unconfined \
   --cgroupns host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  -e SKYOJ_API_URL=http://10.0.0.5:3001 -e SKYOJ_JUDGE_TOKEN=skyoj_judge_… \
-  -v skyoj-judge:/var/lib/skyoj-judge skyoj/judge
+  -e YATO_API_URL=http://10.0.0.5:3001 -e YATO_JUDGE_TOKEN=yato_judge_… \
+  -v yato-judge:/var/lib/yato-judge yato/judge
 ```
 
 Each judge only receives submissions in the languages that passed its

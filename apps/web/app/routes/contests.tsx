@@ -1,5 +1,5 @@
-import { ContestStyle, UserLevel } from '@skyoj/contract';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { ContestStyle, UserLevel } from '@yato/contract';
 import { Link, useSearchParams } from 'react-router';
 import { type api, prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';

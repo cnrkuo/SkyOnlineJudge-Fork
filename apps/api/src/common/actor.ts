@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { ForbiddenError, UnauthorizedError } from './errors.js';
 
 /** The authenticated principal a request acts on behalf of. */

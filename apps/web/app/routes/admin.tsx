@@ -1,5 +1,5 @@
-import { UserLevel } from '@skyoj/contract';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { UserLevel } from '@yato/contract';
 import { useMemo } from 'react';
 import { Form, Link, useSearchParams } from 'react-router';
 import { api, prefetch, submit } from '~/lib/api.server';

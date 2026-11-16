@@ -1,4 +1,4 @@
-import { AccessLevel, ScoreMode } from '@skyoj/contract';
+import { AccessLevel, ScoreMode } from '@yato/contract';
 import { Form, Link, redirect, useNavigation } from 'react-router';
 import { ContestNav } from '~/components/contest-nav';
 import { Markdown } from '~/components/markdown';

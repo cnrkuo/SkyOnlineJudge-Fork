@@ -1,6 +1,6 @@
 # Judge machine image: the daemon, nsjail and the contestants' toolchains.
 # Build from the repository root:
-#   docker build -f judge/Dockerfile -t skyoj/judge .
+#   docker build -f judge/Dockerfile -t yato/judge .
 #
 # The container must be allowed to create user, PID, mount and network
 # namespaces (security_opt seccomp, apparmor and systempaths=unconfined):
@@ -32,11 +32,11 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-
       libprotobuf32t64 libnl-route-3-200 libssl3t64 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt/nsjail/bin/nsjail /usr/local/bin/nsjail
-COPY --from=build /src/build/skyoj-judge /usr/local/bin/skyoj-judge
+COPY --from=build /src/build/yato-judge /usr/local/bin/yato-judge
 # `docker compose run --rm judge judge-selftest` checks the sandbox on this host.
 COPY --from=build /src/build/judge_tests /usr/local/bin/judge-selftest
-ENV SKYOJ_API_URL=http://api:3001
-VOLUME /var/lib/skyoj-judge
+ENV YATO_API_URL=http://api:3001
+VOLUME /var/lib/yato-judge
 # Runs as root inside the container: nsjail maps each submission to an
 # unprivileged uid in its own user namespace.
-CMD ["skyoj-judge"]
+CMD ["yato-judge"]

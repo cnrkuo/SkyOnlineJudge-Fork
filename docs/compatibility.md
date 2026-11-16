@@ -1,6 +1,7 @@
 # Compatibility with the PHP version
 
-The rewrite was checked feature by feature against the last PHP revision
+YATO Judge is the rewrite of Sky Online Judge, the PHP project it was
+forked from. The rewrite was checked feature by feature against the last PHP revision
 (`bd7b867`). This page records what behaves the same, what changed on
 purpose, and what was not carried over.
 

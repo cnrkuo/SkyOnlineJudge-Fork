@@ -4,7 +4,7 @@
 #
 # Web: http://localhost:3000 · API: http://localhost:3001 ·
 # RabbitMQ console: http://localhost:15672 (guest / guest) ·
-# PostgreSQL: localhost:5432 (skyoj / skyoj).
+# PostgreSQL: localhost:5432 (yato / yato).
 #
 # The repository is bind-mounted, so edits on the host rebuild the contract,
 # restart the API and hot-reload the web app. Containers run as uid 1000; set
@@ -12,10 +12,10 @@
 # tweaks belong in compose.override.yaml (git-ignored, loaded automatically).
 # Production uses compose.prod.yaml instead.
 
-name: skyoj-dev
+name: yato-dev
 
 x-workspace: &workspace
-  image: skyoj-dev-node
+  image: yato-dev-node
   user: '${DEV_UID:-1000}:${DEV_GID:-1000}'
   working_dir: /workspace
   init: true
@@ -34,24 +34,24 @@ services:
       context: .
       dockerfile: docker/dev.Dockerfile
       secrets: [ca]
-    command: sh -c 'pnpm install --frozen-lockfile && pnpm --filter @skyoj/contract build'
+    command: sh -c 'pnpm install --frozen-lockfile && pnpm --filter @yato/contract build'
 
   contract:
     <<: *workspace
-    command: pnpm --filter @skyoj/contract dev
+    command: pnpm --filter @yato/contract dev
     depends_on:
       install: { condition: service_completed_successfully }
 
   api:
     <<: *workspace
-    command: pnpm --filter @skyoj/api dev
+    command: pnpm --filter @yato/api dev
     environment:
       HOST: 0.0.0.0
-      DATABASE_URL: postgres://skyoj:skyoj@postgres:5432/skyoj
+      DATABASE_URL: postgres://yato:yato@postgres:5432/yato
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       DATA_DIR: /workspace/apps/api/data
       # Lets the judge service below log in. Development only.
-      BUNDLED_JUDGE_TOKEN: skyoj_judge_development_only_not_a_secret
+      BUNDLED_JUDGE_TOKEN: yato_judge_development_only_not_a_secret
     ports: ['127.0.0.1:3001:3001']
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/auth/me',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
@@ -64,7 +64,7 @@ services:
 
   web:
     <<: *workspace
-    command: pnpm --filter @skyoj/web dev --host 0.0.0.0
+    command: pnpm --filter @yato/web dev --host 0.0.0.0
     environment:
       API_URL: http://api:3001
       SESSION_SECRET: development-only
@@ -79,20 +79,20 @@ services:
       context: .
       dockerfile: judge/Dockerfile
       secrets: [ca]
-    image: skyoj-dev-judge
+    image: yato-dev-judge
     # Each submission runs in its own nsjail jail. Creating its namespaces
     # and mounts needs these relaxed (no extra capabilities, no devices);
     # nsjail applies its own seccomp policy to every submission.
     security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
     environment:
-      SKYOJ_API_URL: http://api:3001
-      SKYOJ_JUDGE_TOKEN: skyoj_judge_development_only_not_a_secret
+      YATO_API_URL: http://api:3001
+      YATO_JUDGE_TOKEN: yato_judge_development_only_not_a_secret
     # Memory limits are enforced with a cgroup per run (MLE instead of RE for
     # programs that allocate too much at once), which needs the host's cgroup
     # tree, writable. Without it the judge falls back to rlimits and says so.
     cgroup: host
     volumes:
-      - judge_work:/var/lib/skyoj-judge
+      - judge_work:/var/lib/yato-judge
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     depends_on:
       api: { condition: service_healthy }
@@ -100,15 +100,15 @@ services:
   postgres:
     image: docker.io/library/postgres:18
     environment:
-      POSTGRES_USER: skyoj
-      POSTGRES_PASSWORD: skyoj
-      POSTGRES_DB: skyoj
+      POSTGRES_USER: yato
+      POSTGRES_PASSWORD: yato
+      POSTGRES_DB: yato
     ports: ['127.0.0.1:5432:5432']
     # PostgreSQL 18 keeps its data under /var/lib/postgresql/18/; a new
     # volume name, so a PostgreSQL 16 volume is never opened by 18.
     volumes: [postgres18:/var/lib/postgresql]
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'skyoj']
+      test: ['CMD', 'pg_isready', '-U', 'yato']
       interval: 2s
 
   rabbitmq:

@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { Implement, implement } from '@orpc/nest';
-import { contract } from '@skyoj/contract';
+import { contract } from '@yato/contract';
 import type { Actor } from '../../common/actor.js';
 import { CurrentActor } from '../../common/auth.guard.js';
 import { OK } from '../../common/orpc.js';

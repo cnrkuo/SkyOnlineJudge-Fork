@@ -1,4 +1,4 @@
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { BadRequestError, ForbiddenError } from '../../common/errors.js';
 import { admin, fake, user } from '../../testing/fixtures.js';

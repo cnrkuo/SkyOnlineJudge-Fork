@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import { and, asc, count, desc, eq, gte, inArray, lt, notInArray, or, type SQL, sql } from 'drizzle-orm';
 import { type Actor, GUEST } from '../../common/actor.js';
 import { offsetOf, type PageInput } from '../../common/pagination.js';

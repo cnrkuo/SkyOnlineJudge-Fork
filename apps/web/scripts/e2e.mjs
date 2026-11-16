@@ -3,7 +3,7 @@
  * End-to-end smoke test of a running site: web, API, queue, database and at
  * least one judge, driven through the browser.
  *
- *   pnpm --filter @skyoj/web test:e2e
+ *   pnpm --filter @yato/web test:e2e
  *
  * Signs in as an administrator, creates a problem with testdata, submits a
  * correct solution in every language plus a few wrong ones, and checks each

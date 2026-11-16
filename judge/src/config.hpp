@@ -20,9 +20,9 @@ struct Config {
   std::string api_url = "http://127.0.0.1:3001";
   std::string token;
   /** Scratch space; one sub-directory per task, removed afterwards. */
-  std::string work_dir = "/var/lib/skyoj-judge/work";
+  std::string work_dir = "/var/lib/yato-judge/work";
   /** Content-addressed testdata cache. */
-  std::string cache_dir = "/var/lib/skyoj-judge/cache";
+  std::string cache_dir = "/var/lib/yato-judge/cache";
   /** Delay between polls while the queue is empty. */
   int poll_interval_ms = 1000;
 
@@ -52,7 +52,7 @@ struct Config {
 std::map<std::string, LanguageSpec> default_languages();
 
 /**
- * Loads a JSON config file. `SKYOJ_API_URL` and `SKYOJ_JUDGE_TOKEN` in the
+ * Loads a JSON config file. `YATO_API_URL` and `YATO_JUDGE_TOKEN` in the
  * environment take precedence over the file. Throws std::runtime_error on
  * malformed or incomplete configuration.
  */

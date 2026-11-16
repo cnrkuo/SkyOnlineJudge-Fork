@@ -5,7 +5,7 @@ import { fake } from '../../testing/fixtures.js';
 import { BundledJudge } from './bundled-judge.js';
 import type { JudgeRepository } from './judge.repository.js';
 
-const TOKEN = 'skyoj_judge_0123456789abcdef0123456789abcdef';
+const TOKEN = 'yato_judge_0123456789abcdef0123456789abcdef';
 
 function setup(existing?: { id: number; tokenHash: string }) {
   const created: unknown[][] = [];

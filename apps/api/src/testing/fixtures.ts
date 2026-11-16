@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { type Actor, GUEST } from '../common/actor.js';
 
 /** Test-only helpers. Not part of the build (tsconfig.build.json). */

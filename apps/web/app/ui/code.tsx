@@ -1,4 +1,4 @@
-import { CODE_MAX_LENGTH, LANGUAGE_LABEL, Language } from '@skyoj/contract';
+import { CODE_MAX_LENGTH, LANGUAGE_LABEL, Language } from '@yato/contract';
 import type { ChangeEvent } from 'react';
 import { useRef } from 'react';
 import { code as css, css as kit } from './classes';

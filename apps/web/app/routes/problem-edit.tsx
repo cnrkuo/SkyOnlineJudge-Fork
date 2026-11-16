@@ -1,4 +1,4 @@
-import { AccessLevel, ScoreMode } from '@skyoj/contract';
+import { AccessLevel, ScoreMode } from '@yato/contract';
 import type { ReactNode } from 'react';
 import { Form, useNavigation, useSubmit } from 'react-router';
 import { type ActionResult, api, load, submit } from '~/lib/api.server';

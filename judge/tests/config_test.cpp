@@ -40,8 +40,8 @@ class ScopedEnv {
 
 /** The judge's own environment (e.g. in its container) must not leak into these tests. */
 struct CleanEnv {
-  ScopedEnv url{"SKYOJ_API_URL", nullptr};
-  ScopedEnv token{"SKYOJ_JUDGE_TOKEN", nullptr};
+  ScopedEnv url{"YATO_API_URL", nullptr};
+  ScopedEnv token{"YATO_JUDGE_TOKEN", nullptr};
 };
 
 std::string config_file(const std::string& name, const std::string& json) {
@@ -70,8 +70,8 @@ TEST_CASE("a config file overrides the defaults, comments allowed") {
 
 TEST_CASE("the environment overrides the API address and the token") {
   const CleanEnv clean;
-  const ScopedEnv url("SKYOJ_API_URL", "http://api:3001");
-  const ScopedEnv token("SKYOJ_JUDGE_TOKEN", "env-token");
+  const ScopedEnv url("YATO_API_URL", "http://api:3001");
+  const ScopedEnv token("YATO_JUDGE_TOKEN", "env-token");
   const auto config = load_config(config_file("env.json", R"({"token": "file-token"})"));
   CHECK(config.api_url == "http://api:3001");
   CHECK(config.token == "env-token");
@@ -79,7 +79,7 @@ TEST_CASE("the environment overrides the API address and the token") {
 
 TEST_CASE("without a file the judge runs on defaults and the environment") {
   const CleanEnv clean;
-  const ScopedEnv token("SKYOJ_JUDGE_TOKEN", "env-token");
+  const ScopedEnv token("YATO_JUDGE_TOKEN", "env-token");
   const auto config = load_config("");
   CHECK(config.token == "env-token");
   CHECK(config.languages.size() == 6);

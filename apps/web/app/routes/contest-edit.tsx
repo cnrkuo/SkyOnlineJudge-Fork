@@ -1,4 +1,4 @@
-import { TeamState } from '@skyoj/contract';
+import { TeamState } from '@yato/contract';
 import { Form } from 'react-router';
 import { ContestForm } from '~/components/contest-form';
 import { api, load, submit } from '~/lib/api.server';

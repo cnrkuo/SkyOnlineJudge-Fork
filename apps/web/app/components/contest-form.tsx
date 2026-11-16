@@ -1,4 +1,4 @@
-import { ContestStyle, RegisterType } from '@skyoj/contract';
+import { ContestStyle, RegisterType } from '@yato/contract';
 import { Form, useNavigation } from 'react-router';
 import { isoToLocalInput } from '~/lib/time';
 import { Button, Card, css, Field, Grid, Notice, Stack, useRoot } from '~/ui';

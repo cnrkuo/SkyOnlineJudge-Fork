@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { USERNAME_CHANGES_IN_WORDS, USERNAME_CHANGES_PER_YEAR, type UserLevel, Verdict } from '@skyoj/contract';
+import { USERNAME_CHANGES_IN_WORDS, USERNAME_CHANGES_PER_YEAR, type UserLevel, Verdict } from '@yato/contract';
 import { type Actor, requireLogin, toActor } from '../../common/actor.js';
 import { hashPassword, md5, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';

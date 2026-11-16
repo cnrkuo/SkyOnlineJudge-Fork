@@ -1,5 +1,5 @@
-import { ContestPhase, ContestStyle, TeamState } from '@skyoj/contract';
 import { useQuery } from '@tanstack/react-query';
+import { ContestPhase, ContestStyle, TeamState } from '@yato/contract';
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { type api, prefetch } from '~/lib/api.server';

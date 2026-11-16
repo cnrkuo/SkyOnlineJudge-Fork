@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { redirect } from 'react-router';
 import { BoardForm } from '~/components/board-form';
 import { api, load, submit } from '~/lib/api.server';

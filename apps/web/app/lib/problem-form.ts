@@ -1,4 +1,4 @@
-import { AccessLevel } from '@skyoj/contract';
+import { AccessLevel } from '@yato/contract';
 
 /** Who may read a statement, as offered by the problem editor. */
 export const ACCESS_OPTIONS = [

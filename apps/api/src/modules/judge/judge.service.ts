@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Language } from '@skyoj/contract';
+import type { Language } from '@yato/contract';
 import { sha256 } from '../../common/crypto.js';
 import { NotFoundError, UnauthorizedError } from '../../common/errors.js';
 import type { JudgeTaskMessage, WriteCommand } from '../../messaging/commands.js';

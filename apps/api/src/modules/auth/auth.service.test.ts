@@ -1,4 +1,4 @@
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { GUEST } from '../../common/actor.js';
 import { hashPassword, sha256 } from '../../common/crypto.js';

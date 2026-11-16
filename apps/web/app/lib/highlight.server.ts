@@ -1,4 +1,4 @@
-import type { Language } from '@skyoj/contract';
+import type { Language } from '@yato/contract';
 import type { Root } from 'hast';
 import { createCssVariablesTheme, createHighlighterCore, type HighlighterCore } from 'shiki/core';
 import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
@@ -13,7 +13,7 @@ import { createOnigurumaEngine } from 'shiki/engine/oniguruma';
  * and the dark colour mode, so code follows the mode like everything else.
  */
 
-const theme = createCssVariablesTheme({ name: 'skyoj', variablePrefix: '--shiki-', fontStyle: true });
+const theme = createCssVariablesTheme({ name: 'yato', variablePrefix: '--shiki-', fontStyle: true });
 
 /** Grammars are loaded once, on first use. */
 let highlighter: Promise<HighlighterCore> | undefined;
@@ -72,11 +72,11 @@ const resolve = (language: string | undefined) => (language && ALIASES[language.
 /** Highlights source code to HTML (`<pre class="shiki"><code>…`). */
 export async function highlight(code: string, language: Language | string | undefined): Promise<string> {
   const shiki = await getHighlighter();
-  return shiki.codeToHtml(code.replace(/\n$/, ''), { lang: resolve(language), theme: 'skyoj' });
+  return shiki.codeToHtml(code.replace(/\n$/, ''), { lang: resolve(language), theme: 'yato' });
 }
 
 /** Same, as a syntax tree — used when splicing code blocks into Markdown. */
 export async function highlightToHast(code: string, language: string | undefined): Promise<Root> {
   const shiki = await getHighlighter();
-  return shiki.codeToHast(code.replace(/\n$/, ''), { lang: resolve(language), theme: 'skyoj' }) as Root;
+  return shiki.codeToHast(code.replace(/\n$/, ''), { lang: resolve(language), theme: 'yato' }) as Root;
 }

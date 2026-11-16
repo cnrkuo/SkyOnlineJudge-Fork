@@ -2,7 +2,7 @@
 /**
  * Browser-level contrast audit of a running site with axe-core.
  *
- *   pnpm --filter @skyoj/web audit:contrast
+ *   pnpm --filter @yato/web audit:contrast
  *
  * Crawls same-origin links from the home page (as a guest, then — when
  * AUDIT_USER and AUDIT_PASSWORD are set — as that user, ideally an

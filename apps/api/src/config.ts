@@ -12,7 +12,7 @@ function int(name: string, fallback: number): number {
 export const config = {
   port: int('PORT', 3001),
   host: process.env.HOST ?? '127.0.0.1',
-  databaseUrl: process.env.DATABASE_URL ?? 'postgres://skyoj:skyoj@localhost:5432/skyoj',
+  databaseUrl: process.env.DATABASE_URL ?? 'postgres://yato:yato@localhost:5432/yato',
   /** How long boot waits for PostgreSQL to come up. */
   databaseWaitSec: int('DATABASE_WAIT_SEC', 60),
   rabbitmqUrl: process.env.RABBITMQ_URL ?? 'amqp://guest:guest@localhost:5672',

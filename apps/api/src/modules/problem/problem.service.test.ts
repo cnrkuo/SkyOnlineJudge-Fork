@@ -1,4 +1,4 @@
-import { AccessLevel, ContestProblemState, UserLevel } from '@skyoj/contract';
+import { AccessLevel, ContestProblemState, UserLevel } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { actor, admin, fake, guest, root, user } from '../../testing/fixtures.js';

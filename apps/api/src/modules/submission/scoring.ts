@@ -1,4 +1,4 @@
-import { ScoreMode, Verdict } from '@skyoj/contract';
+import { ScoreMode, Verdict } from '@yato/contract';
 
 export interface ScoredResult {
   /** Zero-based testcase position. */

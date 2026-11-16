@@ -1,4 +1,4 @@
-import { ContestProblemState } from '@skyoj/contract';
+import { ContestProblemState } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { contestGrant, NO_GRANT } from './grants.js';
 

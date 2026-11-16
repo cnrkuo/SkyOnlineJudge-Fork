@@ -1,12 +1,12 @@
 {
-  // Base URL of the Sky Online Judge API (apps/api).
+  // Base URL of the YATO Judge API (apps/api).
   "api_url": "http://127.0.0.1:3001",
   // Create a judge under Admin → Judges in the web UI and paste its token.
-  // SKYOJ_JUDGE_TOKEN in the environment takes precedence.
-  "token": "skyoj_judge_REPLACE_ME",
+  // YATO_JUDGE_TOKEN in the environment takes precedence.
+  "token": "yato_judge_REPLACE_ME",
 
-  "work_dir": "/var/lib/skyoj-judge/work",
-  "cache_dir": "/var/lib/skyoj-judge/cache",
+  "work_dir": "/var/lib/yato-judge/work",
+  "cache_dir": "/var/lib/yato-judge/cache",
   "poll_interval_ms": 1000,
 
   // Identity submissions run as when the judge is started as root.

@@ -7,7 +7,7 @@
                        actions                               ▲                 (bursty writes, at a
                                                              │                  bounded rate)
                                               oRPC over HTTP (judge.*)
-                                                      judge/ skyoj-judge  (C++, 1..n machines)
+                                                      judge/ yato-judge  (C++, 1..n machines)
 ```
 
 - **`packages/contract`** is the single source of truth for the HTTP API:
@@ -176,9 +176,9 @@ transactions as there are requests. These go through RabbitMQ instead.
 
 | Queue | Message | Consumer |
 | --- | --- | --- |
-| `skyoj.writes` | `submission.create`, `submission.result` (`messaging/commands.ts`) | `WriteQueueConsumer`, prefetch = `DB_WRITE_CONCURRENCY` (default 8) |
-| `skyoj.judge` | `{ submissionId }`, one per submission awaiting a judge | pulled one at a time by `judge.fetch` |
-| `skyoj.dead` | write commands that failed twice | none; inspect by hand |
+| `yato.writes` | `submission.create`, `submission.result` (`messaging/commands.ts`) | `WriteQueueConsumer`, prefetch = `DB_WRITE_CONCURRENCY` (default 8) |
+| `yato.judge` | `{ submissionId }`, one per submission awaiting a judge | pulled one at a time by `judge.fetch` |
+| `yato.dead` | write commands that failed twice | none; inspect by hand |
 
 Submitting therefore looks like this:
 
@@ -300,7 +300,7 @@ admin UI (stored hashed in `judges`):
 | `POST /judge/testdata` | Download one testcase file. Judges cache by hash, so each file is fetched once per machine. |
 | `POST /judge/report` | Send per-testcase results, or a compile/judge error. Returns once the report is durably queued. |
 
-Tasks come from the `skyoj.judge` queue (see *The write queue*). The judge
+Tasks come from the `yato.judge` queue (see *The write queue*). The judge
 itself never speaks AMQP: `fetch` pulls a task on its behalf and claims the
 submission in the database, so any number of judges can poll concurrently and
 each submission goes to exactly one. A report is only accepted from the judge
@@ -312,7 +312,7 @@ inside the sandbox, disables the languages that fail (logging the
 compiler's first error line, e.g. `'iostream' file not found` when libc++
 is missing) and sends the rest as `languages` with every fetch. The claim
 then also requires `language IN (…)`; a task for another language goes back
-to the end of `skyoj.judge` for a judge that has the toolchain, and a fetch
+to the end of `yato.judge` for a judge that has the toolchain, and a fetch
 stops once it meets a task it already put back, so a queue with nothing for
 this judge costs one pass. The cost is ordering: a submission put back
 queues behind newer ones. The last list each judge sent is stored in
@@ -335,7 +335,7 @@ jail, started by `sandbox::run` (`judge/src/sandbox.cpp`):
 | A filesystem built from scratch | Only `/usr` (and the `/bin`, `/lib`… links), the linker cache, `/etc/alternatives`, `/dev/null`, `/dev/zero`, `/dev/urandom`, a private `/tmp` and the work directory as `/box` exist. The testdata cache, captured output, the judge's config and token, `/etc/passwd` and every home directory are simply absent. |
 | Read-only `/box` for testcase runs | A run cannot leave files behind for later testcases (compilation gets it read-write) |
 | Unprivileged uid | `run_uid` (65534) when the judge is root; uid 1000 mapped to the judge's own uid otherwise |
-| Memory cgroup (when available) | A hard memory limit per run, enforced by the kernel; swap is capped too. The judge owns `skyoj-judge/<host>-<pid>` in the cgroup tree (v1 or v2) and nsjail creates one cgroup per jail inside it |
+| Memory cgroup (when available) | A hard memory limit per run, enforced by the kernel; swap is capped too. The judge owns `yato-judge/<host>-<pid>` in the cgroup tree (v1 or v2) and nsjail creates one cgroup per jail inside it |
 | rlimits | CPU time, stack, output file size, open files, process count; address space only without a memory cgroup |
 | seccomp policy (Kafel) | Kills on `ptrace`, `mount`, `unshare`, `setns`, `bpf`, namespace-creating `clone`, … → *Restricted Function*; `socket` fails with `EPERM` |
 | One CPU per run | `--max_cpus 1`, so timings do not depend on the machine's core count (compilers may use all) |
@@ -345,7 +345,7 @@ namespace, and the kernel ignores most signals sent to a PID 1: a program
 writing past the output limit would get an error instead of `SIGXFSZ` (RE
 instead of OLE), and `abort()` or a program signalling itself would not die
 properly. So PID 1 is the judge binary itself, mounted read-only at
-`/.skyoj-init` and started as `/.skyoj-init --sandbox-init 3 <program…>`.
+`/.yato-init` and started as `/.yato-init --sandbox-init 3 <program…>`.
 It runs the program as its child, waits for it, and writes the program's
 exact exit status and resource usage (`wait4`) to file descriptor 3, which
 nsjail passes through to the judge. CPU time and peak memory come from that

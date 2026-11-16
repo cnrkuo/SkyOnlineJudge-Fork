@@ -1,4 +1,4 @@
-import { ContestPhase, ContestProblemState, ContestStyle, RegisterType, TeamState } from '@skyoj/contract';
+import { ContestPhase, ContestProblemState, ContestStyle, RegisterType, TeamState } from '@yato/contract';
 import { Form, Link } from 'react-router';
 import { Markdown } from '~/components/markdown';
 import { api, load, submit } from '~/lib/api.server';

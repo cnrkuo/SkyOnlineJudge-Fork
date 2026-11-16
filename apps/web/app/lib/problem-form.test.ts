@@ -1,4 +1,4 @@
-import { AccessLevel } from '@skyoj/contract';
+import { AccessLevel } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { formatScoreGroups, parseAccess, parseScoreGroups } from './problem-form';
 

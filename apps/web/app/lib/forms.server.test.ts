@@ -1,4 +1,4 @@
-import { ContestProblemState, ContestStyle, RegisterType } from '@skyoj/contract';
+import { ContestProblemState, ContestStyle, RegisterType } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { parseBoardForm } from './board-form.server';
 import { parseContestForm, stateWord } from './contest-form.server';

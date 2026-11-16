@@ -1,4 +1,4 @@
-import { INTRODUCTION_MAX_LENGTH, USERNAME_CHANGES_IN_WORDS } from '@skyoj/contract';
+import { INTRODUCTION_MAX_LENGTH, USERNAME_CHANGES_IN_WORDS } from '@yato/contract';
 import { Form, redirect } from 'react-router';
 import { api, load, submit } from '~/lib/api.server';
 import { Button, Card, css, Field, Measure, Notice, Stack } from '~/ui';

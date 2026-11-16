@@ -1,4 +1,4 @@
-import { ScoreMode, Verdict } from '@skyoj/contract';
+import { ScoreMode, Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { computeScore, overallVerdict, ScoreError } from './scoring.js';
 

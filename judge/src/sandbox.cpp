@@ -32,7 +32,7 @@ Settings g_settings;
 
 /** Where things appear inside the jail. */
 constexpr const char* kBox = "/box";
-constexpr const char* kInitPath = "/.skyoj-init";
+constexpr const char* kInitPath = "/.yato-init";
 /** File descriptor number the init's report arrives on, inside and outside the jail. */
 constexpr int kStatusFd = 3;
 /** nsjail logs to this descriptor; the judge reads it only when something failed. */

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccessLevel, type Language, type Verdict } from '@skyoj/contract';
+import { AccessLevel, type Language, type Verdict } from '@yato/contract';
 import { type Actor, isAdmin, requireAdmin, requireUser } from '../../common/actor.js';
 import { ForbiddenError, NotFoundError } from '../../common/errors.js';
 import { type PageInput, pageOf } from '../../common/pagination.js';

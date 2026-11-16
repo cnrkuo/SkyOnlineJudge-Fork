@@ -6,6 +6,6 @@ export default defineConfig({
   out: './migrations',
   casing: 'snake_case',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgres://skyoj:skyoj@localhost:5432/skyoj',
+    url: process.env.DATABASE_URL ?? 'postgres://yato:yato@localhost:5432/yato',
   },
 });

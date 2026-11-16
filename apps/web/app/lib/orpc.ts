@@ -3,7 +3,7 @@ import type { ContractRouterClient } from '@orpc/contract';
 import type { JsonifiedClient } from '@orpc/openapi-client';
 import { OpenAPILink } from '@orpc/openapi-client/fetch';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
-import { contract } from '@skyoj/contract';
+import { contract } from '@yato/contract';
 
 /** Per-call context: whose session a server-side call is made with. */
 export interface ClientContext {

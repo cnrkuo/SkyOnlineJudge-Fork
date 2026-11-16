@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { UserLevel } from '@skyoj/contract';
+import { UserLevel } from '@yato/contract';
 import { type Actor, GUEST, toActor } from '../../common/actor.js';
 import { hashPassword, isLegacyHash, randomToken, sha256, verifyPassword } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, UnauthorizedError } from '../../common/errors.js';

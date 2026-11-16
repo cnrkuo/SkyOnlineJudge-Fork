@@ -1,4 +1,4 @@
-import { ContestProblemState, ContestStyle, RegisterType, TeamState } from '@skyoj/contract';
+import { ContestProblemState, ContestStyle, RegisterType, TeamState } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { BadRequestError, ConflictError, ForbiddenError, UnauthorizedError } from '../../common/errors.js';
 import { admin, fake, guest, minutesFrom, user } from '../../testing/fixtures.js';

@@ -1,4 +1,4 @@
-import { AccessLevel, UserLevel } from '@skyoj/contract';
+import { AccessLevel, UserLevel } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { type Actor, GUEST, requireAdmin, requireUser, satisfies } from './actor.js';
 import { ForbiddenError, UnauthorizedError } from './errors.js';

@@ -108,7 +108,7 @@ Two checks keep it that way:
   every pair the interface uses: text on each surface, every tone as text,
   badge, alert and scoreboard cell, buttons in each state, menus, control
   borders and every syntax colour. Upgrading Bootstrap re-checks all of it.
-- **`pnpm --filter @skyoj/web audit:contrast`** crawls the running site with
+- **`pnpm --filter @yato/web audit:contrast`** crawls the running site with
   axe-core — as a guest, and as `AUDIT_USER` / `AUDIT_PASSWORD` if given —
   opening every tab and column menu, and fails on any violation. It catches
   what only rendering shows; it found the menu-header colour that the unit

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(skyoj_judge LANGUAGES CXX)
+project(yato_judge LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -50,8 +50,8 @@ target_include_directories(judge_core PUBLIC src)
 target_link_libraries(judge_core PUBLIC nlohmann_json::nlohmann_json httplib)
 target_compile_options(judge_core PUBLIC -Wall -Wextra -Wpedantic)
 
-add_executable(skyoj-judge src/main.cpp)
-target_link_libraries(skyoj-judge PRIVATE judge_core)
+add_executable(yato-judge src/main.cpp)
+target_link_libraries(yato-judge PRIVATE judge_core)
 
 # Tests use doctest, a single header, fetched and pinned like cpp-httplib.
 set(DOCTEST_VERSION v2.4.11)
@@ -77,4 +77,4 @@ target_include_directories(judge_tests SYSTEM PRIVATE ${DOCTEST_DIR})
 target_link_libraries(judge_tests PRIVATE judge_core)
 add_test(NAME judge_tests COMMAND judge_tests)
 
-install(TARGETS skyoj-judge RUNTIME DESTINATION bin)
+install(TARGETS yato-judge RUNTIME DESTINATION bin)

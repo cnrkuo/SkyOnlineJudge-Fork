@@ -3,7 +3,7 @@
  * names of their own; the Bootstrap classes behind them live in classes.ts.
  * See docs/design.md.
  */
-import { ContestPhase, VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@skyoj/contract';
+import { ContestPhase, VERDICT_LABEL, VERDICT_SHORT, Verdict } from '@yato/contract';
 import {
   type ButtonHTMLAttributes,
   type ComponentProps,

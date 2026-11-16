@@ -1,5 +1,5 @@
-import { ContestPhase } from '@skyoj/contract';
 import { useQuery } from '@tanstack/react-query';
+import { ContestPhase } from '@yato/contract';
 import { Link } from 'react-router';
 import { prefetch } from '~/lib/api.server';
 import { orpc } from '~/lib/orpc';

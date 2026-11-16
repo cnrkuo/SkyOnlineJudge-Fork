@@ -1,5 +1,5 @@
 {
-  "name": "@skyoj/web",
+  "name": "@yato/web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
     "@orpc/tanstack-query": "^1.16.2",
     "@react-router/node": "^8.5.1",
     "@react-router/express": "^8.5.1",
-    "@skyoj/contract": "workspace:*",
+    "@yato/contract": "workspace:*",
     "@tanstack/react-query": "^5.107.1",
     "@tanstack/react-table": "^9.3.1",
     "bootstrap": "^5.3.9",

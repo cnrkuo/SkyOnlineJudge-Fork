@@ -1,4 +1,4 @@
-// skyoj-judge — judge machine daemon for Sky Online Judge.
+// yato-judge — judge machine daemon for YATO Judge.
 //
 // Polls the API for queued submissions, judges them in a sandbox and reports
 // the per-testcase results. Any number of judges can serve one API; the
@@ -46,7 +46,7 @@ void usage(const char* program) {
                "Usage: %s [--config FILE] [--once]\n"
                "  --config FILE  JSON configuration (see config.example.json)\n"
                "  --once         judge at most one submission, then exit\n"
-               "Environment: SKYOJ_API_URL, SKYOJ_JUDGE_TOKEN override the file.\n",
+               "Environment: YATO_API_URL, YATO_JUDGE_TOKEN override the file.\n",
                program);
 }
 

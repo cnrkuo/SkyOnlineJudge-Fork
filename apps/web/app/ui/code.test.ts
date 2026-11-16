@@ -1,4 +1,4 @@
-import { Language } from '@skyoj/contract';
+import { Language } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { languageName, parseLanguage } from './code';
 

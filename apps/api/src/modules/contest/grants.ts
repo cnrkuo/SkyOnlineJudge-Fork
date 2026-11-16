@@ -1,4 +1,4 @@
-import { ContestProblemState } from '@skyoj/contract';
+import { ContestProblemState } from '@yato/contract';
 
 /** A contest that lists a problem and that a user takes part in. */
 export interface ContestEntry {

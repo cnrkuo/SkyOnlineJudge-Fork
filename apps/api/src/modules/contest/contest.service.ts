@@ -6,7 +6,7 @@ import {
   PARTICIPATING_STATES,
   RegisterType,
   TeamState,
-} from '@skyoj/contract';
+} from '@yato/contract';
 import { type Actor, isAdmin, requireAdmin, requireUser } from '../../common/actor.js';
 import { hasDuplicates } from '../../common/collections.js';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';

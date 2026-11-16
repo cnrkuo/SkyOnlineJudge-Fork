@@ -1,4 +1,4 @@
-import { ContestProblemState, ContestStyle, RegisterType } from '@skyoj/contract';
+import { ContestProblemState, ContestStyle, RegisterType } from '@yato/contract';
 import { SITE_TIMEZONE } from './site.server';
 import { parseLocalInput } from './time';
 

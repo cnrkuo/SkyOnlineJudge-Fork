@@ -1,4 +1,4 @@
-import { ContestStyle } from '@skyoj/contract';
+import { ContestStyle } from '@yato/contract';
 import { api, load } from '~/lib/api.server';
 import { idParam } from '~/lib/params';
 import { formatElapsed } from '~/lib/time';

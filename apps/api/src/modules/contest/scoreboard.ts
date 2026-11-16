@@ -1,4 +1,4 @@
-import { ContestStyle, Language, Verdict } from '@skyoj/contract';
+import { ContestStyle, Language, Verdict } from '@yato/contract';
 
 export interface ScoreboardProblem {
   problemId: number;

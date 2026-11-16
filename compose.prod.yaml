@@ -9,7 +9,7 @@
 # Only the web app is published (WEB_BIND:WEB_PORT). Put a TLS-terminating
 # reverse proxy in front of it: the session cookie is Secure by default.
 
-name: skyoj
+name: yato
 
 x-restart: &restart
   restart: unless-stopped
@@ -19,14 +19,14 @@ services:
     <<: *restart
     image: docker.io/library/postgres:18-alpine
     environment:
-      POSTGRES_USER: skyoj
+      POSTGRES_USER: yato
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run docker/prod.sh to create .env.production}
-      POSTGRES_DB: skyoj
+      POSTGRES_DB: yato
     # PostgreSQL 18 keeps its data under /var/lib/postgresql/18/; a new
     # volume name, so a PostgreSQL 16 volume is never opened by 18.
     volumes: [postgres18:/var/lib/postgresql]
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'skyoj']
+      test: ['CMD', 'pg_isready', '-U', 'yato']
       interval: 5s
 
   rabbitmq:
@@ -35,7 +35,7 @@ services:
     # RabbitMQ keys its data directory by host name; keep it fixed.
     hostname: rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: skyoj
+      RABBITMQ_DEFAULT_USER: yato
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run docker/prod.sh to create .env.production}
     volumes: [rabbitmq:/var/lib/rabbitmq]
     healthcheck:
@@ -49,14 +49,14 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       secrets: [ca]
-    image: skyoj/api:${SKYOJ_TAG:-latest}
+    image: yato/api:${YATO_TAG:-latest}
     environment:
-      DATABASE_URL: postgres://skyoj:${POSTGRES_PASSWORD}@postgres:5432/skyoj
-      RABBITMQ_URL: amqp://skyoj:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      DATABASE_URL: postgres://yato:${POSTGRES_PASSWORD}@postgres:5432/yato
+      RABBITMQ_URL: amqp://yato:${RABBITMQ_PASSWORD}@rabbitmq:5672
       BUNDLED_JUDGE_TOKEN: ${JUDGE_TOKEN:?run docker/prod.sh to create .env.production}
       JUDGE_TIMEOUT_SEC: ${JUDGE_TIMEOUT_SEC:-600}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
-    volumes: [api_data:/var/lib/skyoj/data]
+    volumes: [api_data:/var/lib/yato/data]
     # Judges on other machines connect here; publish it on a private
     # interface (API_BIND) if you run any.
     ports: ['${API_BIND:-127.0.0.1}:${API_PORT:-3001}:3001']
@@ -70,11 +70,11 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       secrets: [ca]
-    image: skyoj/web:${SKYOJ_TAG:-latest}
+    image: yato/web:${YATO_TAG:-latest}
     environment:
       API_URL: http://api:3001
       SESSION_SECRET: ${SESSION_SECRET:?run docker/prod.sh to create .env.production}
-      SITE_NAME: ${SITE_NAME:-Sky Online Judge}
+      SITE_NAME: ${SITE_NAME:-YATO Judge}
       SITE_TIMEZONE: ${SITE_TIMEZONE:-Asia/Taipei}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       # Which reverse proxies may set X-Forwarded-*; empty = loopback and
@@ -91,20 +91,20 @@ services:
       context: .
       dockerfile: judge/Dockerfile
       secrets: [ca]
-    image: skyoj/judge:${SKYOJ_TAG:-latest}
+    image: yato/judge:${YATO_TAG:-latest}
     # Each submission runs in its own nsjail jail. Creating its namespaces
     # and mounts needs these relaxed (no extra capabilities, no devices);
     # nsjail applies its own seccomp policy to every submission.
     security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
     environment:
-      SKYOJ_API_URL: http://api:3001
-      SKYOJ_JUDGE_TOKEN: ${JUDGE_TOKEN}
+      YATO_API_URL: http://api:3001
+      YATO_JUDGE_TOKEN: ${JUDGE_TOKEN}
     # Memory limits are enforced with a cgroup per run (MLE instead of RE for
     # programs that allocate too much at once), which needs the host's cgroup
     # tree, writable. Without it the judge falls back to rlimits and says so.
     cgroup: host
     volumes:
-      - judge_work:/var/lib/skyoj-judge
+      - judge_work:/var/lib/yato-judge
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     depends_on:
       api: { condition: service_healthy }

@@ -11,11 +11,11 @@ import { config } from '../config.js';
 /** The queues this application owns. All are durable. */
 export const Queue = {
   /** Database writes waiting to be applied, see `WriteQueueConsumer`. */
-  WRITES: 'skyoj.writes',
+  WRITES: 'yato.writes',
   /** Submissions waiting for a judge machine. */
-  JUDGE: 'skyoj.judge',
+  JUDGE: 'yato.judge',
   /** Write commands that failed twice; kept for inspection. */
-  DEAD: 'skyoj.dead',
+  DEAD: 'yato.dead',
 } as const;
 export type Queue = (typeof Queue)[keyof typeof Queue];
 

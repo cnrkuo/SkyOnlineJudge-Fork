@@ -1,5 +1,5 @@
-Sky Online Judge
-================
+YATO Judge
+==========
 
 An open source online judge: problems, automatic judging, contests with live
 scoreboards, and training scoreboards.
@@ -34,7 +34,7 @@ pnpm docker:dev        # = docker compose up --build
 ```
 
 Web http://localhost:3000, API http://localhost:3001, RabbitMQ console
-http://localhost:15672, PostgreSQL on localhost:5432 (`skyoj` / `skyoj`).
+http://localhost:15672, PostgreSQL on localhost:5432 (`yato` / `yato`).
 Edits on the host rebuild the contract, restart the API and hot-reload the
 web app. Containers run as uid 1000; if your user's id differs, export
 `DEV_UID=$(id -u) DEV_GID=$(id -g)` first.
@@ -85,8 +85,8 @@ cp apps/web/.env.example apps/web/.env
 pnpm build
 
 # 4. Run — each in its own terminal
-pnpm --filter @skyoj/api start     # http://127.0.0.1:3001, applies DB migrations on boot
-pnpm --filter @skyoj/web start     # http://localhost:3000
+pnpm --filter @yato/api start     # http://127.0.0.1:3001, applies DB migrations on boot
+pnpm --filter @yato/web start     # http://localhost:3000
 ```
 
 Open http://localhost:3000 and register (the first account becomes the
@@ -97,12 +97,12 @@ owner). For development use `pnpm dev:contract`, `pnpm dev:api` and
 
 Submissions wait in RabbitMQ until a judge picks them up. (The Docker
 stacks start one for you; this is for judges on other machines or without
-Docker. A judge can also run from the `skyoj/judge` image, see
+Docker. A judge can also run from the `yato/judge` image, see
 [docs/deployment.md](docs/deployment.md#more-judge-machines).)
 
 ```sh
 sudo judge/scripts/install-nsjail.sh     # → /usr/local/bin/nsjail (pinned 3.6)
-pnpm build:judge                          # → judge/build/skyoj-judge
+pnpm build:judge                          # → judge/build/yato-judge
 cp judge/config.example.json judge/config.json
 ```
 
@@ -111,7 +111,7 @@ cp judge/config.example.json judge/config.json
 2. Set `work_dir` / `cache_dir` to directories the judge may write to. Every
    parent directory of `work_dir` and of the judge binary must be
    searchable by other users (`chmod o+x`); the judge checks this at start.
-3. Start it: `sudo judge/build/skyoj-judge --config judge/config.json`
+3. Start it: `sudo judge/build/yato-judge --config judge/config.json`
 
 Run as many judges as you like, on any machines that can reach the API; each
 needs its own token. See [docs/architecture.md](docs/architecture.md#the-judge-machine)
@@ -153,7 +153,7 @@ Scripts
 | `pnpm format:judge` | Format the judge with clang-format (`judge/.clang-format`) |
 | `pnpm test` | Unit tests of the contract, the API's rules and services, and the web app's helpers ([what is covered](docs/architecture.md#testing)) |
 | `pnpm test:e2e` | Browser end-to-end test of a running site (`BASE_URL`; on a site with accounts also `E2E_USER` / `E2E_PASSWORD` of an administrator) |
-| `pnpm --filter @skyoj/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
+| `pnpm --filter @yato/web audit:contrast` | axe-core contrast audit of a running site (`BASE_URL`, optional `AUDIT_USER` / `AUDIT_PASSWORD`) |
 | `pnpm db:generate` | Generate a SQL migration after editing `apps/api/src/database/schema.ts` |
 | `pnpm build:judge` | Configure and build the C++ judge |
 | `ctest --test-dir judge/build` | Judge tests (checker, config, nsjail sandbox, toolchains, runner); need nsjail |

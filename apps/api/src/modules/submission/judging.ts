@@ -1,4 +1,4 @@
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import type { StoredTestResult } from '../../database/schema.js';
 import { computeScore, overallVerdict, ScoreError } from './scoring.js';
 import type { JudgedResult } from './submission.repository.js';

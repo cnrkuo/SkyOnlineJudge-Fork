@@ -13,7 +13,7 @@ namespace judge::cgroup {
 struct MemoryCgroup {
   /** 1 or 2. */
   int version = 2;
-  /** The judge's cgroup directory: `<cgroup fs>/skyoj-judge/<host>-<pid>`. */
+  /** The judge's cgroup directory: `<cgroup fs>/yato-judge/<host>-<pid>`. */
   std::string path;
   /** cgroup v1 only: the memory hierarchy's mount and `path` relative to it. */
   std::string v1_mount;

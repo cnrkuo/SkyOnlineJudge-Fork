@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import { type Actor, isAdmin, isUser, requireAdmin, requireUser } from '../../common/actor.js';
 import { hasDuplicates } from '../../common/collections.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors.js';

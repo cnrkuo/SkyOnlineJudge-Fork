@@ -36,7 +36,7 @@ TEST_CASE("the judge's memory cgroup is created and removed again") {
   REQUIRE(prepared.cgroup.has_value());
   CHECK(cgroup.version == active->version);
   CHECK(fs::is_directory(cgroup.path));
-  CHECK(cgroup.path.find("/skyoj-judge/test-") != std::string::npos);
+  CHECK(cgroup.path.find("/yato-judge/test-") != std::string::npos);
   judge::cgroup::release(cgroup);
   CHECK_FALSE(fs::exists(cgroup.path));
 }

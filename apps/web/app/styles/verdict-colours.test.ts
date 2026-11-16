@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Verdict } from '@skyoj/contract';
+import { Verdict } from '@yato/contract';
 import { describe, expect, it } from 'vitest';
 import { VERDICT_KINDS } from '../ui/classes';
 import { verdictKind } from '../ui/index';

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Language, UserLevel } from '@skyoj/contract';
+import { Language, UserLevel } from '@yato/contract';
 import { type Actor, requireAdmin } from '../../common/actor.js';
 import { hashPassword, randomToken, sha256 } from '../../common/crypto.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors.js';
@@ -106,7 +106,7 @@ export class AdminService {
   async createJudge(actor: Actor, name: string) {
     requireAdmin(actor);
     if (await this.judges.findByName(name)) throw new ConflictError('A judge with this name already exists');
-    const token = `skyoj_judge_${randomToken()}`;
+    const token = `yato_judge_${randomToken()}`;
     const row = await this.judges.create(name, sha256(token));
     return { judge: toJudge(row), token };
   }

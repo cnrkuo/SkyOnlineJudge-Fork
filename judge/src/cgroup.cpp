@@ -21,7 +21,7 @@ namespace {
 namespace fs = std::filesystem;
 
 /** Directory under the cgroup root that holds every judge on the host. */
-constexpr const char* kJudgesDir = "skyoj-judge";
+constexpr const char* kJudgesDir = "yato-judge";
 /** Removing a jail's cgroup is retried this often, this far apart, while its processes exit. */
 constexpr int kRemoveAttempts = 50;
 constexpr int kRemoveRetryMs = 20;

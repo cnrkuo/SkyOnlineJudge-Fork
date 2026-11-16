@@ -141,9 +141,9 @@ The project used to be called Sky Online Judge, and everything was named
 `skyoj`: the Compose project and so its volumes (`skyoj_postgres`,
 `skyoj_api_data`, …), the database and its user, the images, the judge's
 `SKYOJ_*` variables. All of these are `yato` now, so the new stack starts
-with empty volumes next to the old ones, which are left untouched. Those
-installations also ran PostgreSQL 16, whose files PostgreSQL 18 cannot open.
-Move the data once:
+with empty volumes next to the old ones, which are left untouched. Older
+installations also ran PostgreSQL 16, whose files PostgreSQL 18 cannot open;
+the dump below moves the data from either version. Move it once:
 
 ```sh
 # 1. Before pulling: dump the database with the old stack, then stop it.
@@ -163,7 +163,7 @@ dc exec -T postgres psql -q -U yato -d yato < backup.sql
 pnpm docker:prod
 
 # 4. Once the site looks right, remove the old volumes:
-#    docker volume rm skyoj_postgres skyoj_rabbitmq skyoj_api_data skyoj_judge_work
+#    docker volume ls -q | grep '^skyoj_'    (then docker volume rm them)
 ```
 
 What else changes:
